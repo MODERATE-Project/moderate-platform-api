@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "moderate_api"
+version = "0.1.0"
+description = "HTTP API of the MODERATE platform"
+authors = ["Andres Garcia Mangas <andres.garcia@fundacionctic.org>"]
+license = "EUPL-1.2"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+fastapi = {extras = ["all"], version = "^0.99.1"}
+uvicorn = {extras = ["standard"], version = "^0.22.0"}
+coloredlogs = "^15.0.1"
+
+[tool.poetry.group.dev.dependencies]
+black = "^23.3.0"
+pytest = "^7.4.0"
+pytest-asyncio = "^0.21.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
