@@ -12,7 +12,10 @@ class Prefixes(enum.Enum):
     PING = "/ping"
 
 
-_pkg_version = pkg_resources.get_distribution("moderate_api").version
+try:
+    _pkg_version = pkg_resources.get_distribution("moderate_api").version
+except pkg_resources.DistributionNotFound:
+    _pkg_version = "development"
 
 app = FastAPI(
     title="MODERATE HTTP API",
