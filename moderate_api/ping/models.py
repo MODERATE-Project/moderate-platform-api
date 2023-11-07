@@ -7,3 +7,4 @@ class PingResponse(BaseModel):
     python_version: str
     datetime: datetime.datetime
     request_headers: dict
+    user: dict = None
