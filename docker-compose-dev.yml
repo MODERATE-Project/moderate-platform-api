@@ -9,7 +9,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 10s
   apisix:
     image: apache/apisix:3.5.0-debian
     ports:
@@ -85,7 +85,6 @@ services:
       MODERATE_REALM: moderate
       APISIX_CLIENT_ID: apisix
       APISIX_CLIENT_SECRET: apisix
-      # APISIX_CLIENT_RESOURCE_YATAI: yatai
       APISIX_CLIENT_RESOURCE_MODERATE_API: moderateapi
     depends_on:
       - keycloak
