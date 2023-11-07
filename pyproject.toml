@@ -8,10 +8,14 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.8"
-fastapi = {extras = ["all"], version = "^0.99.1"}
-uvicorn = {extras = ["standard"], version = "^0.22.0"}
+fastapi = { extras = ["all"], version = "^0.104.0" }
+uvicorn = { extras = ["standard"], version = "^0.22.0" }
 coloredlogs = "^15.0.1"
 pyjwt = "^2.8.0"
+httpx = "^0.25.1"
+cryptography = "^41.0.5"
+cachetools = "^5.3.2"
+asyncache = "^0.3.1"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"

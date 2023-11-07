@@ -4,12 +4,8 @@ services:
     build: .
     ports:
       - 8000:8000
-    healthcheck:
-      test: [CMD, curl, -f, http://localhost:8000/docs]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
+    environment:
+      MODERATE_API_OPENID_CONFIG_URL: http://keycloak:8080/realms/moderate/.well-known/openid-configuration
   apisix:
     image: apache/apisix:3.5.0-debian
     ports:
