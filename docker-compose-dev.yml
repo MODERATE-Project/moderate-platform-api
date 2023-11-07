@@ -1,0 +1,93 @@
+version: "3"
+services:
+  api:
+    build: .
+    ports:
+      - 8000:8000
+    healthcheck:
+      test: [CMD, curl, -f, http://localhost:8000/docs]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+  apisix:
+    image: apache/apisix:3.5.0-debian
+    ports:
+      - 9080:9080
+      - 9092:9092
+    volumes:
+      - type: bind
+        source: ./apisix-dev-apisix.yaml
+        target: /usr/local/apisix/conf/apisix.yaml
+      - type: bind
+        source: ./apisix-dev-config.yaml
+        target: /usr/local/apisix/conf/config.yaml
+    depends_on:
+      - keycloak
+    extra_hosts:
+      # For portability with Linux
+      - host.docker.internal:host-gateway
+  keycloak:
+    image: quay.io/keycloak/keycloak:22.0
+    restart: on-failure
+    ports:
+      - 8080:8080
+    command: [start-dev]
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN_USER}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_PROXY: edge
+      KC_LOG_CONSOLE_COLOR: "true"
+      KC_LOG_LEVEL: info
+      KC_DB: postgres
+      KC_DB_USERNAME: ${KEYCLOAK_POSTGRES_USER}
+      KC_DB_PASSWORD: ${KEYCLOAK_POSTGRES_PASSWORD}
+      KC_DB_URL_PORT: 5432
+      KC_DB_URL_DATABASE: ${KEYCLOAK_POSTGRES_DBNAME}
+      KC_DB_URL_HOST: postgres
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      PROXY_ADDRESS_FORWARDING: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+  postgres:
+    image: postgres:15
+    restart: on-failure
+    ports:
+      - 15432:5432
+    environment:
+      POSTGRES_DB: ${KEYCLOAK_POSTGRES_DBNAME}
+      POSTGRES_USER: ${KEYCLOAK_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${KEYCLOAK_POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U postgres]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+  keycloak_init:
+    image: agmangas/moderate-cli:0.2.4
+    restart: on-failure
+    command:
+      [
+        /bin/bash,
+        -c,
+        moderatecli create-keycloak-realm && moderatecli create-apisix-client,
+      ]
+    environment:
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_ADMIN_USER: ${KEYCLOAK_ADMIN_USER}
+      KEYCLOAK_ADMIN_PASS: ${KEYCLOAK_ADMIN_PASSWORD}
+      MODERATE_REALM: moderate
+      APISIX_CLIENT_ID: apisix
+      APISIX_CLIENT_SECRET: apisix
+      # APISIX_CLIENT_RESOURCE_YATAI: yatai
+      APISIX_CLIENT_RESOURCE_MODERATE_API: moderateapi
+    depends_on:
+      - keycloak
+volumes:
+  postgres_data: {}

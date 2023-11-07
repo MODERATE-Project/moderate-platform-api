@@ -1,0 +1,5 @@
+.trunk
+.venv
+.github
+apisix-dev*.yaml
+docker-compose*.yaml

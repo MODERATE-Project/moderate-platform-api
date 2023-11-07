@@ -1,0 +1,24 @@
+routes:
+  - uri: /docs
+    service_id: 1002
+  - uri: /openapi.json
+    service_id: 1002
+  - uri: /*
+    service_id: 1002
+    plugins:
+      authz-keycloak:
+        token_endpoint: http://host.docker.internal:8080/realms/moderate/protocol/openid-connect/token
+        client_id: apisix
+        client_secret: apisix
+        permissions: [moderateapi]
+        ssl_verify: false
+        password_grant_token_generation_incoming_uri: /api/token
+services:
+  - id: 1002
+    upstream_id: 2002
+upstreams:
+  - id: 2002
+    nodes:
+      "api:8000": 1
+    type: roundrobin
+#END
