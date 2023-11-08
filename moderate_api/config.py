@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     oauth_names: OAuthNamesModel = OAuthNamesModel()
     openid_config_url: str = "https://keycloak.moderate.cloud/realms/moderate/.well-known/openid-configuration"
     disable_token_verification: bool = False
+    postgres_url: str = "postgresql+asyncpg://localhost:5432/moderateapi/"
 
 
 @lru_cache()
