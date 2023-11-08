@@ -3,7 +3,7 @@ import platform
 
 from fastapi import APIRouter, Request
 
-from moderate_api.auth import UserDep
+from moderate_api.auth import OptionalUserDep
 from moderate_api.ping.models import PingResponse
 
 _TAG_PING = "Ping"
@@ -12,7 +12,7 @@ router = APIRouter()
 
 
 @router.get("/", response_model=PingResponse, tags=[_TAG_PING])
-async def respond_to_ping(request: Request, user: UserDep):
+async def respond_to_ping(request: Request, user: OptionalUserDep):
     """Respond to a ping request with the current Python version and UTC time."""
 
     return {

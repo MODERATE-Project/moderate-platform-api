@@ -10,7 +10,7 @@ _ENV_NESTED_DELIMITER = "__"
 
 
 class OAuthNamesModel(BaseModel):
-    role_admin: str = "platform_api_admin"
+    role_admin: str = "moderate_api_admin"
 
 
 class Settings(BaseSettings):
@@ -20,6 +20,7 @@ class Settings(BaseSettings):
 
     oauth_names: OAuthNamesModel = OAuthNamesModel()
     openid_config_url: str = "https://keycloak.moderate.cloud/realms/moderate/.well-known/openid-configuration"
+    disable_token_verification: bool = False
 
 
 @lru_cache()
