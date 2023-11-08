@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Annotated, Dict, Union
+from typing import Dict, Union
 
 import httpx
 import jwt
@@ -8,6 +8,7 @@ from asyncache import cached
 from cachetools import TTLCache
 from fastapi import Depends, HTTPException, Request, status
 from jwt.algorithms import get_default_algorithms
+from typing_extensions import Annotated
 
 from moderate_api.config import Settings, SettingsDep
 
@@ -95,6 +96,7 @@ async def get_user(request: Request, settings: SettingsDep) -> User:
     try:
         return await _get_user(request=request, settings=settings)
     except Exception as ex:
+        _logger.debug("Unauthorized request: %s", dict(request))
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail=str(ex)
         ) from ex
@@ -109,6 +111,7 @@ async def get_user_optional(
     try:
         return await _get_user(request=request, settings=settings)
     except Exception:
+        _logger.debug("No user found in request: %s", dict(request))
         return None
 
 
