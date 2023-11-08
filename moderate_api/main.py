@@ -1,6 +1,6 @@
 import enum
+from importlib.metadata import PackageNotFoundError, version
 
-import pkg_resources
 from fastapi import FastAPI
 
 import moderate_api.ping.router
@@ -13,8 +13,8 @@ class Prefixes(enum.Enum):
 
 
 try:
-    _pkg_version = pkg_resources.get_distribution("moderate_api").version
-except pkg_resources.DistributionNotFound:
+    _pkg_version = version("moderate_api")
+except PackageNotFoundError:
     _pkg_version = "development"
 
 app = FastAPI(
