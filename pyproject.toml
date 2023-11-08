@@ -24,6 +24,7 @@ orjson = "^3.9.10"
 email-validator = "^2.1.0.post1"
 asyncpg = "^0.29.0"
 sqlmodel = "^0.0.11"
+greenlet = "^3.0.1"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
