@@ -5,14 +5,7 @@ from sqlalchemy.orm import sessionmaker
 
 from moderate_api.config import get_settings
 
-engine = create_async_engine(
-    get_settings().postgres_url,
-    echo=True,
-    future=True,
-    pool_size=20,
-    max_overflow=20,
-    pool_recycle=3600,
-)
+engine = create_async_engine(get_settings().postgres_url, echo=True, future=True)
 
 
 @asynccontextmanager
