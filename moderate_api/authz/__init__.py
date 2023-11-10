@@ -67,7 +67,7 @@ class User:
 
     @property
     def is_enabled(self) -> bool:
-        return self.enforcer.has_role_for_user(
+        return self.is_admin or self.enforcer.has_role_for_user(
             self.username,
             f"{self.settings.oauth_names.api_gw_client_id}:{self.settings.oauth_names.role_basic_access}",
         )
