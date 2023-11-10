@@ -6,6 +6,7 @@ services:
     ports:
       - 8000:8000
     environment:
+      LOG_LEVEL: DEBUG
       MODERATE_API_OPENID_CONFIG_URL: http://keycloak:8080/realms/moderate/.well-known/openid-configuration
       MODERATE_API_POSTGRES_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/moderateapi
   apisix:
