@@ -79,7 +79,7 @@ class User:
         return {
             "token": self.token_decoded,
             "is_admin": self.is_admin,
-            "roles": self.enforcer.get_roles_for_user(self.username),
+            "roles": self.enforcer.get_implicit_roles_for_user(self.username),
         }
 
 
