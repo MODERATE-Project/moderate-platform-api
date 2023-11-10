@@ -24,6 +24,16 @@ class Settings(BaseSettings):
     disable_token_verification: bool = False
     postgres_url: str = "postgresql+asyncpg://localhost:5432/moderateapi/"
 
+    @property
+    def role_admin(self) -> str:
+        return f"{self.oauth_names.api_gw_client_id}:{self.oauth_names.role_admin}"
+
+    @property
+    def role_basic_access(self) -> str:
+        return (
+            f"{self.oauth_names.api_gw_client_id}:{self.oauth_names.role_basic_access}"
+        )
+
 
 @lru_cache()
 def get_settings():
