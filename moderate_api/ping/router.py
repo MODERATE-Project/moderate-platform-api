@@ -22,7 +22,7 @@ async def build_ping_response(request: Request, user: Union[User, None]):
 
 
 @router.get("/", response_model=PingResponse, tags=[_TAG_PING])
-async def respond_to_ping(request: Request, user: OptionalUserDep):
+async def respond_to_ping_without_auth(request: Request, user: OptionalUserDep):
     """Respond to a ping request with the current Python version and UTC time."""
 
     return await build_ping_response(request=request, user=user)
