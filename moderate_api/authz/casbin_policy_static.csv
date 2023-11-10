@@ -1,0 +1,2 @@
+p, apisix:api_basic_access, asset, allow
+g, apisix:api_admin, apisix:api_basic_access
