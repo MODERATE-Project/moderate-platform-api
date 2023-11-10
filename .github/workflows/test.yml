@@ -1,0 +1,36 @@
+# trunk-ignore-all(checkov/CKV2_GHA_1)
+name: Run Pytest tests in multiple Python versions
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: moderateapi
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      # trunk-ignore(checkov/CKV_SECRET_4)
+      MODERATE_API_POSTGRES_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/moderateapi
+      LOG_LEVEL: DEBUG
+    strategy:
+      matrix:
+        python-version: ["3.8", "3.9", "3.10", "3.11"]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: Gr1N/setup-poetry@v8
+      - name: Install dependencies
+        run: |
+          poetry install
+      - name: Run tests
+        run: |
+          poetry run pytest -v
