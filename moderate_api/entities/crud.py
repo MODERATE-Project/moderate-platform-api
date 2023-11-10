@@ -1,14 +1,16 @@
 import logging
 
-from fastapi import HTTPException, Query, status
+from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import SQLModel, select
+
+from moderate_api.authz import User
 
 _logger = logging.getLogger(__name__)
 
 
 async def create_one(
-    *, sql_model: SQLModel, session: AsyncSession, entity_create: SQLModel
+    *, user: User, sql_model: SQLModel, session: AsyncSession, entity_create: SQLModel
 ):
     db_entity = sql_model.from_orm(entity_create)
     _logger.debug("Creating %s: %s", sql_model, db_entity)
@@ -20,17 +22,20 @@ async def create_one(
 
 async def read_many(
     *,
+    user: User,
     sql_model: SQLModel,
     session: AsyncSession,
     offset: int = 0,
-    limit: int = Query(default=100, le=100),
+    limit: int = 100
 ):
     result = await session.execute(select(sql_model).offset(offset).limit(limit))
     entities = result.all()
     return entities
 
 
-async def read_one(*, sql_model: SQLModel, session: AsyncSession, entity_id: int):
+async def read_one(
+    *, user: User, sql_model: SQLModel, session: AsyncSession, entity_id: int
+):
     _logger.debug("Reading %s with id: %s", sql_model, entity_id)
     entity = await session.get(sql_model, entity_id)
 
@@ -42,10 +47,11 @@ async def read_one(*, sql_model: SQLModel, session: AsyncSession, entity_id: int
 
 async def update_one(
     *,
+    user: User,
     sql_model: SQLModel,
     session: AsyncSession,
     entity_id: int,
-    entity_update: SQLModel,
+    entity_update: SQLModel
 ):
     _logger.debug("Updating %s with id: %s", sql_model, entity_id)
     db_entity = await session.get(sql_model, entity_id)
@@ -64,7 +70,9 @@ async def update_one(
     return db_entity
 
 
-async def delete_one(*, sql_model: SQLModel, session: AsyncSession, entity_id: int):
+async def delete_one(
+    *, user: User, sql_model: SQLModel, session: AsyncSession, entity_id: int
+):
     _logger.debug("Deleting %s with id: %s", sql_model, entity_id)
     entity = await session.get(sql_model, entity_id)
 
