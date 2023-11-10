@@ -1,34 +1,56 @@
 import os
 import time
+import uuid
 
 import jwt
 import pytest
 
 _DISABLE_AUTH_VERIFICATION = "MODERATE_API_DISABLE_TOKEN_VERIFICATION"
-_original_disable_auth_verification = None
+_API_GW_CLIENT_ID = "MODERATE_API_OAUTH_NAMES__API_GW_CLIENT_ID"
+_ROLE_BASIC_ACCESS = "MODERATE_API_OAUTH_NAMES__ROLE_BASIC_ACCESS"
+_ENV_KEYS = [_DISABLE_AUTH_VERIFICATION, _API_GW_CLIENT_ID, _ROLE_BASIC_ACCESS]
+
+_original_env = {}
+
+_test_env = {
+    _DISABLE_AUTH_VERIFICATION: "true",
+    _API_GW_CLIENT_ID: "test_api_gw",
+    _ROLE_BASIC_ACCESS: "test_basic_access",
+}
 
 
 def pytest_configure():
-    """Disable token verification for the tests."""
+    """Set the environment variables for the tests."""
 
-    global _original_disable_auth_verification
-    _original_disable_auth_verification = os.environ.get(_DISABLE_AUTH_VERIFICATION)
-    os.environ[_DISABLE_AUTH_VERIFICATION] = "true"
+    for key in _ENV_KEYS:
+        _original_env[key] = os.environ.get(key, None)
+
+    for key in _ENV_KEYS:
+        os.environ[key] = _test_env.get(key)
 
 
 def pytest_unconfigure():
-    """Restore the original value of the token verification flag."""
+    """Restore the original environment variables."""
 
-    global _original_disable_auth_verification
-    if _original_disable_auth_verification is None:
-        os.environ.pop(_DISABLE_AUTH_VERIFICATION)
-    else:
-        os.environ[_DISABLE_AUTH_VERIFICATION] = _original_disable_auth_verification
+    for key in _ENV_KEYS:
+        if _original_env.get(key) is None:
+            os.environ.pop(key)
+        else:
+            os.environ[key] = _original_env.get(key)
 
 
 @pytest.fixture
-def access_token():
+def access_token(request):
     now = int(time.time())
+
+    try:
+        access_enabled = request.param.get("access_enabled", True)
+    except AttributeError:
+        access_enabled = True
+
+    basic_access_role = (
+        _test_env[_ROLE_BASIC_ACCESS] if access_enabled else uuid.uuid4().hex
+    )
 
     token_dict = {
         "exp": now + 3600,
@@ -46,14 +68,13 @@ def access_token():
                 "offline_access",
                 "uma_authorization",
                 "default-roles-moderate",
-                "apisix:test_apisix_role",
                 "account:manage-account",
                 "account:manage-account-links",
                 "account:view-profile",
             ]
         },
         "resource_access": {
-            "apisix": {"roles": ["test_apisix_role"]},
+            _test_env[_API_GW_CLIENT_ID]: {"roles": [basic_access_role]},
             "account": {
                 "roles": ["manage-account", "manage-account-links", "view-profile"]
             },

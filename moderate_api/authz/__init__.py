@@ -66,6 +66,13 @@ class User:
         return roles
 
     @property
+    def is_enabled(self) -> bool:
+        return self.enforcer.has_role_for_user(
+            self.username,
+            f"{self.settings.oauth_names.api_gw_client_id}:{self.settings.oauth_names.role_basic_access}",
+        )
+
+    @property
     def is_admin(self) -> bool:
         return self.enforcer.has_role_for_user(
             self.username,
@@ -90,9 +97,15 @@ async def get_user(request: Request, settings: SettingsDep) -> User:
     Raise an exception if the token is invalid or not present."""
 
     try:
-        return await _get_user(request=request, settings=settings)
+        user = await _get_user(request=request, settings=settings)
+
+        if not user.is_enabled:
+            raise Exception("API access is not enabled for this user")
+
+        return user
     except Exception as ex:
         _logger.debug("Unauthorized request: %s", dict(request))
+
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail=str(ex)
         ) from ex

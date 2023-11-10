@@ -11,6 +11,7 @@ _ENV_NESTED_DELIMITER = "__"
 class OAuthNamesModel(BaseModel):
     api_gw_client_id: str = "apisix"
     role_admin: str = "api_admin"
+    role_basic_access: str = "api_basic_access"
 
 
 class Settings(BaseSettings):

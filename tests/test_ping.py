@@ -1,6 +1,7 @@
 import logging
 import pprint
 
+import pytest
 from fastapi.testclient import TestClient
 
 from moderate_api.main import app
@@ -36,3 +37,20 @@ def test_ping_auth(access_token):
     assert resp_json["datetime"]
     assert resp_json["python_version"]
     assert resp_json["user"]
+
+
+@pytest.mark.parametrize(
+    "access_token",
+    [{"access_enabled": False}],
+    indirect=True,
+)
+def test_ping_auth_basic_access_disabled(access_token):
+    """Test the ping endpoint with authentication and basic access disabled."""
+
+    client = TestClient(app)
+
+    response = client.get(
+        "/ping/auth", headers={"Authorization": f"Bearer {access_token}"}
+    )
+
+    assert response.status_code == 401
