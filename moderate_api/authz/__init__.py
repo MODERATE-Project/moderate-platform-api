@@ -1,10 +1,12 @@
+import dataclasses
 import logging
 from typing import Dict, List, Union
 
+import casbin
 from fastapi import Depends, HTTPException, Request, status
-from pydantic import BaseModel
 from typing_extensions import Annotated
 
+from moderate_api.authz.enforcer import debug_enforcer, get_enforcer
 from moderate_api.authz.enums import TokenFields
 from moderate_api.authz.token import get_request_token
 from moderate_api.config import Settings, SettingsDep
@@ -12,9 +14,39 @@ from moderate_api.config import Settings, SettingsDep
 _logger = logging.getLogger(__name__)
 
 
-class User(BaseModel):
+@dataclasses.dataclass
+class User:
     token_decoded: Dict
     _settings: Settings = None
+    _enforcer: casbin.Enforcer = None
+
+    @property
+    def settings(self) -> Settings:
+        return self._settings if self._settings else Settings()
+
+    def _extend_enforcer(self, enforcer: casbin.Enforcer) -> casbin.Enforcer:
+        _logger.debug("Extending Casbin enforcer with user '%s'", self.username)
+
+        for role in self.roles:
+            enforcer.add_role_for_user(self.username, role)
+
+        return enforcer
+
+    @property
+    def enforcer(self) -> casbin.Enforcer:
+        if self._enforcer:
+            return self._enforcer
+
+        enforcer = get_enforcer()
+        self._enforcer = self._extend_enforcer(enforcer=enforcer)
+
+        _logger.debug(
+            "Effective enforcer for user '%s':\n%s",
+            self.username,
+            debug_enforcer(enforcer=self._enforcer),
+        )
+
+        return self._enforcer
 
     @property
     def username(self) -> str:
@@ -34,15 +66,18 @@ class User(BaseModel):
         return roles
 
     @property
-    def settings(self) -> Settings:
-        return self._settings if self._settings else Settings()
-
-    @property
     def is_admin(self) -> bool:
-        return False
+        return self.enforcer.has_role_for_user(
+            self.username,
+            f"{self.settings.oauth_names.api_gw_client_id}:{self.settings.oauth_names.role_admin}",
+        )
 
     def to_dict(self) -> Dict:
-        return {"token": self.token_decoded, "is_admin": self.is_admin}
+        return {
+            "token": self.token_decoded,
+            "is_admin": self.is_admin,
+            "roles": self.enforcer.get_roles_for_user(self.username),
+        }
 
 
 async def _get_user(request: Request, settings: Settings) -> User:

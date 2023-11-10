@@ -5,7 +5,6 @@ from typing import Union
 from fastapi import APIRouter, Request
 
 from moderate_api.authz import OptionalUserDep, User, UserDep
-from moderate_api.authz.enforcer import EnforcerDep
 from moderate_api.ping.models import PingResponse
 
 _TAG_PING = "Ping"
@@ -30,7 +29,7 @@ async def respond_to_ping(request: Request, user: OptionalUserDep):
 
 
 @router.get("/auth", response_model=PingResponse, tags=[_TAG_PING])
-async def respond_to_ping(request: Request, user: UserDep, _: EnforcerDep):
+async def respond_to_ping(request: Request, user: UserDep):
     """Respond to a ping request with the current Python version and UTC time
     while ensuring the user is authenticated."""
 
