@@ -16,7 +16,7 @@ jobs:
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
     env:
       # trunk-ignore(checkov/CKV_SECRET_4)
-      MODERATE_API_POSTGRES_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/moderateapi
+      MODERATE_API_POSTGRES_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/moderateapi
       LOG_LEVEL: DEBUG
     strategy:
       matrix:
