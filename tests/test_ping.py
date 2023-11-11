@@ -2,17 +2,17 @@ import logging
 import pprint
 
 import pytest
-from fastapi.testclient import TestClient
 
-from moderate_api.main import app
+from tests.db import DB_SKIP_REASON, is_db_online
+
+pytestmark = pytest.mark.skipif(is_db_online() is False, reason=DB_SKIP_REASON)
 
 _logger = logging.getLogger(__name__)
 
 
-def test_ping_no_auth():
+def test_ping_no_auth(client):
     """Test the ping endpoint without authentication."""
 
-    client = TestClient(app)
     response = client.get("/ping")
     resp_json = response.json()
     _logger.debug("Response:\n%s", pprint.pformat(resp_json))
@@ -22,10 +22,8 @@ def test_ping_no_auth():
     assert resp_json.get("user", None) is None
 
 
-def test_ping_auth(access_token):
+def test_ping_auth(client, access_token):
     """Test the ping endpoint with authentication."""
-
-    client = TestClient(app)
 
     response = client.get(
         "/ping/auth", headers={"Authorization": f"Bearer {access_token}"}
@@ -44,10 +42,8 @@ def test_ping_auth(access_token):
     [{"access_enabled": False}],
     indirect=True,
 )
-def test_ping_auth_basic_access_disabled(access_token):
+def test_ping_auth_basic_access_disabled(client, access_token):
     """Test the ping endpoint with authentication and basic access disabled."""
-
-    client = TestClient(app)
 
     response = client.get(
         "/ping/auth", headers={"Authorization": f"Bearer {access_token}"}

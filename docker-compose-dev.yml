@@ -56,7 +56,7 @@ services:
     image: postgres:15
     restart: on-failure
     ports:
-      - 15432:5432
+      - 5432:5432
     environment:
       POSTGRES_DB: ${KEYCLOAK_POSTGRES_DBNAME}
       POSTGRES_USER: ${POSTGRES_USER}

@@ -2,9 +2,16 @@ version: "3"
 
 vars:
   COMPOSE_PROJECT_NAME: moderateapi
+  TEST_POSTGRES_USER: postgres
+  TEST_POSTGRES_PASSWORD: postgres
+  TEST_POSTGRES_DB: moderateapi
+  TEST_POSTGRES_PUBLIC_PORT: 15432
+  TEST_POSTGRES_NAME: postgres_tests
+  MODERATE_API_POSTGRES_URL: postgresql+asyncpg://{{.TEST_POSTGRES_USER}}:{{.TEST_POSTGRES_PASSWORD}}@localhost:{{.TEST_POSTGRES_PUBLIC_PORT}}/{{.TEST_POSTGRES_DB}}
 
 env:
   COMPOSE_PROJECT_NAME: "{{.COMPOSE_PROJECT_NAME}}"
+  MODERATE_API_POSTGRES_URL: "{{.MODERATE_API_POSTGRES_URL}}"
 
 dotenv: [.env.dev, .env.dev.default]
 
@@ -18,3 +25,34 @@ tasks:
     desc: Stop and remove all traces of the development stack
     cmds:
       - docker compose -f {{.ROOT_DIR}}/docker-compose-dev.yml down -v
+
+  test-pg:
+    desc: Start a postgres container for testing
+    vars:
+      SLEEP_POST_RUN: 10
+    cmds:
+      - docker stop {{.TEST_POSTGRES_NAME}} || true
+      - docker rm {{.TEST_POSTGRES_NAME}} || true
+      - >
+        docker run -d -p {{.TEST_POSTGRES_PUBLIC_PORT}}:5432
+        -e POSTGRES_USER={{.TEST_POSTGRES_USER}}
+        -e POSTGRES_PASSWORD={{.TEST_POSTGRES_PASSWORD}}
+        -e POSTGRES_DB={{.TEST_POSTGRES_DB}}
+        --name {{.TEST_POSTGRES_NAME}}
+        postgres:15
+      - sleep {{.SLEEP_POST_RUN}}
+    status:
+      - test -n "$(docker ps --quiet -f name={{.TEST_POSTGRES_NAME}} -f status=running)"
+
+  export-test-pg:
+    silent: true
+    desc: Export the test postgres url
+    cmds:
+      - echo "export MODERATE_API_POSTGRES_URL={{.MODERATE_API_POSTGRES_URL}}"
+
+  test:
+    desc: Run the test suite
+    deps:
+      - test-pg
+    cmds:
+      - poetry run pytest -v

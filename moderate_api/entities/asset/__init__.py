@@ -12,8 +12,10 @@ from moderate_api.entities.crud import (
     read_one,
     update_one,
 )
+from moderate_api.enums import Entities
 
 _TAG = "Data assets"
+_ENTITY = Entities.ASSET
 
 
 class AssetBase(SQLModel):
@@ -45,7 +47,11 @@ async def create_asset(*, user: UserDep, session: AsyncSessionDep, entity: Asset
     """Create a new asset."""
 
     return await create_one(
-        user=user, sql_model=Asset, session=session, entity_create=entity
+        user=user,
+        entity=_ENTITY,
+        sql_model=Asset,
+        session=session,
+        entity_create=entity,
     )
 
 
@@ -60,7 +66,12 @@ async def read_assets(
     """Read many assets."""
 
     return await read_many(
-        user=user, sql_model=Asset, session=session, offset=offset, limit=limit
+        user=user,
+        entity=_ENTITY,
+        sql_model=Asset,
+        session=session,
+        offset=offset,
+        limit=limit,
     )
 
 
@@ -69,7 +80,7 @@ async def read_asset(*, user: UserDep, session: AsyncSessionDep, entity_id: int)
     """Read one asset."""
 
     return await read_one(
-        user=user, sql_model=Asset, session=session, entity_id=entity_id
+        user=user, entity=_ENTITY, sql_model=Asset, session=session, entity_id=entity_id
     )
 
 
@@ -81,6 +92,7 @@ async def update_asset(
 
     return await update_one(
         user=user,
+        entity=_ENTITY,
         sql_model=Asset,
         session=session,
         entity_id=entity_id,
@@ -93,5 +105,5 @@ async def delete_asset(*, user: UserDep, session: AsyncSessionDep, entity_id: in
     """Delete one asset."""
 
     return await delete_one(
-        user=user, sql_model=Asset, session=session, entity_id=entity_id
+        user=user, entity=_ENTITY, sql_model=Asset, session=session, entity_id=entity_id
     )

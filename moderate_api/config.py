@@ -1,3 +1,4 @@
+import logging
 from functools import lru_cache
 
 from fastapi import Depends
@@ -6,6 +7,8 @@ from typing_extensions import Annotated
 
 _ENV_PREFIX = "MODERATE_API_"
 _ENV_NESTED_DELIMITER = "__"
+
+_logger = logging.getLogger(__name__)
 
 
 class OAuthNamesModel(BaseModel):
@@ -22,7 +25,9 @@ class Settings(BaseSettings):
     oauth_names: OAuthNamesModel = OAuthNamesModel()
     openid_config_url: str = "https://keycloak.moderate.cloud/realms/moderate/.well-known/openid-configuration"
     disable_token_verification: bool = False
-    postgres_url: str = "postgresql+asyncpg://localhost:5432/moderateapi/"
+    postgres_url: str = (
+        "postgresql+asyncpg://postgres:postgres@localhost:5432/moderateapi/"
+    )
 
     @property
     def role_admin(self) -> str:
@@ -35,9 +40,10 @@ class Settings(BaseSettings):
         )
 
 
-@lru_cache()
 def get_settings():
-    return Settings()
+    settings = Settings()
+    _logger.debug("Settings:\n%s", settings.json(indent=2))
+    return settings
 
 
 SettingsDep = Annotated[Settings, Depends(get_settings)]

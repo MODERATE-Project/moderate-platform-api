@@ -1,9 +1,15 @@
+import logging
 import os
 import time
 import uuid
 
 import jwt
 import pytest
+import pytest_asyncio
+from fastapi.testclient import TestClient
+
+from moderate_api.db import engine
+from moderate_api.main import app
 
 _DISABLE_AUTH_VERIFICATION = "MODERATE_API_DISABLE_TOKEN_VERIFICATION"
 _API_GW_CLIENT_ID = "MODERATE_API_OAUTH_NAMES__API_GW_CLIENT_ID"
@@ -21,14 +27,18 @@ _original_env = {}
 
 _test_env = {
     _DISABLE_AUTH_VERIFICATION: "true",
-    _API_GW_CLIENT_ID: "test_api_gw",
-    _ROLE_BASIC_ACCESS: "test_basic_access",
+    _API_GW_CLIENT_ID: "apisix",
+    _ROLE_BASIC_ACCESS: "api_basic_access",
     _LOG_LEVEL: "DEBUG",
 }
+
+_logger = logging.getLogger(__name__)
 
 
 def pytest_configure():
     """Set the environment variables for the tests."""
+
+    _logger.debug("Setting environment variables for tests")
 
     for key in _ENV_KEYS:
         _original_env[key] = os.environ.get(key, None)
@@ -39,6 +49,8 @@ def pytest_configure():
 
 def pytest_unconfigure():
     """Restore the original environment variables."""
+
+    _logger.debug("Restoring original environment variables")
 
     for key in _ENV_KEYS:
         if _original_env.get(key) is None:
@@ -100,3 +112,8 @@ def access_token(request):
     encoded_token = jwt.encode(token_dict, "secret", algorithm="HS256")
 
     yield encoded_token
+
+
+@pytest.fixture()
+def client():
+    yield TestClient(app=app)
