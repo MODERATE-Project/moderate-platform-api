@@ -8,9 +8,6 @@ from fastapi.testclient import TestClient
 
 from moderate_api.entities.asset import AssetCreate
 from moderate_api.main import app
-from tests.db import DB_SKIP_REASON, is_db_online
-
-pytestmark = pytest.mark.skipif(is_db_online() is False, reason=DB_SKIP_REASON)
 
 _logger = logging.getLogger(__name__)
 

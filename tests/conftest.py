@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 
 from moderate_api.db import DBEngine
 from moderate_api.main import app
+from tests.db import DB_SKIP_REASON, is_db_online_async
 
 _DISABLE_AUTH_VERIFICATION = "MODERATE_API_DISABLE_TOKEN_VERIFICATION"
 _API_GW_CLIENT_ID = "MODERATE_API_OAUTH_NAMES__API_GW_CLIENT_ID"
@@ -135,3 +136,10 @@ async def truncate_tables():
             for table in tables:
                 await conn.execute(sqlalchemy.text(f"TRUNCATE TABLE {table}"))
                 _logger.debug("Truncated table: %s", table)
+
+
+@pytest_asyncio.fixture(autouse=True, scope="function")
+async def skip_if_db_offline():
+    _logger.debug("Checking that database is online")
+    if await is_db_online_async() is False:
+        pytest.skip(DB_SKIP_REASON)
