@@ -2,6 +2,7 @@ import logging
 import pprint
 import uuid
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
@@ -31,25 +32,56 @@ def _create_asset(the_client: TestClient, the_access_token: str) -> dict:
     return resp_json
 
 
-@pytest.mark.asyncio
-async def test_create(access_token):
-    """Test that assets can be created."""
+def _read_asset(the_client: TestClient, the_access_token: str, the_asset: dict) -> dict:
+    asset_id = the_asset["id"]
 
+    response = the_client.get(
+        f"/asset/{asset_id}",
+        headers={"Authorization": f"Bearer {the_access_token}"},
+    )
+
+    assert response.raise_for_status()
+    resp_json = response.json()
+    _logger.debug("Response:\n%s", pprint.pformat(resp_json))
+    assert resp_json["id"] == asset_id
+    assert resp_json["uuid"] == the_asset["uuid"]
+    assert resp_json["name"] == the_asset["name"]
+    return resp_json
+
+
+def _delete_asset(the_client: TestClient, the_access_token: str, the_asset: dict):
+    asset_id = the_asset["id"]
+
+    response = the_client.delete(
+        f"/asset/{asset_id}",
+        headers={"Authorization": f"Bearer {the_access_token}"},
+    )
+
+    assert response.raise_for_status()
+
+
+@pytest.mark.asyncio
+async def test_create_one(access_token):
     with TestClient(app) as client:
         assert _create_asset(client, access_token)
 
 
 @pytest.mark.asyncio
-async def test_read(access_token):
+async def test_read_one(access_token):
     with TestClient(app) as client:
         asset_created = _create_asset(client, access_token)
-        asset_id = asset_created.get("id")
+        assert _read_asset(client, access_token, asset_created)
 
-        response = client.get(
-            f"/asset/{asset_id}",
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
 
-        assert response.raise_for_status()
-        resp_json = response.json()
-        _logger.debug("Response:\n%s", pprint.pformat(resp_json))
+@pytest.mark.asyncio
+async def test_delete_one(access_token):
+    with TestClient(app) as client:
+        asset_created = _create_asset(client, access_token)
+
+        for _ in range(2):
+            assert _read_asset(client, access_token, asset_created)
+
+        _delete_asset(client, access_token, asset_created)
+
+        with pytest.raises(httpx.HTTPStatusError):
+            _read_asset(client, access_token, asset_created)
