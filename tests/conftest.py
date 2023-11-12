@@ -5,10 +5,8 @@ import uuid
 
 import jwt
 import pytest
-import pytest_asyncio
 from fastapi.testclient import TestClient
 
-from moderate_api.db import engine
 from moderate_api.main import app
 
 _DISABLE_AUTH_VERIFICATION = "MODERATE_API_DISABLE_TOKEN_VERIFICATION"

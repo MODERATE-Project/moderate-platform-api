@@ -8,7 +8,7 @@ from sqlmodel import SQLModel
 
 import moderate_api.entities.asset
 import moderate_api.ping.router
-from moderate_api.db import engine
+from moderate_api.db import DBEngine
 
 _logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ class Prefixes(enum.Enum):
 async def lifespan(app: FastAPI):
     _logger.debug("Entering lifespan context manager for app: %s", app)
 
-    async with engine.begin() as conn:
+    async with DBEngine.instance().begin() as conn:
         _logger.debug("Creating database tables...")
         await conn.run_sync(SQLModel.metadata.create_all)
         _logger.debug("Created database tables")

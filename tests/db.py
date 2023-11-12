@@ -23,6 +23,12 @@ async def is_db_online_async() -> bool:
     except Exception:
         _logger.warning("Database is offline", exc_info=True)
         return False
+    finally:
+        try:
+            _logger.debug("Disposing of DB engine")
+            await engine.dispose()
+        except Exception:
+            _logger.warning("Failed to dispose of DB engine", exc_info=True)
 
 
 def is_db_online() -> bool:
