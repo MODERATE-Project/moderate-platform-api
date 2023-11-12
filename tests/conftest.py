@@ -5,8 +5,11 @@ import uuid
 
 import jwt
 import pytest
+import pytest_asyncio
+import sqlalchemy
 from fastapi.testclient import TestClient
 
+from moderate_api.db import DBEngine
 from moderate_api.main import app
 
 _DISABLE_AUTH_VERIFICATION = "MODERATE_API_DISABLE_TOKEN_VERIFICATION"
@@ -115,3 +118,20 @@ def access_token(request):
 @pytest.fixture()
 def client():
     yield TestClient(app=app)
+
+
+@pytest_asyncio.fixture(autouse=True, scope="function")
+async def truncate_tables():
+    try:
+        yield
+    finally:
+        async with DBEngine.instance().begin() as conn:
+            tables = await conn.run_sync(
+                lambda sync_conn: sqlalchemy.inspect(sync_conn).get_table_names()
+            )
+
+            _logger.info("Truncating tables: %s", tables)
+
+            for table in tables:
+                await conn.execute(sqlalchemy.text(f"TRUNCATE TABLE {table}"))
+                _logger.debug("Truncated table: %s", table)
