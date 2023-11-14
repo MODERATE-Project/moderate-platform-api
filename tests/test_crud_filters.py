@@ -52,79 +52,98 @@ async def test_crud_filters():
             session.add(item)
         await session.commit()
 
-    filter_eq = filter_to_sqlmodel_expr(
-        ModelTest,
-        crud_filter=CrudFilter(field="name", operator="eq", value=item_1.name),
+    results = await _exec(
+        async_session,
+        filter_to_sqlmodel_expr(
+            ModelTest,
+            crud_filter=CrudFilter(field="name", operator="eq", value=item_1.name),
+        ),
     )
 
-    results = await _exec(async_session, filter_eq)
     assert len(results) == 1
     assert results[0][0] == item_1
 
-    filter_ne = filter_to_sqlmodel_expr(
-        ModelTest,
-        crud_filter=CrudFilter(field="name", operator="ne", value=item_1.name),
+    results = await _exec(
+        async_session,
+        filter_to_sqlmodel_expr(
+            ModelTest,
+            crud_filter=CrudFilter(field="name", operator="ne", value=item_1.name),
+        ),
     )
 
-    results = await _exec(async_session, filter_ne)
     assert len(results) == 2
     assert all([result[0] != item_1 for result in results])
 
-    filter_gt = filter_to_sqlmodel_expr(
-        ModelTest,
-        crud_filter=CrudFilter(field="limit", operator="gt", value=item_1.limit),
+    results = await _exec(
+        async_session,
+        filter_to_sqlmodel_expr(
+            ModelTest,
+            crud_filter=CrudFilter(field="limit", operator="gt", value=item_1.limit),
+        ),
     )
 
-    results = await _exec(async_session, filter_gt)
     assert len(results) == 1
     assert results[0][0] == item_3
 
-    filter_gte = filter_to_sqlmodel_expr(
-        ModelTest,
-        crud_filter=CrudFilter(field="limit", operator="gte", value=item_1.limit),
+    results = await _exec(
+        async_session,
+        filter_to_sqlmodel_expr(
+            ModelTest,
+            crud_filter=CrudFilter(field="limit", operator="gte", value=item_1.limit),
+        ),
     )
 
-    results = await _exec(async_session, filter_gte)
     assert len(results) == 2
     assert all([result[0] != item_2 for result in results])
 
-    filter_lt = filter_to_sqlmodel_expr(
-        ModelTest,
-        crud_filter=CrudFilter(field="limit", operator="lt", value=item_1.limit),
+    results = await _exec(
+        async_session,
+        filter_to_sqlmodel_expr(
+            ModelTest,
+            crud_filter=CrudFilter(field="limit", operator="lt", value=item_1.limit),
+        ),
     )
 
-    results = await _exec(async_session, filter_lt)
     assert len(results) == 0
 
-    filter_lte = filter_to_sqlmodel_expr(
-        ModelTest,
-        crud_filter=CrudFilter(field="limit", operator="lte", value=item_1.limit),
+    results = await _exec(
+        async_session,
+        filter_to_sqlmodel_expr(
+            ModelTest,
+            crud_filter=CrudFilter(field="limit", operator="lte", value=item_1.limit),
+        ),
     )
 
-    results = await _exec(async_session, filter_lte)
     assert len(results) == 1
     assert results[0][0] == item_1
 
-    filter_in = filter_to_sqlmodel_expr(
-        ModelTest,
-        crud_filter=CrudFilter(
-            field="limit", operator="in", value=json.dumps([item_1.limit, item_3.limit])
+    results = await _exec(
+        async_session,
+        filter_to_sqlmodel_expr(
+            ModelTest,
+            crud_filter=CrudFilter(
+                field="limit",
+                operator="in",
+                value=json.dumps([item_1.limit, item_3.limit]),
+            ),
         ),
     )
 
-    results = await _exec(async_session, filter_in)
     assert len(results) == 2
+    assert all([result[0] != item_2 for result in results])
 
-    filter_nin = filter_to_sqlmodel_expr(
-        ModelTest,
-        crud_filter=CrudFilter(
-            field="name",
-            operator="nin",
-            value=json.dumps([item_1.name, item_3.name]),
+    results = await _exec(
+        async_session,
+        filter_to_sqlmodel_expr(
+            ModelTest,
+            crud_filter=CrudFilter(
+                field="name",
+                operator="nin",
+                value=json.dumps([item_1.name, item_3.name]),
+            ),
         ),
     )
 
-    results = await _exec(async_session, filter_nin)
     assert len(results) == 1
     assert results[0][0] == item_2
 

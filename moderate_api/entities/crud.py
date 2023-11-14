@@ -2,7 +2,7 @@ import json
 import logging
 import re
 from datetime import datetime
-from typing import Any, List, Union
+from typing import Any, Dict, List, Optional, Type, Union
 
 import arrow
 from fastapi import HTTPException, status
@@ -139,18 +139,24 @@ def filter_to_sqlmodel_expr(
     return mappers[crud_filter.operator](model, crud_filter)
 
 
+def _primary_key(sql_model: Type[SQLModel]) -> str:
+    for column in sql_model.__table__.primary_key:
+        return column.name
+
+
 async def create_one(
     *,
     user: User,
     entity: Entities,
-    sql_model: SQLModel,
+    sql_model: Type[SQLModel],
     session: AsyncSession,
     entity_create: SQLModel,
+    entity_create_patch: Optional[Dict[str, Any]] = None,
 ):
     """Reusable helper function to create a new entity."""
 
     user.enforce_raise(obj=entity.value, act=Actions.CREATE.value)
-    db_entity = sql_model.from_orm(entity_create)
+    db_entity = sql_model.from_orm(entity_create, update=entity_create_patch)
     _logger.debug("Creating %s: %s", sql_model, db_entity)
     session.add(db_entity)
     await session.commit()
@@ -162,56 +168,91 @@ async def read_many(
     *,
     user: User,
     entity: Entities,
-    sql_model: SQLModel,
+    sql_model: Type[SQLModel],
     session: AsyncSession,
     offset: int = 0,
     limit: int = 100,
+    user_selector: Optional[List[BinaryExpression]] = None,
 ):
     """Reusable helper function to read many entities."""
 
     user.enforce_raise(obj=entity.value, act=Actions.READ.value)
-    result = await session.execute(select(sql_model).offset(offset).limit(limit))
+    statement = select(sql_model).offset(offset).limit(limit)
+
+    if user_selector:
+        statement = statement.where(*user_selector)
+
+    result = await session.execute(statement)
     entities = result.all()
+
     return entities
+
+
+async def _select_one(
+    sql_model: Type[SQLModel],
+    entity_id: int,
+    session: AsyncSession,
+    user_selector: Optional[List[BinaryExpression]] = None,
+) -> SQLModel:
+    statement = select(sql_model).where(
+        getattr(sql_model, _primary_key(sql_model)) == entity_id
+    )
+
+    if user_selector:
+        statement = statement.where(*user_selector)
+
+    result = await session.execute(statement)
+    entity = result.one_or_none()
+
+    if not entity:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    return entity[0]
 
 
 async def read_one(
     *,
     user: User,
     entity: Entities,
-    sql_model: SQLModel,
+    sql_model: Type[SQLModel],
     session: AsyncSession,
     entity_id: int,
+    user_selector: Optional[List[BinaryExpression]] = None,
 ):
     """Reusable helper function to read one entity."""
 
     user.enforce_raise(obj=entity.value, act=Actions.READ.value)
     _logger.debug("Reading %s with id: %s", sql_model, entity_id)
-    entity = await session.get(sql_model, entity_id)
 
-    if not entity:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-
-    return entity
+    return await _select_one(
+        sql_model=sql_model,
+        entity_id=entity_id,
+        session=session,
+        user_selector=user_selector,
+    )
 
 
 async def update_one(
     *,
     user: User,
     entity: Entities,
-    sql_model: SQLModel,
+    sql_model: Type[SQLModel],
     session: AsyncSession,
     entity_id: int,
     entity_update: SQLModel,
+    user_selector: Optional[List[BinaryExpression]] = None,
 ):
     """Reusable helper function to update one entity."""
 
     user.enforce_raise(obj=entity.value, act=Actions.UPDATE.value)
     _logger.debug("Updating %s with id: %s", sql_model, entity_id)
-    db_entity = await session.get(sql_model, entity_id)
 
-    if not db_entity:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    db_entity = await _select_one(
+        sql_model=sql_model,
+        entity_id=entity_id,
+        session=session,
+        user_selector=user_selector,
+    )
 
     entity_data = entity_update.dict(exclude_unset=True)
 
@@ -221,6 +262,7 @@ async def update_one(
     session.add(db_entity)
     await session.commit()
     await session.refresh(db_entity)
+
     return db_entity
 
 
@@ -228,19 +270,24 @@ async def delete_one(
     *,
     user: User,
     entity: Entities,
-    sql_model: SQLModel,
+    sql_model: Type[SQLModel],
     session: AsyncSession,
     entity_id: int,
+    user_selector: Optional[List[BinaryExpression]] = None,
 ):
     """Reusable helper function to delete one entity."""
 
     user.enforce_raise(obj=entity.value, act=Actions.DELETE.value)
     _logger.debug("Deleting %s with id: %s", sql_model, entity_id)
-    entity = await session.get(sql_model, entity_id)
 
-    if not entity:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    db_entity = await _select_one(
+        sql_model=sql_model,
+        entity_id=entity_id,
+        session=session,
+        user_selector=user_selector,
+    )
 
-    await session.delete(entity)
+    await session.delete(db_entity)
     await session.commit()
+
     return {"ok": True}
