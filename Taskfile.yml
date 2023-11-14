@@ -4,14 +4,14 @@ vars:
   COMPOSE_PROJECT_NAME: moderateapi
   TEST_POSTGRES_USER: postgres
   TEST_POSTGRES_PASSWORD: postgres
-  TEST_POSTGRES_DB: moderateapi
+  TEST_POSTGRES_DB: testsmoderateapi
   TEST_POSTGRES_PUBLIC_PORT: 15432
   TEST_POSTGRES_NAME: postgres_tests
-  MODERATE_API_POSTGRES_URL: postgresql+asyncpg://{{.TEST_POSTGRES_USER}}:{{.TEST_POSTGRES_PASSWORD}}@localhost:{{.TEST_POSTGRES_PUBLIC_PORT}}/{{.TEST_POSTGRES_DB}}
+  TESTS_POSTGRES_URL: postgresql+asyncpg://{{.TEST_POSTGRES_USER}}:{{.TEST_POSTGRES_PASSWORD}}@localhost:{{.TEST_POSTGRES_PUBLIC_PORT}}/{{.TEST_POSTGRES_DB}}
 
 env:
   COMPOSE_PROJECT_NAME: "{{.COMPOSE_PROJECT_NAME}}"
-  MODERATE_API_POSTGRES_URL: "{{.MODERATE_API_POSTGRES_URL}}"
+  TESTS_POSTGRES_URL: "{{.TESTS_POSTGRES_URL}}"
 
 dotenv: [.env.dev, .env.dev.default]
 
@@ -48,7 +48,7 @@ tasks:
     silent: true
     desc: Export the test postgres url
     cmds:
-      - echo "export MODERATE_API_POSTGRES_URL={{.MODERATE_API_POSTGRES_URL}}"
+      - echo "export TESTS_POSTGRES_URL={{.TESTS_POSTGRES_URL}}"
 
   test:
     desc: Run the test suite

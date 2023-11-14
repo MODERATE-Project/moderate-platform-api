@@ -11,27 +11,33 @@ from fastapi.testclient import TestClient
 
 from moderate_api.db import DBEngine
 from moderate_api.main import app
-from tests.db import DB_SKIP_REASON, is_db_online_async
+from tests.db import DB_SKIP_REASON, ENV_TESTS_POSTGRES_URL, is_db_online_async
 
-_DISABLE_AUTH_VERIFICATION = "MODERATE_API_DISABLE_TOKEN_VERIFICATION"
-_API_GW_CLIENT_ID = "MODERATE_API_OAUTH_NAMES__API_GW_CLIENT_ID"
-_ROLE_BASIC_ACCESS = "MODERATE_API_OAUTH_NAMES__ROLE_BASIC_ACCESS"
-_LOG_LEVEL = "LOG_LEVEL"
+_ENV_POSTGRES_URL = "MODERATE_API_POSTGRES_URL"
+_ENV_DISABLE_AUTH_VERIFICATION = "MODERATE_API_DISABLE_TOKEN_VERIFICATION"
+_ENV_API_GW_CLIENT_ID = "MODERATE_API_OAUTH_NAMES__API_GW_CLIENT_ID"
+_ENV_ROLE_BASIC_ACCESS = "MODERATE_API_OAUTH_NAMES__ROLE_BASIC_ACCESS"
+_ENV_LOG_LEVEL = "LOG_LEVEL"
 
 _ENV_KEYS = [
-    _DISABLE_AUTH_VERIFICATION,
-    _API_GW_CLIENT_ID,
-    _ROLE_BASIC_ACCESS,
-    _LOG_LEVEL,
+    _ENV_DISABLE_AUTH_VERIFICATION,
+    _ENV_API_GW_CLIENT_ID,
+    _ENV_ROLE_BASIC_ACCESS,
+    _ENV_LOG_LEVEL,
+    _ENV_POSTGRES_URL,
 ]
 
 _original_env = {}
 
 _test_env = {
-    _DISABLE_AUTH_VERIFICATION: "true",
-    _API_GW_CLIENT_ID: "apisix",
-    _ROLE_BASIC_ACCESS: "api_basic_access",
-    _LOG_LEVEL: "DEBUG",
+    _ENV_DISABLE_AUTH_VERIFICATION: "true",
+    _ENV_API_GW_CLIENT_ID: "apisix",
+    _ENV_ROLE_BASIC_ACCESS: "api_basic_access",
+    _ENV_LOG_LEVEL: "DEBUG",
+    _ENV_POSTGRES_URL: os.getenv(
+        ENV_TESTS_POSTGRES_URL,
+        "postgresql://postgres:postgres@localhost:5432/testsmoderateapi",
+    ),
 }
 
 _logger = logging.getLogger(__name__)
@@ -71,7 +77,7 @@ def access_token(request):
         access_enabled = True
 
     basic_access_role = (
-        _test_env[_ROLE_BASIC_ACCESS] if access_enabled else uuid.uuid4().hex
+        _test_env[_ENV_ROLE_BASIC_ACCESS] if access_enabled else uuid.uuid4().hex
     )
 
     token_dict = {
@@ -96,7 +102,7 @@ def access_token(request):
             ]
         },
         "resource_access": {
-            _test_env[_API_GW_CLIENT_ID]: {"roles": [basic_access_role]},
+            _test_env[_ENV_API_GW_CLIENT_ID]: {"roles": [basic_access_role]},
             "account": {
                 "roles": ["manage-account", "manage-account-links", "view-profile"]
             },
