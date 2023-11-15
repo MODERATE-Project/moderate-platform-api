@@ -49,12 +49,12 @@ def _parse_value(val: Any) -> Union[datetime, int, float, str, bool, List]:
 
     try:
         return int(val)
-    except ValueError:
+    except (TypeError, ValueError):
         pass
 
     try:
         return float(val)
-    except ValueError:
+    except (TypeError, ValueError):
         pass
 
     try:
