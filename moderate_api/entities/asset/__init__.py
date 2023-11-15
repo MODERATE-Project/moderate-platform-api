@@ -78,6 +78,8 @@ async def read_assets(
     session: AsyncSessionDep,
     offset: int = 0,
     limit: int = Query(default=100, le=100),
+    filters: Optional[str] = None,
+    sorts: Optional[str] = None,
 ):
     """Read many assets."""
 
@@ -91,6 +93,8 @@ async def read_assets(
         offset=offset,
         limit=limit,
         user_selector=user_selector,
+        json_filters=filters,
+        json_sorts=sorts,
     )
 
 

@@ -12,7 +12,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlmodel import Field, SQLModel, select
 
 from moderate_api.db import DBEngine
-from moderate_api.entities.crud import CrudFilter, filter_to_sqlmodel_expr
+from moderate_api.entities.crud import CrudFilter
 
 
 class ModelTest(SQLModel, table=True):
@@ -54,9 +54,8 @@ async def test_crud_filters():
 
     results = await _exec(
         async_session,
-        filter_to_sqlmodel_expr(
-            ModelTest,
-            crud_filter=CrudFilter(field="name", operator="eq", value=item_1.name),
+        CrudFilter(field="name", operator="eq", value=item_1.name).get_expression(
+            ModelTest
         ),
     )
 
@@ -65,9 +64,8 @@ async def test_crud_filters():
 
     results = await _exec(
         async_session,
-        filter_to_sqlmodel_expr(
-            ModelTest,
-            crud_filter=CrudFilter(field="name", operator="ne", value=item_1.name),
+        CrudFilter(field="name", operator="ne", value=item_1.name).get_expression(
+            ModelTest
         ),
     )
 
@@ -76,9 +74,8 @@ async def test_crud_filters():
 
     results = await _exec(
         async_session,
-        filter_to_sqlmodel_expr(
-            ModelTest,
-            crud_filter=CrudFilter(field="limit", operator="gt", value=item_1.limit),
+        CrudFilter(field="limit", operator="gt", value=item_1.limit).get_expression(
+            ModelTest
         ),
     )
 
@@ -87,9 +84,8 @@ async def test_crud_filters():
 
     results = await _exec(
         async_session,
-        filter_to_sqlmodel_expr(
-            ModelTest,
-            crud_filter=CrudFilter(field="limit", operator="gte", value=item_1.limit),
+        CrudFilter(field="limit", operator="gte", value=item_1.limit).get_expression(
+            ModelTest
         ),
     )
 
@@ -98,9 +94,8 @@ async def test_crud_filters():
 
     results = await _exec(
         async_session,
-        filter_to_sqlmodel_expr(
-            ModelTest,
-            crud_filter=CrudFilter(field="limit", operator="lt", value=item_1.limit),
+        CrudFilter(field="limit", operator="lt", value=item_1.limit).get_expression(
+            ModelTest
         ),
     )
 
@@ -108,9 +103,8 @@ async def test_crud_filters():
 
     results = await _exec(
         async_session,
-        filter_to_sqlmodel_expr(
-            ModelTest,
-            crud_filter=CrudFilter(field="limit", operator="lte", value=item_1.limit),
+        CrudFilter(field="limit", operator="lte", value=item_1.limit).get_expression(
+            ModelTest
         ),
     )
 
@@ -119,14 +113,9 @@ async def test_crud_filters():
 
     results = await _exec(
         async_session,
-        filter_to_sqlmodel_expr(
-            ModelTest,
-            crud_filter=CrudFilter(
-                field="limit",
-                operator="in",
-                value=json.dumps([item_1.limit, item_3.limit]),
-            ),
-        ),
+        CrudFilter(
+            field="limit", operator="in", value=json.dumps([item_1.limit, item_3.limit])
+        ).get_expression(ModelTest),
     )
 
     assert len(results) == 2
@@ -134,14 +123,9 @@ async def test_crud_filters():
 
     results = await _exec(
         async_session,
-        filter_to_sqlmodel_expr(
-            ModelTest,
-            crud_filter=CrudFilter(
-                field="name",
-                operator="nin",
-                value=json.dumps([item_1.name, item_3.name]),
-            ),
-        ),
+        CrudFilter(
+            field="name", operator="nin", value=json.dumps([item_1.name, item_3.name])
+        ).get_expression(ModelTest),
     )
 
     assert len(results) == 1
@@ -171,20 +155,17 @@ async def test_parse_values():
 
     results_numbers = await _exec(
         async_session,
-        filter_to_sqlmodel_expr(
-            ModelTest,
-            crud_filter=CrudFilter(
-                field="limit",
-                operator="in",
-                value=json.dumps(
-                    [
-                        str(item_1.limit),
-                        item_3.limit,
-                        str(random.random()),
-                    ]
-                ),
+        CrudFilter(
+            field="limit",
+            operator="in",
+            value=json.dumps(
+                [
+                    str(item_1.limit),
+                    item_3.limit,
+                    str(random.random()),
+                ]
             ),
-        ),
+        ).get_expression(ModelTest),
     )
 
     assert len(results_numbers) == 2
@@ -193,26 +174,20 @@ async def test_parse_values():
     with pytest.raises(sqlalchemy.exc.ProgrammingError):
         await _exec(
             async_session,
-            filter_to_sqlmodel_expr(
-                ModelTest,
-                crud_filter=CrudFilter(
-                    field="limit",
-                    operator="in",
-                    value=json.dumps(["NotANumber"]),
-                ),
-            ),
+            CrudFilter(
+                field="limit",
+                operator="in",
+                value=json.dumps(["NotANumber"]),
+            ).get_expression(ModelTest),
         )
 
     results_strings = await _exec(
         async_session,
-        filter_to_sqlmodel_expr(
-            ModelTest,
-            crud_filter=CrudFilter(
-                field="name",
-                operator="in",
-                value=json.dumps([item_2.name]),
-            ),
-        ),
+        CrudFilter(
+            field="name",
+            operator="in",
+            value=json.dumps([item_2.name]),
+        ).get_expression(ModelTest),
     )
 
     assert len(results_strings) == 1
@@ -244,14 +219,11 @@ async def test_parse_datetimes():
 
     results_dttm = await _exec(
         async_session,
-        filter_to_sqlmodel_expr(
-            ModelTest,
-            crud_filter=CrudFilter(
-                field="dttm",
-                operator="in",
-                value=json.dumps([now.isoformat()]),
-            ),
-        ),
+        CrudFilter(
+            field="dttm",
+            operator="in",
+            value=json.dumps([now.isoformat()]),
+        ).get_expression(ModelTest),
     )
 
     assert len(results_dttm) == 1

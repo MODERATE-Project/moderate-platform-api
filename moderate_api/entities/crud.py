@@ -2,13 +2,14 @@ import json
 import logging
 import re
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Literal, Optional, Type, Union
 
 import arrow
 from fastapi import HTTPException, status
 from pydantic import BaseModel
+from sqlalchemy import asc, desc
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.sql.elements import BinaryExpression
+from sqlalchemy.sql.elements import BinaryExpression, UnaryExpression
 from sqlmodel import SQLModel, select
 
 from moderate_api.authz import User
@@ -27,7 +28,69 @@ _REGEX_DTTM_ISO = (
 _REGEX_LIST = r"(?<!\[)\b\w+\b(?:(?:\s*,\s*\b\w+\b)+)(?!\])"
 
 
+def _models_from_json(
+    model_cls: Type[BaseModel],
+    json_str: str,
+    positional_args: Optional[List[str]] = None,
+) -> List[BaseModel]:
+    """Helper function to parse a JSON string into a list of models."""
+
+    parsed = json.loads(json_str)
+
+    if isinstance(parsed, list) and all(isinstance(item, str) for item in parsed):
+        parsed = [parsed]
+
+    ret = []
+
+    for item in parsed:
+        if isinstance(item, list) and positional_args:
+            model_kwargs = dict(zip(positional_args, item))
+            ret.append(model_cls(**model_kwargs))
+        elif isinstance(item, dict):
+            ret.append(model_cls(**item))
+        else:
+            raise ValueError(
+                "Unsupported {} format: {}".format(CrudFilter.__name__, item)
+            )
+
+    return ret
+
+
+class CrudSort(BaseModel):
+    """Model that represents the sorting configuration for a CRUD operation.
+    Inspired by: https://refine.dev/docs/api-reference/core/interfaceReferences/#crudsort
+    """
+
+    field: str
+    order: Literal["asc", "desc"]
+
+    @classmethod
+    def from_json(cls, json_str: str) -> List["CrudSort"]:
+        positional_args = ["field", "order"]
+
+        try:
+            return _models_from_json(
+                model_cls=cls, json_str=json_str, positional_args=positional_args
+            )
+        except Exception as ex:
+            _logger.debug("Failed to parse JSON-encoded CRUD sorters", exc_info=True)
+
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=str(ex)
+            ) from ex
+
+    def get_expression(self, model: Type[SQLModel]) -> UnaryExpression:
+        if self.order == "asc":
+            return asc(getattr(model, self.field))
+        elif self.order == "desc":
+            return desc(getattr(model, self.field))
+        else:
+            raise ValueError(f"Unsupported order: {self.order}")
+
+
 def _parse_value(val: Any) -> Union[datetime, int, float, str, bool, List]:
+    """Helper function to parse a string into a value of the appropriate type."""
+
     try:
         if re.match(_REGEX_LIST, val):
             return json.loads(f"[{val}]")
@@ -77,6 +140,21 @@ class CrudFilter(BaseModel):
     operator: str
     value: str
 
+    @classmethod
+    def from_json(cls, json_str: str) -> List["CrudFilter"]:
+        positional_args = ["field", "operator", "value"]
+
+        try:
+            return _models_from_json(
+                model_cls=cls, json_str=json_str, positional_args=positional_args
+            )
+        except Exception as ex:
+            _logger.debug("Failed to parse JSON-encoded CRUD filters", exc_info=True)
+
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=str(ex)
+            ) from ex
+
     @property
     def parsed_value(self) -> Union[datetime, int, float, str, bool, List]:
         ret = _parse_value(self.value)
@@ -86,57 +164,54 @@ class CrudFilter(BaseModel):
         else:
             return ret
 
+    def get_expression(self, model: Type[SQLModel]) -> BinaryExpression:
+        mappers = {
+            "eq": _map_eq,
+            "ne": _map_ne,
+            "lt": _map_lt,
+            "gt": _map_gt,
+            "lte": _map_lte,
+            "gte": _map_gte,
+            "in": _map_in,
+            "nin": _map_nin,
+        }
 
-def _map_eq(model: SQLModel, crud_filter: CrudFilter) -> BinaryExpression:
+        if self.operator not in mappers:
+            raise ValueError(f"Unsupported operator: {self.operator}")
+
+        return mappers[self.operator](model, self)
+
+
+def _map_eq(model: Type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression:
     return getattr(model, crud_filter.field) == crud_filter.parsed_value
 
 
-def _map_ne(model: SQLModel, crud_filter: CrudFilter) -> BinaryExpression:
+def _map_ne(model: Type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression:
     return getattr(model, crud_filter.field) != crud_filter.parsed_value
 
 
-def _map_lt(model: SQLModel, crud_filter: CrudFilter) -> BinaryExpression:
+def _map_lt(model: Type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression:
     return getattr(model, crud_filter.field) < crud_filter.parsed_value
 
 
-def _map_gt(model: SQLModel, crud_filter: CrudFilter) -> BinaryExpression:
+def _map_gt(model: Type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression:
     return getattr(model, crud_filter.field) > crud_filter.parsed_value
 
 
-def _map_lte(model: SQLModel, crud_filter: CrudFilter) -> BinaryExpression:
+def _map_lte(model: Type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression:
     return getattr(model, crud_filter.field) <= crud_filter.parsed_value
 
 
-def _map_gte(model: SQLModel, crud_filter: CrudFilter) -> BinaryExpression:
+def _map_gte(model: Type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression:
     return getattr(model, crud_filter.field) >= crud_filter.parsed_value
 
 
-def _map_in(model: SQLModel, crud_filter: CrudFilter) -> BinaryExpression:
+def _map_in(model: Type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression:
     return getattr(model, crud_filter.field).in_(crud_filter.parsed_value)
 
 
-def _map_nin(model: SQLModel, crud_filter: CrudFilter) -> BinaryExpression:
+def _map_nin(model: Type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression:
     return getattr(model, crud_filter.field).notin_(crud_filter.parsed_value)
-
-
-def filter_to_sqlmodel_expr(
-    model: SQLModel, crud_filter: CrudFilter
-) -> BinaryExpression:
-    mappers = {
-        "eq": _map_eq,
-        "ne": _map_ne,
-        "lt": _map_lt,
-        "gt": _map_gt,
-        "lte": _map_lte,
-        "gte": _map_gte,
-        "in": _map_in,
-        "nin": _map_nin,
-    }
-
-    if crud_filter.operator not in mappers:
-        raise ValueError(f"Unsupported operator: {crud_filter.operator}")
-
-    return mappers[crud_filter.operator](model, crud_filter)
 
 
 def _primary_key(sql_model: Type[SQLModel]) -> str:
@@ -173,19 +248,47 @@ async def read_many(
     offset: int = 0,
     limit: int = 100,
     user_selector: Optional[List[BinaryExpression]] = None,
+    json_filters: Optional[str] = None,
+    json_sorts: Optional[str] = None,
 ):
     """Reusable helper function to read many entities."""
 
     user.enforce_raise(obj=entity.value, act=Actions.READ.value)
+
+    crud_filters: List[CrudFilter] = (
+        CrudFilter.from_json(json_filters) if json_filters else []
+    )
+
+    crud_sorts: List[CrudSort] = CrudSort.from_json(json_sorts) if json_sorts else []
+
     statement = select(sql_model).offset(offset).limit(limit)
 
     if user_selector:
+        _logger.debug("Applying user selector as WHERE: %s", user_selector)
         statement = statement.where(*user_selector)
+
+    _logger.debug("Applying WHERE filters: %s", crud_filters)
+
+    statement = statement.where(
+        *[crud_filter.get_expression(sql_model) for crud_filter in crud_filters]
+    )
+
+    _logger.debug("Applying ORDER BY sorts: %s", crud_sorts)
+
+    statement = statement.order_by(
+        *[crud_sort.get_expression(sql_model) for crud_sort in crud_sorts]
+    )
 
     result = await session.execute(statement)
     entities = result.all()
 
-    return entities
+    # Note that all() returns a list of tuples:
+    # [
+    # (Asset(username='andres.garcia', id=74, uuid='bc3048cf5ba0489e9781c1762e2c6b64'),),
+    # (Asset(username='andres.garcia', id=75, uuid='ae0d444b3c3045f4a32f20dd7be450e1'),),
+    # ...
+    # ]
+    return [item[0] for item in entities]
 
 
 async def _select_one(
