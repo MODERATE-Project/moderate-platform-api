@@ -1,3 +1,4 @@
+import json
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Query
@@ -8,6 +9,8 @@ from moderate_api.authz import UserDep, UserSelectorBuilder
 from moderate_api.authz.user import User
 from moderate_api.db import AsyncSessionDep
 from moderate_api.entities.crud import (
+    CrudFiltersQuery,
+    CrudSortsQuery,
     create_one,
     delete_one,
     read_many,
@@ -78,8 +81,8 @@ async def read_assets(
     session: AsyncSessionDep,
     offset: int = 0,
     limit: int = Query(default=100, le=100),
-    filters: Optional[str] = None,
-    sorts: Optional[str] = None,
+    filters: Optional[str] = CrudFiltersQuery,
+    sorts: Optional[str] = CrudSortsQuery,
 ):
     """Read many assets."""
 

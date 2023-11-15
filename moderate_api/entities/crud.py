@@ -1,11 +1,12 @@
 import json
 import logging
 import re
+import warnings
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional, Type, Union
 
 import arrow
-from fastapi import HTTPException, status
+from fastapi import HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy import asc, desc
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -394,3 +395,48 @@ async def delete_one(
     await session.commit()
 
     return {"ok": True}
+
+
+_example_crud_filters = json.dumps(
+    [
+        ["the_date", "lte", arrow.utcnow().naive.isoformat()],
+        ["the_name", "in", json.dumps(["foo", "bar"])],
+    ]
+)
+
+_example_crud_sorts = json.dumps(
+    [
+        ["the_date", "asc"],
+        ["the_name", "desc"],
+    ]
+)
+
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore", category=DeprecationWarning)
+
+    CrudFiltersQuery = Query(
+        default=None,
+        description=(
+            "A JSON-encoded array of arrays or objects that represent filters. "
+            "A _filter element_ can be either an array like `[field, operator, value]`, "
+            'or an object, like `{"field": field, "operator": operator, "value": value}`. '
+            "Please check the [Refine documentation](https://refine.dev/docs/api-reference/core/interfaceReferences/#crudoperators) "
+            "for additional context and to view the list of available operators. "
+            "Also, note that not all operators are supported for every field."
+        ),
+        example="`{}`".format(_example_crud_filters),
+        examples=[_example_crud_filters],
+    )
+
+    CrudSortsQuery = Query(
+        default=None,
+        description=(
+            "A JSON-encoded array of arrays or objects that represent sorting fields and directions. "
+            "A _sort element_ can be either an array like `[field, order]`, "
+            'or an object, like `{"field": field, "order": order}`. '
+            "Please check the [Refine documentation](https://refine.dev/docs/api-reference/core/interfaceReferences/#crudsort) "
+            "for additional context."
+        ),
+        example="`{}`".format(_example_crud_sorts),
+        examples=[_example_crud_sorts],
+    )
