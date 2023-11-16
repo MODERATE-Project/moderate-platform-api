@@ -19,15 +19,15 @@ jobs:
         env:
           MINIO_ROOT_USER: minio
           MINIO_ROOT_PASSWORD: minio123
-          MINIO_SERVER_URL: http://localhost:9000
           MINIO_REGION: eu-central-1
         ports:
           - 9000:9000
           - 9001:9001
+        options: --health-cmd "mc ready local" --health-interval 10s --health-timeout 5s --health-retries 5
     env:
       # trunk-ignore(checkov/CKV_SECRET_4)
       TESTS_POSTGRES_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/moderateapi
-      LOG_LEVEL: DEBUG
+      LOG_LEVEL: INFO
       TESTS_MINIO_ROOT_USER: minio
       TESTS_MINIO_ROOT_PASSWORD: minio123
       TESTS_MINIO_ENDPOINT_URL: http://localhost:9000
