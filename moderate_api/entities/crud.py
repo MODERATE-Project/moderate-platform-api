@@ -292,7 +292,7 @@ async def read_many(
     return [item[0] for item in entities]
 
 
-async def _select_one(
+async def select_one(
     sql_model: Type[SQLModel],
     entity_id: int,
     session: AsyncSession,
@@ -328,7 +328,7 @@ async def read_one(
     user.enforce_raise(obj=entity.value, act=Actions.READ.value)
     _logger.debug("Reading %s with id: %s", sql_model, entity_id)
 
-    return await _select_one(
+    return await select_one(
         sql_model=sql_model,
         entity_id=entity_id,
         session=session,
@@ -351,7 +351,7 @@ async def update_one(
     user.enforce_raise(obj=entity.value, act=Actions.UPDATE.value)
     _logger.debug("Updating %s with id: %s", sql_model, entity_id)
 
-    db_entity = await _select_one(
+    db_entity = await select_one(
         sql_model=sql_model,
         entity_id=entity_id,
         session=session,
@@ -384,7 +384,7 @@ async def delete_one(
     user.enforce_raise(obj=entity.value, act=Actions.DELETE.value)
     _logger.debug("Deleting %s with id: %s", sql_model, entity_id)
 
-    db_entity = await _select_one(
+    db_entity = await select_one(
         sql_model=sql_model,
         entity_id=entity_id,
         session=session,

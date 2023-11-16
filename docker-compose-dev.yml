@@ -9,6 +9,11 @@ services:
       LOG_LEVEL: DEBUG
       MODERATE_API_OPENID_CONFIG_URL: http://keycloak:8080/realms/moderate/.well-known/openid-configuration
       MODERATE_API_POSTGRES_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/moderateapi
+      MODERATE_API_S3__ACCESS_KEY: ${MINIO_ROOT_USER}
+      MODERATE_API_S3__SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MODERATE_API_S3__ENDPOINT_URL: http://minio:9000
+      MODERATE_API_S3__REGION: ${MINIO_REGION}
+      MODERATE_API_S3__BUCKET: ${MINIO_BUCKET_NAME}
   apisix:
     image: apache/apisix:3.5.0-debian
     restart: on-failure
