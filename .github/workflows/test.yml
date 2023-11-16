@@ -15,7 +15,7 @@ jobs:
           - 5432:5432
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
       minio:
-        image: minio/minio:RELEASE.2022-09-07T22-25-02Z
+        image: docker.io/agmangas/minio-gh-actions
         env:
           MINIO_ROOT_USER: minio
           MINIO_ROOT_PASSWORD: minio123

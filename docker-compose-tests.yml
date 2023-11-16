@@ -15,7 +15,7 @@ services:
       timeout: 10s
       retries: 3
   minio:
-    image: minio/minio:RELEASE.2022-09-07T22-25-02Z
+    image: minio/minio:RELEASE.2023-11-15T20-43-25Z
     command: server /data --console-address ":9001"
     restart: on-failure
     ports:
@@ -27,7 +27,7 @@ services:
       MINIO_SERVER_URL: http://minio:9000
       MINIO_REGION: ${TESTS_MINIO_REGION}
     healthcheck:
-      test: [CMD, curl, -f, http://localhost:9000/minio/health/live]
+      test: [CMD, mc, ready, local]
       interval: 10s
       timeout: 10s
       retries: 3

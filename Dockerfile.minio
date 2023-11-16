@@ -1,0 +1,3 @@
+ARG MINIO_TAG=RELEASE.2023-11-15T20-43-25Z
+FROM minio/minio:${MINIO_TAG}
+CMD ["server", "/data", "--console-address", ":9001"]

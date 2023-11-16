@@ -37,7 +37,7 @@ tasks:
   dev-up:
     desc: Start the development stack
     cmds:
-      - docker compose -f {{.ROOT_DIR}}/docker-compose-dev.yml up -d --build --wait
+      - docker compose -f {{.ROOT_DIR}}/docker-compose-dev.yml up -d --build
 
   dev-down:
     desc: Stop and remove all traces of the development stack
@@ -83,3 +83,10 @@ tasks:
       - task: test-deps-up
       - poetry run pytest -v
       - task: test-deps-down
+
+  push-minio-image:
+    desc: Push a MinIO image tailored for GitHub Actions
+    cmds:
+      - docker build -f {{.ROOT_DIR}}/Dockerfile.minio -t {{.ACTIONS_MINIO_IMAGE_LOCAL}} {{.ROOT_DIR}}
+      - docker tag {{.ACTIONS_MINIO_IMAGE_LOCAL}} {{.ACTIONS_MINIO_IMAGE_REMOTE}}:{{.ACTIONS_MINIO_IMAGE_REMOTE_TAG}}
+      - docker push {{.ACTIONS_MINIO_IMAGE_REMOTE}}:{{.ACTIONS_MINIO_IMAGE_REMOTE_TAG}}
