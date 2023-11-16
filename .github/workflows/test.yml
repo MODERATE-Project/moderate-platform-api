@@ -24,7 +24,6 @@ jobs:
         ports:
           - 9000:9000
           - 9001:9001
-        options: server /data --console-address ":9001"
     env:
       # trunk-ignore(checkov/CKV_SECRET_4)
       TESTS_POSTGRES_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/moderateapi
