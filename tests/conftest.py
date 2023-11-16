@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from moderate_api.config import get_settings
 from moderate_api.db import DBEngine
 from moderate_api.main import app
-from moderate_api.object_storage import get_s3_client
+from moderate_api.object_storage import with_s3
 from tests.db import DB_SKIP_REASON, ENV_TESTS_POSTGRES_URL, is_db_online_async
 
 _ENV_POSTGRES_URL = "MODERATE_API_POSTGRES_URL"
@@ -182,8 +182,9 @@ async def s3():
     try:
         settings = get_settings()
         _logger.info("S3 settings:\n%s", settings.s3.json(indent=2))
-        s3 = get_s3_client(settings=get_settings())
-        yield s3
+
+        async with with_s3(settings=settings) as s3:
+            yield s3
     except Exception as ex:
         _logger.info("S3 is offline", exc_info=True)
         pytest.skip("S3 is offline")
