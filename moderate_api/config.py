@@ -1,5 +1,6 @@
 import logging
 from functools import lru_cache
+from typing import Optional
 
 from fastapi import Depends
 from pydantic import BaseModel, BaseSettings
@@ -17,14 +18,25 @@ class OAuthNamesModel(BaseModel):
     role_basic_access: str = "api_basic_access"
 
 
+class S3Model(BaseModel):
+    access_key: str
+    secret_key: str
+    endpoint_url: str = "https://storage.googleapis.com"
+    use_ssl: bool = True
+    region: str
+    bucket: str
+
+
 class Settings(BaseSettings):
     class Config:
         env_prefix = _ENV_PREFIX
         env_nested_delimiter = _ENV_NESTED_DELIMITER
 
+    s3: Optional[S3Model] = None
     oauth_names: OAuthNamesModel = OAuthNamesModel()
     openid_config_url: str = "https://keycloak.moderate.cloud/realms/moderate/.well-known/openid-configuration"
     disable_token_verification: bool = False
+
     postgres_url: str = (
         "postgresql+asyncpg://postgres:postgres@localhost:5432/moderateapi/"
     )

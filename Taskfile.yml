@@ -2,16 +2,34 @@ version: "3"
 
 vars:
   COMPOSE_PROJECT_NAME: moderateapi
-  TEST_POSTGRES_USER: postgres
-  TEST_POSTGRES_PASSWORD: postgres
-  TEST_POSTGRES_DB: testsmoderateapi
-  TEST_POSTGRES_PUBLIC_PORT: 15432
-  TEST_POSTGRES_NAME: postgres_tests
-  TESTS_POSTGRES_URL: postgresql+asyncpg://{{.TEST_POSTGRES_USER}}:{{.TEST_POSTGRES_PASSWORD}}@localhost:{{.TEST_POSTGRES_PUBLIC_PORT}}/{{.TEST_POSTGRES_DB}}
+  TESTS_COMPOSE_PROJECT_NAME: moderateapi_tests
+  TESTS_POSTGRES_USER: postgres
+  TESTS_POSTGRES_PASSWORD: postgres
+  TESTS_POSTGRES_DB: testsmoderateapi
+  TESTS_POSTGRES_PUBLIC_PORT: 15432
+  TESTS_POSTGRES_URL: postgresql+asyncpg://{{.TESTS_POSTGRES_USER}}:{{.TESTS_POSTGRES_PASSWORD}}@localhost:{{.TESTS_POSTGRES_PUBLIC_PORT}}/{{.TESTS_POSTGRES_DB}}
+  TESTS_MINIO_PUBLIC_PORT: 19000
+  TESTS_MINIO_PUBLIC_PORT_CONSOLE: 19001
+  TESTS_MINIO_ROOT_USER: minio
+  TESTS_MINIO_ROOT_PASSWORD: minio123
+  TESTS_MINIO_REGION: eu-central-1
+  TESTS_MINIO_BUCKET_NAME: moderateapi-tests
+  TESTS_MINIO_ENDPOINT_URL: http://localhost:{{.TESTS_MINIO_PUBLIC_PORT}}
 
 env:
   COMPOSE_PROJECT_NAME: "{{.COMPOSE_PROJECT_NAME}}"
+  TESTS_POSTGRES_USER: "{{.TESTS_POSTGRES_USER}}"
+  TESTS_POSTGRES_PASSWORD: "{{.TESTS_POSTGRES_PASSWORD}}"
+  TESTS_POSTGRES_DB: "{{.TESTS_POSTGRES_DB}}"
+  TESTS_POSTGRES_PUBLIC_PORT: "{{.TESTS_POSTGRES_PUBLIC_PORT}}"
   TESTS_POSTGRES_URL: "{{.TESTS_POSTGRES_URL}}"
+  TESTS_MINIO_PUBLIC_PORT: "{{.TESTS_MINIO_PUBLIC_PORT}}"
+  TESTS_MINIO_PUBLIC_PORT_CONSOLE: "{{.TESTS_MINIO_PUBLIC_PORT_CONSOLE}}"
+  TESTS_MINIO_ROOT_USER: "{{.TESTS_MINIO_ROOT_USER}}"
+  TESTS_MINIO_ROOT_PASSWORD: "{{.TESTS_MINIO_ROOT_PASSWORD}}"
+  TESTS_MINIO_REGION: "{{.TESTS_MINIO_REGION}}"
+  TESTS_MINIO_BUCKET_NAME: "{{.TESTS_MINIO_BUCKET_NAME}}"
+  TESTS_MINIO_ENDPOINT_URL: "{{.TESTS_MINIO_ENDPOINT_URL}}"
 
 dotenv: [.env.dev, .env.dev.default]
 
@@ -26,33 +44,42 @@ tasks:
     cmds:
       - docker compose -f {{.ROOT_DIR}}/docker-compose-dev.yml down -v
 
-  test-pg:
-    desc: Start a postgres container for testing
-    vars:
-      SLEEP_POST_RUN: 10
+  test-deps-up:
+    desc: Start the services needed for testing
     cmds:
-      - docker stop {{.TEST_POSTGRES_NAME}} || true
-      - docker rm {{.TEST_POSTGRES_NAME}} || true
       - >
-        docker run -d -p {{.TEST_POSTGRES_PUBLIC_PORT}}:5432
-        -e POSTGRES_USER={{.TEST_POSTGRES_USER}}
-        -e POSTGRES_PASSWORD={{.TEST_POSTGRES_PASSWORD}}
-        -e POSTGRES_DB={{.TEST_POSTGRES_DB}}
-        --name {{.TEST_POSTGRES_NAME}}
-        postgres:15
-      - sleep {{.SLEEP_POST_RUN}}
-    status:
-      - test -n "$(docker ps --quiet -f name={{.TEST_POSTGRES_NAME}} -f status=running)"
+        docker compose
+        -p {{.TESTS_COMPOSE_PROJECT_NAME}}
+        -f {{.ROOT_DIR}}/docker-compose-tests.yml
+        up -d --build --wait
 
-  export-test-pg:
-    silent: true
-    desc: Export the test postgres url
+  test-deps-down:
+    desc: Stop the services needed for testing
     cmds:
-      - echo "export TESTS_POSTGRES_URL={{.TESTS_POSTGRES_URL}}"
+      - >
+        docker compose
+        -p {{.TESTS_COMPOSE_PROJECT_NAME}}
+        -f {{.ROOT_DIR}}/docker-compose-tests.yml
+        down -v
+
+  export-test-env:
+    silent: true
+    desc: Export the environment variables to run the tests
+    cmds:
+      - >
+        echo "
+        export TESTS_POSTGRES_URL={{.TESTS_POSTGRES_URL}} &&
+        export TESTS_MINIO_PUBLIC_PORT={{.TESTS_MINIO_PUBLIC_PORT}} &&
+        export TESTS_MINIO_PUBLIC_PORT_CONSOLE={{.TESTS_MINIO_PUBLIC_PORT_CONSOLE}} &&
+        export TESTS_MINIO_ROOT_USER={{.TESTS_MINIO_ROOT_USER}} &&
+        export TESTS_MINIO_ROOT_PASSWORD={{.TESTS_MINIO_ROOT_PASSWORD}} &&
+        export TESTS_MINIO_REGION={{.TESTS_MINIO_REGION}} &&
+        export TESTS_MINIO_BUCKET_NAME={{.TESTS_MINIO_BUCKET_NAME}} &&
+        export TESTS_MINIO_ENDPOINT_URL={{.TESTS_MINIO_ENDPOINT_URL}}"
 
   test:
     desc: Run the test suite
-    deps:
-      - test-pg
     cmds:
+      - task: test-deps-up
       - poetry run pytest -v
+      - task: test-deps-down

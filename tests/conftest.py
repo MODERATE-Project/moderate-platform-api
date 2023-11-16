@@ -9,8 +9,10 @@ import pytest_asyncio
 import sqlalchemy
 from fastapi.testclient import TestClient
 
+from moderate_api.config import get_settings
 from moderate_api.db import DBEngine
 from moderate_api.main import app
+from moderate_api.object_storage import get_s3_client
 from tests.db import DB_SKIP_REASON, ENV_TESTS_POSTGRES_URL, is_db_online_async
 
 _ENV_POSTGRES_URL = "MODERATE_API_POSTGRES_URL"
@@ -18,6 +20,12 @@ _ENV_DISABLE_AUTH_VERIFICATION = "MODERATE_API_DISABLE_TOKEN_VERIFICATION"
 _ENV_API_GW_CLIENT_ID = "MODERATE_API_OAUTH_NAMES__API_GW_CLIENT_ID"
 _ENV_ROLE_BASIC_ACCESS = "MODERATE_API_OAUTH_NAMES__ROLE_BASIC_ACCESS"
 _ENV_LOG_LEVEL = "LOG_LEVEL"
+_ENV_S3_ACCESS_KEY = "MODERATE_API_S3__ACCESS_KEY"
+_ENV_S3_SECRET_KEY = "MODERATE_API_S3__SECRET_KEY"
+_ENV_S3_ENDPOINT_URL = "MODERATE_API_S3__ENDPOINT_URL"
+_ENV_S3_USE_SSL = "MODERATE_API_S3__USE_SSL"
+_ENV_S3_REGION = "MODERATE_API_S3__REGION"
+_ENV_S3_BUCKET = "MODERATE_API_S3__BUCKET"
 
 _ENV_KEYS = [
     _ENV_DISABLE_AUTH_VERIFICATION,
@@ -25,7 +33,14 @@ _ENV_KEYS = [
     _ENV_ROLE_BASIC_ACCESS,
     _ENV_LOG_LEVEL,
     _ENV_POSTGRES_URL,
+    _ENV_S3_ACCESS_KEY,
+    _ENV_S3_SECRET_KEY,
+    _ENV_S3_ENDPOINT_URL,
+    _ENV_S3_USE_SSL,
+    _ENV_S3_REGION,
+    _ENV_S3_BUCKET,
 ]
+
 
 _original_env = {}
 
@@ -38,6 +53,14 @@ _test_env = {
         ENV_TESTS_POSTGRES_URL,
         "postgresql://postgres:postgres@localhost:5432/testsmoderateapi",
     ),
+    _ENV_S3_ACCESS_KEY: os.getenv("TESTS_MINIO_ROOT_USER", "minio"),
+    _ENV_S3_SECRET_KEY: os.getenv("TESTS_MINIO_ROOT_PASSWORD", "minio123"),
+    _ENV_S3_ENDPOINT_URL: os.getenv(
+        "TESTS_MINIO_ENDPOINT_URL", "http://localhost:9000"
+    ),
+    _ENV_S3_USE_SSL: os.getenv("TESTS_MINIO_USE_SSL", "false"),
+    _ENV_S3_REGION: os.getenv("TESTS_MINIO_REGION", "eu-central-1"),
+    _ENV_S3_BUCKET: os.getenv("TESTS_MINIO_BUCKET", "moderatetests"),
 }
 
 _logger = logging.getLogger(__name__)
@@ -147,5 +170,20 @@ async def truncate_tables():
 @pytest_asyncio.fixture(autouse=True, scope="function")
 async def skip_if_db_offline():
     _logger.debug("Checking that database is online")
+
     if await is_db_online_async() is False:
         pytest.skip(DB_SKIP_REASON)
+
+
+@pytest_asyncio.fixture(scope="function")
+async def s3():
+    _logger.debug("Checking that S3 is online")
+
+    try:
+        settings = get_settings()
+        _logger.info("S3 settings:\n%s", settings.s3.json(indent=2))
+        s3 = get_s3_client(settings=get_settings())
+        yield s3
+    except Exception as ex:
+        _logger.info("S3 is offline", exc_info=True)
+        pytest.skip("S3 is offline")
