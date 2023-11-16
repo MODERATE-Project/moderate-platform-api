@@ -1,3 +1,4 @@
 ARG MINIO_TAG=RELEASE.2023-11-15T20-43-25Z
 FROM minio/minio:${MINIO_TAG}
-CMD ["server", "/data", "--console-address", ":9001"]
+EXPOSE 9000 9001
+CMD ["server", "/data", "--address", "0.0.0.0:9000", "--console-address", "0.0.0.0:9001"]

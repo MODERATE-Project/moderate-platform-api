@@ -24,7 +24,6 @@ services:
     environment:
       MINIO_ROOT_USER: ${TESTS_MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${TESTS_MINIO_ROOT_PASSWORD}
-      MINIO_SERVER_URL: http://minio:9000
       MINIO_REGION: ${TESTS_MINIO_REGION}
     healthcheck:
       test: [CMD, mc, ready, local]
