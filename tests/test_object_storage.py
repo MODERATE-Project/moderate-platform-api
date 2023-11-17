@@ -11,9 +11,15 @@ from typing import Optional
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlmodel import select
 
 from moderate_api.db import with_session
-from moderate_api.entities.asset import Asset, AssetCreate, get_asset_presigned_urls
+from moderate_api.entities.asset import (
+    Asset,
+    AssetCreate,
+    UploadedS3Object,
+    get_asset_presigned_urls,
+)
 from moderate_api.main import app
 
 _logger = logging.getLogger(__name__)
@@ -141,3 +147,28 @@ async def test_download_route(access_token):
         res_json = response.json()
         _logger.info("Response:\n%s", pprint.pformat(res_json))
         assert len(res_json) == num_files
+
+
+async def _get_num_uploaded_objects() -> int:
+    async with with_session() as session:
+        stmt = select(UploadedS3Object)
+        result = await session.execute(stmt)
+        uploaded_objects = result.all()
+        return len(uploaded_objects)
+
+
+@pytest.mark.asyncio
+async def test_delete_asset_with_objects(access_token):
+    num_files = 2
+    asset_id = _upload_test_files(access_token, num_files=num_files)
+    assert await _get_num_uploaded_objects() == num_files
+
+    with TestClient(app) as client:
+        response = client.delete(
+            f"/asset/{asset_id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.raise_for_status()
+
+    assert await _get_num_uploaded_objects() == 0

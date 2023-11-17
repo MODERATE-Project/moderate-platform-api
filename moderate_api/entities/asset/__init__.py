@@ -70,7 +70,8 @@ class Asset(AssetBase, table=True):
     access_level: AssetAccessLevels = Field(default=AssetAccessLevels.PRIVATE)
 
     objects: List[UploadedS3Object] = Relationship(
-        back_populates="asset", sa_relationship_kwargs={"lazy": "selectin"}
+        back_populates="asset",
+        sa_relationship_kwargs={"lazy": "selectin", "cascade": "delete"},
     )
 
 
