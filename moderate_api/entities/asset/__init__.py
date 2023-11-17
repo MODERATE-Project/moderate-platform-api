@@ -6,7 +6,6 @@ from datetime import datetime
 from io import BytesIO
 from typing import Any, Dict, List, Optional
 
-from botocore.exceptions import ClientError
 from fastapi import APIRouter, File, Query, UploadFile
 from slugify import slugify
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -38,6 +37,7 @@ _CHUNK_SIZE = 16 * 1024**2
 class AssetAccessLevels(enum.Enum):
     PUBLIC = "public"
     PRIVATE = "private"
+    VISIBLE = "visible"
 
 
 class UploadedS3Object(SQLModel, table=True):
@@ -66,7 +66,7 @@ class AssetBase(SQLModel):
 class Asset(AssetBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     username: str
-    access_level: str = AssetAccessLevels.PRIVATE.value
+    access_level: AssetAccessLevels = Field(default=AssetAccessLevels.PRIVATE)
 
     objects: List[UploadedS3Object] = Relationship(
         back_populates="asset", sa_relationship_kwargs={"lazy": "selectin"}
@@ -89,7 +89,7 @@ async def build_selector(user: User, session: AsyncSession) -> UserSelectorBuild
     return [
         or_(
             Asset.username == user.username,
-            Asset.access_level == AssetAccessLevels.PUBLIC.value,
+            Asset.access_level == AssetAccessLevels.PUBLIC,
         )
     ]
 
