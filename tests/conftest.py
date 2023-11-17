@@ -151,20 +151,15 @@ def client():
 
 
 @pytest_asyncio.fixture(autouse=True, scope="function")
-async def truncate_tables():
+async def drop_all_tables():
     try:
         yield
     finally:
         async with DBEngine.instance().begin() as conn:
-            tables = await conn.run_sync(
-                lambda sync_conn: sqlalchemy.inspect(sync_conn).get_table_names()
-            )
-
-            _logger.info("Truncating tables: %s", tables)
-
-            for table in tables:
-                await conn.execute(sqlalchemy.text(f"TRUNCATE TABLE {table}"))
-                _logger.debug("Truncated table: %s", table)
+            metadata = sqlalchemy.MetaData()
+            await conn.run_sync(lambda sc: metadata.reflect(sc))
+            await conn.run_sync(lambda sc: metadata.drop_all(sc))
+            _logger.info("Dropped all tables")
 
 
 @pytest_asyncio.fixture(autouse=True, scope="function")
