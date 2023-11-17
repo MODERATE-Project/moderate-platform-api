@@ -10,6 +10,8 @@ from fastapi import HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy import asc, desc
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+from sqlalchemy.orm.attributes import InstrumentedAttribute
 from sqlalchemy.sql.elements import BinaryExpression, UnaryExpression
 from sqlmodel import SQLModel, select
 
@@ -251,6 +253,7 @@ async def read_many(
     user_selector: Optional[List[BinaryExpression]] = None,
     json_filters: Optional[str] = None,
     json_sorts: Optional[str] = None,
+    select_in_load: Optional[List[InstrumentedAttribute]] = None,
 ):
     """Reusable helper function to read many entities."""
 
@@ -263,6 +266,12 @@ async def read_many(
     crud_sorts: List[CrudSort] = CrudSort.from_json(json_sorts) if json_sorts else []
 
     statement = select(sql_model).offset(offset).limit(limit)
+
+    select_in_load = select_in_load or []
+
+    for item in select_in_load:
+        _logger.debug("Applying selectinload: %s", item)
+        statement = statement.options(selectinload(item))
 
     if user_selector:
         _logger.debug("Applying user selector as WHERE: %s", user_selector)
@@ -297,10 +306,17 @@ async def select_one(
     entity_id: int,
     session: AsyncSession,
     user_selector: Optional[List[BinaryExpression]] = None,
+    select_in_load: Optional[List[InstrumentedAttribute]] = None,
 ) -> SQLModel:
     statement = select(sql_model).where(
         getattr(sql_model, _primary_key(sql_model)) == entity_id
     )
+
+    select_in_load = select_in_load or []
+
+    for item in select_in_load:
+        _logger.debug("Applying selectinload: %s", item)
+        statement = statement.options(selectinload(item))
 
     if user_selector:
         statement = statement.where(*user_selector)
@@ -322,6 +338,7 @@ async def read_one(
     session: AsyncSession,
     entity_id: int,
     user_selector: Optional[List[BinaryExpression]] = None,
+    select_in_load: Optional[List[InstrumentedAttribute]] = None,
 ):
     """Reusable helper function to read one entity."""
 
@@ -333,6 +350,7 @@ async def read_one(
         entity_id=entity_id,
         session=session,
         user_selector=user_selector,
+        select_in_load=select_in_load,
     )
 
 

@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, File, Query, UploadFile
 from slugify import slugify
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, Relationship, SQLModel
 
 from moderate_api.authz import UserDep, UserSelectorBuilder
 from moderate_api.authz.user import User
@@ -42,6 +42,14 @@ class UploadedS3Object(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     asset_id: Optional[int] = Field(default=None, foreign_key="asset.id")
 
+    # It is necessary to set "lazy" to "selectin"
+    # for relationships to work with the async interface
+    # https://github.com/tiangolo/sqlmodel/issues/74
+    asset: Optional["Asset"] = Relationship(
+        back_populates="objects",
+        sa_relationship_kwargs={"lazy": "selectin"},
+    )
+
 
 class AssetBase(SQLModel):
     uuid: str
@@ -52,6 +60,10 @@ class Asset(AssetBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     username: str
 
+    objects: List[UploadedS3Object] = Relationship(
+        back_populates="asset", sa_relationship_kwargs={"lazy": "selectin"}
+    )
+
 
 class AssetCreate(AssetBase):
     pass
@@ -59,6 +71,7 @@ class AssetCreate(AssetBase):
 
 class AssetRead(AssetBase):
     id: int
+    objects: List[UploadedS3Object]
 
 
 class AssetUpdate(SQLModel):
@@ -88,7 +101,7 @@ def get_user_assets_bucket(user: User) -> str:
     return f"moderate-{user.username}-assets"
 
 
-@router.post("/{entity_id}/object", response_model=UploadedS3Object, tags=[_TAG])
+@router.post("/{entity_id}/object", response_model=AssetRead, tags=[_TAG])
 async def upload_object(
     *,
     user: UserDep,
@@ -162,8 +175,9 @@ async def upload_object(
 
     session.add(uploaded_s3_object)
     await session.commit()
+    await session.refresh(the_asset)
 
-    return uploaded_s3_object
+    return the_asset
 
 
 @router.post("/", response_model=AssetRead, tags=[_TAG])
