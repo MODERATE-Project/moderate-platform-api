@@ -136,13 +136,11 @@ async def get_asset_presigned_urls(
     return ret
 
 
-@router.get(
-    "/{entity_id}/download-urls", response_model=List[AssetDownloadURLs], tags=[_TAG]
-)
+@router.get("/{id}/download-urls", response_model=List[AssetDownloadURLs], tags=[_TAG])
 async def download_asset(
-    *, user: OptionalUserDep, session: AsyncSessionDep, s3: S3ClientDep, entity_id: int
+    *, user: OptionalUserDep, session: AsyncSessionDep, s3: S3ClientDep, id: int
 ):
-    stmt = select(Asset).where(Asset.id == entity_id)
+    stmt = select(Asset).where(Asset.id == id)
     download_constraints = [Asset.access_level == AssetAccessLevels.PUBLIC]
 
     if user:
@@ -160,16 +158,16 @@ async def download_asset(
     return await get_asset_presigned_urls(s3=s3, asset=asset)
 
 
-@router.post("/{entity_id}/object", response_model=UploadedS3Object, tags=[_TAG])
+@router.post("/{id}/object", response_model=UploadedS3Object, tags=[_TAG])
 async def upload_object(
     user: UserDep,
     session: AsyncSessionDep,
-    entity_id: int,
+    id: int,
     s3: S3ClientDep,
     obj: UploadFile = File(...),
 ):
     """Uploads a new object (e.g. a CSV dataset file) to MODERATE's
-    object storage service and associates it with the _Asset_ given by `entity_id`.
+    object storage service and associates it with the _Asset_ given by `id`.
     Note that an _Asset_ may have many objects."""
 
     user.enforce_raise(obj=_ENTITY.value, act=Actions.UPDATE.value)
@@ -177,7 +175,7 @@ async def upload_object(
 
     the_asset = await select_one(
         sql_model=Asset,
-        entity_id=entity_id,
+        entity_id=id,
         session=session,
         user_selector=user_selector,
     )
@@ -280,8 +278,8 @@ async def read_assets(
     )
 
 
-@router.get("/{entity_id}", response_model=AssetRead, tags=[_TAG])
-async def read_asset(*, user: UserDep, session: AsyncSessionDep, entity_id: int):
+@router.get("/{id}", response_model=AssetRead, tags=[_TAG])
+async def read_asset(*, user: UserDep, session: AsyncSessionDep, id: int):
     """Read one asset."""
 
     user_selector = await build_selector(user=user, session=session)
@@ -291,14 +289,14 @@ async def read_asset(*, user: UserDep, session: AsyncSessionDep, entity_id: int)
         entity=_ENTITY,
         sql_model=Asset,
         session=session,
-        entity_id=entity_id,
+        entity_id=id,
         user_selector=user_selector,
     )
 
 
-@router.patch("/{entity_id}", response_model=AssetRead, tags=[_TAG])
+@router.patch("/{id}", response_model=AssetRead, tags=[_TAG])
 async def update_asset(
-    *, user: UserDep, session: AsyncSessionDep, entity_id: int, entity: AssetUpdate
+    *, user: UserDep, session: AsyncSessionDep, id: int, entity: AssetUpdate
 ):
     """Update one asset."""
 
@@ -309,14 +307,14 @@ async def update_asset(
         entity=_ENTITY,
         sql_model=Asset,
         session=session,
-        entity_id=entity_id,
+        entity_id=id,
         entity_update=entity,
         user_selector=user_selector,
     )
 
 
-@router.delete("/{entity_id}", tags=[_TAG])
-async def delete_asset(*, user: UserDep, session: AsyncSessionDep, entity_id: int):
+@router.delete("/{id}", tags=[_TAG])
+async def delete_asset(*, user: UserDep, session: AsyncSessionDep, id: int):
     """Delete one asset."""
 
     user_selector = await build_selector(user=user, session=session)
@@ -326,6 +324,6 @@ async def delete_asset(*, user: UserDep, session: AsyncSessionDep, entity_id: in
         entity=_ENTITY,
         sql_model=Asset,
         session=session,
-        entity_id=entity_id,
+        entity_id=id,
         user_selector=user_selector,
     )
