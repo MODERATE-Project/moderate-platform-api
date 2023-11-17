@@ -124,3 +124,20 @@ async def test_presigned_urls(access_token, s3):
         urls = await get_asset_presigned_urls(s3=s3, asset=the_asset)
         _logger.info("Presigned URLs:\n%s", pprint.pformat(urls))
         assert len(urls) == num_files
+
+
+@pytest.mark.asyncio
+async def test_download_route(access_token):
+    num_files = random.randint(2, 5)
+    asset_id = _upload_test_files(access_token, num_files=num_files)
+
+    with TestClient(app) as client:
+        response = client.get(
+            "/asset/{}/download-urls".format(asset_id),
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.raise_for_status()
+        res_json = response.json()
+        _logger.info("Response:\n%s", pprint.pformat(res_json))
+        assert len(res_json) == num_files

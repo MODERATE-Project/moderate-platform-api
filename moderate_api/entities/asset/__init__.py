@@ -6,13 +6,14 @@ from datetime import datetime
 from io import BytesIO
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, File, Query, UploadFile
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
+from pydantic import BaseModel
 from slugify import slugify
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import Field, Relationship, SQLModel, or_
+from sqlmodel import Field, Relationship, SQLModel, or_, select
 
-from moderate_api.authz import UserDep, UserSelectorBuilder
-from moderate_api.authz.user import User
+from moderate_api.authz import User, UserDep, UserSelectorBuilder
+from moderate_api.authz.user import OptionalUserDep, User
 from moderate_api.db import AsyncSessionDep
 from moderate_api.entities.crud import (
     CrudFiltersQuery,
@@ -113,26 +114,54 @@ def get_user_assets_bucket(user: User) -> str:
     return f"moderate-{user.username}-assets"
 
 
+class AssetDownloadURLs(BaseModel):
+    key: str
+    download_url: str
+
+
 async def get_asset_presigned_urls(
     s3: S3ClientDep, asset: Asset, expiration_secs: Optional[int] = 3600
-) -> Dict[str, str]:
-    ret = {}
+) -> List[AssetDownloadURLs]:
+    ret = []
 
     for s3_object in asset.objects:
-        the_url = await s3.generate_presigned_url(
+        download_url = await s3.generate_presigned_url(
             "get_object",
             Params={"Bucket": s3_object.bucket, "Key": s3_object.key},
             ExpiresIn=expiration_secs,
         )
 
-        ret[s3_object.key] = the_url
+        ret.append(AssetDownloadURLs(key=s3_object.key, download_url=download_url))
 
     return ret
 
 
+@router.get(
+    "/{entity_id}/download-urls", response_model=List[AssetDownloadURLs], tags=[_TAG]
+)
+async def download_asset(
+    *, user: OptionalUserDep, session: AsyncSessionDep, s3: S3ClientDep, entity_id: int
+):
+    stmt = select(Asset).where(Asset.id == entity_id)
+    download_constraints = [Asset.access_level == AssetAccessLevels.PUBLIC]
+
+    if user:
+        download_constraints.append(Asset.username == user.username)
+
+    stmt = stmt.where(or_(*download_constraints))
+    result = await session.execute(stmt)
+    asset = result.one_or_none()
+
+    if not asset:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    asset = asset[0]
+
+    return await get_asset_presigned_urls(s3=s3, asset=asset)
+
+
 @router.post("/{entity_id}/object", response_model=UploadedS3Object, tags=[_TAG])
 async def upload_object(
-    *,
     user: UserDep,
     session: AsyncSessionDep,
     entity_id: int,
