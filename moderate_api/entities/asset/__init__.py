@@ -6,6 +6,7 @@ from datetime import datetime
 from io import BytesIO
 from typing import Any, Dict, List, Optional
 
+from botocore.exceptions import ClientError
 from fastapi import APIRouter, File, Query, UploadFile
 from slugify import slugify
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -110,6 +111,23 @@ def build_object_key(obj: UploadFile) -> str:
 
 def get_user_assets_bucket(user: User) -> str:
     return f"moderate-{user.username}-assets"
+
+
+async def get_asset_presigned_urls(
+    s3: S3ClientDep, asset: Asset, expiration_secs: Optional[int] = 3600
+) -> Dict[str, str]:
+    ret = {}
+
+    for s3_object in asset.objects:
+        the_url = await s3.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": s3_object.bucket, "Key": s3_object.key},
+            ExpiresIn=expiration_secs,
+        )
+
+        ret[s3_object.key] = the_url
+
+    return ret
 
 
 @router.post("/{entity_id}/object", response_model=UploadedS3Object, tags=[_TAG])

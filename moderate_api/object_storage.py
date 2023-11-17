@@ -1,5 +1,5 @@
-from contextlib import asynccontextmanager
 import logging
+from contextlib import asynccontextmanager
 
 from aiobotocore.client import AioBaseClient
 from aiobotocore.session import get_session

@@ -1,5 +1,6 @@
 import logging
 import sys
+from contextlib import asynccontextmanager
 
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
@@ -50,12 +51,18 @@ class DBEngine:
         return cls._instance
 
 
-async def get_session() -> AsyncSession:
+@asynccontextmanager
+async def with_session() -> AsyncSession:
     engine = DBEngine.instance()
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     _logger.debug("Initialized session factory: %s", async_session)
 
     async with async_session() as session:
+        yield session
+
+
+async def get_session() -> AsyncSession:
+    async with with_session() as session:
         yield session
 
 

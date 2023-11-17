@@ -6,12 +6,14 @@ import random
 import tempfile
 import uuid
 from contextlib import ExitStack, contextmanager
+from io import BufferedReader
 from typing import Optional
 
 import pytest
 from fastapi.testclient import TestClient
 
-from moderate_api.entities.asset import AssetCreate
+from moderate_api.db import with_session
+from moderate_api.entities.asset import Asset, AssetCreate, get_asset_presigned_urls
 from moderate_api.main import app
 
 _logger = logging.getLogger(__name__)
@@ -69,29 +71,56 @@ async def test_s3_client_dep(s3):
     assert "Buckets" in res_buckets
 
 
-@pytest.mark.asyncio
-async def test_upload_object(access_token):
+def _post_upload(
+    client: TestClient, the_asset: dict, the_access_token: str, fh: BufferedReader
+):
+    upload_name = "upload-{}.csv".format(uuid.uuid4().hex)
+
+    response = client.post(
+        "/asset/{}/object".format(the_asset["id"]),
+        headers={"Authorization": f"Bearer {the_access_token}"},
+        files={"obj": (upload_name, fh)},
+    )
+
+    assert response.raise_for_status()
+    return response
+
+
+def _upload_test_files(the_access_token: str, num_files: Optional[int] = 2) -> str:
     with ExitStack() as stack:
         client = stack.enter_context(TestClient(app))
 
         temp_csv_paths = []
 
-        for _ in range(2):
+        for _ in range(num_files):
             temp_csv_path = stack.enter_context(_temp_csv())
             temp_csv_paths.append(temp_csv_path)
 
-        the_asset = _create_asset(client, access_token)
+        the_asset = _create_asset(client, the_access_token)
 
-        for idx, temp_path in enumerate(temp_csv_paths):
+        for temp_path in temp_csv_paths:
             with open(temp_path, "rb") as fh:
-                upload_name = "upload-{}.csv".format(uuid.uuid4().hex)
-
-                response = client.post(
-                    "/asset/{}/object".format(the_asset["id"]),
-                    headers={"Authorization": f"Bearer {access_token}"},
-                    files={"obj": (upload_name, fh)},
-                )
-
-                assert response.raise_for_status()
+                response = _post_upload(client, the_asset, the_access_token, fh)
                 res_json = response.json()
                 _logger.info("Response:\n%s", pprint.pformat(res_json))
+
+        return the_asset["id"]
+
+
+@pytest.mark.asyncio
+async def test_upload_object(access_token):
+    _upload_test_files(access_token)
+
+
+@pytest.mark.asyncio
+async def test_presigned_urls(access_token, s3):
+    num_files = random.randint(2, 5)
+    asset_id = _upload_test_files(access_token, num_files=num_files)
+
+    async with with_session() as session:
+        assert session
+        the_asset = await session.get(Asset, asset_id)
+        assert the_asset.id == asset_id
+        urls = await get_asset_presigned_urls(s3=s3, asset=the_asset)
+        _logger.info("Presigned URLs:\n%s", pprint.pformat(urls))
+        assert len(urls) == num_files
