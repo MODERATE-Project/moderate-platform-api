@@ -78,7 +78,6 @@ class AssetCreate(AssetBase):
 
 class AssetRead(AssetBase):
     id: int
-    objects: List[UploadedS3Object]
 
 
 class AssetUpdate(SQLModel):
@@ -113,7 +112,7 @@ def get_user_assets_bucket(user: User) -> str:
     return f"moderate-{user.username}-assets"
 
 
-@router.post("/{entity_id}/object", response_model=AssetRead, tags=[_TAG])
+@router.post("/{entity_id}/object", response_model=UploadedS3Object, tags=[_TAG])
 async def upload_object(
     *,
     user: UserDep,
@@ -187,9 +186,8 @@ async def upload_object(
 
     session.add(uploaded_s3_object)
     await session.commit()
-    await session.refresh(the_asset)
 
-    return the_asset
+    return uploaded_s3_object
 
 
 @router.post("/", response_model=AssetRead, tags=[_TAG])

@@ -76,7 +76,7 @@ async def test_upload_object(access_token):
 
         temp_csv_paths = []
 
-        for _ in range(3):
+        for _ in range(2):
             temp_csv_path = stack.enter_context(_temp_csv())
             temp_csv_paths.append(temp_csv_path)
 
@@ -95,5 +95,3 @@ async def test_upload_object(access_token):
                 assert response.raise_for_status()
                 res_json = response.json()
                 _logger.info("Response:\n%s", pprint.pformat(res_json))
-                assert len(res_json["objects"]) == idx + 1
-                assert len(set(obj["key"] for obj in res_json["objects"])) == idx + 1
