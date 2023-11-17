@@ -155,11 +155,26 @@ async def drop_all_tables():
     try:
         yield
     finally:
+        # This logger is way too verbose
+        sa_logger = logging.getLogger("sqlalchemy.engine.Engine")
+        original_handlers = sa_logger.handlers
+        original_propagate = sa_logger.propagate
+
+        for handler in sa_logger.handlers[:]:
+            sa_logger.removeHandler(handler)
+
+        sa_logger.propagate = False
+
         async with DBEngine.instance().begin() as conn:
             metadata = sqlalchemy.MetaData()
             await conn.run_sync(lambda sc: metadata.reflect(sc))
             await conn.run_sync(lambda sc: metadata.drop_all(sc))
             _logger.info("Dropped all tables")
+
+        for handler in original_handlers:
+            sa_logger.addHandler(handler)
+
+        sa_logger.propagate = original_propagate
 
 
 @pytest_asyncio.fixture(autouse=True, scope="function")
