@@ -5,7 +5,7 @@ import pprint
 import random
 import tempfile
 import uuid
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from typing import Optional
 
 import pytest
@@ -71,17 +71,29 @@ async def test_s3_client_dep(s3):
 
 @pytest.mark.asyncio
 async def test_upload_object(access_token):
-    with TestClient(app) as client, _temp_csv() as temp_csv_path:
+    with ExitStack() as stack:
+        client = stack.enter_context(TestClient(app))
+
+        temp_csv_paths = []
+
+        for _ in range(3):
+            temp_csv_path = stack.enter_context(_temp_csv())
+            temp_csv_paths.append(temp_csv_path)
+
         the_asset = _create_asset(client, access_token)
 
-        with open(temp_csv_path, "rb") as fh:
-            upload_name = "upload-{}.csv".format(uuid.uuid4().hex)
+        for idx, temp_path in enumerate(temp_csv_paths):
+            with open(temp_path, "rb") as fh:
+                upload_name = "upload-{}.csv".format(uuid.uuid4().hex)
 
-            response = client.post(
-                "/asset/{}/object".format(the_asset["id"]),
-                headers={"Authorization": f"Bearer {access_token}"},
-                files={"obj": (upload_name, fh)},
-            )
+                response = client.post(
+                    "/asset/{}/object".format(the_asset["id"]),
+                    headers={"Authorization": f"Bearer {access_token}"},
+                    files={"obj": (upload_name, fh)},
+                )
 
-            assert response.raise_for_status()
-            _logger.debug("Response:\n%s", pprint.pformat(response.json()))
+                assert response.raise_for_status()
+                res_json = response.json()
+                _logger.info("Response:\n%s", pprint.pformat(res_json))
+                assert len(res_json["objects"]) == idx + 1
+                assert len(set(obj["key"] for obj in res_json["objects"])) == idx + 1
