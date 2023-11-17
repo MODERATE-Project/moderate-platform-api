@@ -1,16 +1,17 @@
 import logging
+import os
+import uuid
+from datetime import datetime
 from io import BytesIO
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, File, Query, UploadFile
-from pydantic import BaseModel
-from sqlalchemy import JSON
+from slugify import slugify
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import Field, SQLModel
 
 from moderate_api.authz import UserDep, UserSelectorBuilder
 from moderate_api.authz.user import User
-from moderate_api.config import SettingsDep
 from moderate_api.db import AsyncSessionDep
 from moderate_api.entities.crud import (
     CrudFiltersQuery,
@@ -23,12 +24,23 @@ from moderate_api.entities.crud import (
     update_one,
 )
 from moderate_api.enums import Actions, Entities
-from moderate_api.object_storage import S3ClientDep
+from moderate_api.object_storage import S3ClientDep, ensure_bucket
 
 _logger = logging.getLogger(__name__)
 
 _TAG = "Data assets"
 _ENTITY = Entities.ASSET
+_CHUNK_SIZE = 16 * 1024**2
+
+
+class UploadedS3Object(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    bucket: str
+    etag: str
+    key: str
+    location: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    asset_id: Optional[int] = Field(default=None, foreign_key="asset.id")
 
 
 class AssetBase(SQLModel):
@@ -36,17 +48,9 @@ class AssetBase(SQLModel):
     name: str
 
 
-class UploadedS3Object(BaseModel):
-    Bucket: str
-    ETag: str
-    Key: str
-    Location: str
-
-
 class Asset(AssetBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     username: str
-    objects: Optional[List[UploadedS3Object]] = Field(sa_type=JSON)
 
 
 class AssetCreate(AssetBase):
@@ -74,16 +78,29 @@ async def build_create_patch(
 router = APIRouter()
 
 
-@router.post("/{entity_id}/object", tags=[_TAG])
+def build_object_key(obj: UploadFile) -> str:
+    ext = os.path.splitext(obj.filename)[1]
+    safe_name = slugify(obj.filename)
+    return "{}-{}{}".format(safe_name, uuid.uuid4().hex, ext)
+
+
+def get_user_assets_bucket(user: User) -> str:
+    return f"moderate-{user.username}-assets"
+
+
+@router.post("/{entity_id}/object", response_model=UploadedS3Object, tags=[_TAG])
 async def upload_object(
     *,
     user: UserDep,
     session: AsyncSessionDep,
     entity_id: int,
     s3: S3ClientDep,
-    settings: SettingsDep,
     obj: UploadFile = File(...),
 ):
+    """Uploads a new object (e.g. a CSV dataset file) to MODERATE's
+    object storage service and associates it with the _Asset_ given by `entity_id`.
+    Note that an _Asset_ may have many objects."""
+
     user.enforce_raise(obj=_ENTITY.value, act=Actions.UPDATE.value)
     user_selector = await build_selector(user=user, session=session)
 
@@ -94,26 +111,27 @@ async def upload_object(
         user_selector=user_selector,
     )
 
-    chunk_size = 6 * 1024**2
+    obj_key = build_object_key(obj=obj)
+    _logger.info("Uploading object to S3: %s", obj_key)
+
+    user_bucket = get_user_assets_bucket(user=user)
+    _logger.debug("Ensuring user assets bucket exists: %s", user_bucket)
+    await ensure_bucket(s3=s3, bucket=user_bucket)
+
+    _logger.debug("Creating multipart upload (object=%s)", obj_key)
+    multipart_upload = await s3.create_multipart_upload(Bucket=user_bucket, Key=obj_key)
+
     parts = []
     part_number = 1
-    # ToDo: Slugify the object name
-    obj_key = obj.filename
-    # ToDo: Use a different bucket for each user
-    bucket_name = settings.s3.bucket
-
-    multipart_upload = await s3.create_multipart_upload(
-        Bucket=settings.s3.bucket, Key=obj_key
-    )
 
     while True:
-        chunk = await obj.read(chunk_size)
+        chunk = await obj.read(_CHUNK_SIZE)
 
         if not chunk:
             break
 
         part = await s3.upload_part(
-            Bucket=bucket_name,
+            Bucket=user_bucket,
             Key=obj_key,
             PartNumber=part_number,
             UploadId=multipart_upload["UploadId"],
@@ -128,19 +146,24 @@ async def upload_object(
     )
 
     result_s3_upload = await s3.complete_multipart_upload(
-        Bucket=bucket_name,
+        Bucket=user_bucket,
         Key=obj_key,
         UploadId=multipart_upload["UploadId"],
         MultipartUpload={"Parts": parts},
     )
 
-    the_asset.objects = the_asset.objects or []
-    the_asset.objects.append(UploadedS3Object(**result_s3_upload).dict())
-    session.add(the_asset)
-    await session.commit()
-    refreshed = await session.get(Asset, entity_id)
+    uploaded_s3_object = UploadedS3Object(
+        bucket=result_s3_upload["Bucket"],
+        etag=result_s3_upload["ETag"],
+        key=result_s3_upload["Key"],
+        location=result_s3_upload["Location"],
+        asset_id=the_asset.id,
+    )
 
-    return refreshed.objects
+    session.add(uploaded_s3_object)
+    await session.commit()
+
+    return uploaded_s3_object
 
 
 @router.post("/", response_model=AssetRead, tags=[_TAG])
