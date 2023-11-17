@@ -114,14 +114,14 @@ def get_user_assets_bucket(user: User) -> str:
     return f"moderate-{user.username}-assets"
 
 
-class AssetDownloadURLs(BaseModel):
+class AssetDownloadURL(BaseModel):
     key: str
     download_url: str
 
 
 async def get_asset_presigned_urls(
     s3: S3ClientDep, asset: Asset, expiration_secs: Optional[int] = 3600
-) -> List[AssetDownloadURLs]:
+) -> List[AssetDownloadURL]:
     ret = []
 
     for s3_object in asset.objects:
@@ -131,12 +131,12 @@ async def get_asset_presigned_urls(
             ExpiresIn=expiration_secs,
         )
 
-        ret.append(AssetDownloadURLs(key=s3_object.key, download_url=download_url))
+        ret.append(AssetDownloadURL(key=s3_object.key, download_url=download_url))
 
     return ret
 
 
-@router.get("/{id}/download-urls", response_model=List[AssetDownloadURLs], tags=[_TAG])
+@router.get("/{id}/download-urls", response_model=List[AssetDownloadURL], tags=[_TAG])
 async def download_asset(
     *, user: OptionalUserDep, session: AsyncSessionDep, s3: S3ClientDep, id: int
 ):
