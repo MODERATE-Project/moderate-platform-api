@@ -1,3 +1,4 @@
+import enum
 import logging
 import os
 import uuid
@@ -8,7 +9,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, File, Query, UploadFile
 from slugify import slugify
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Field, Relationship, SQLModel, or_
 
 from moderate_api.authz import UserDep, UserSelectorBuilder
 from moderate_api.authz.user import User
@@ -31,6 +32,11 @@ _logger = logging.getLogger(__name__)
 _TAG = "Data assets"
 _ENTITY = Entities.ASSET
 _CHUNK_SIZE = 16 * 1024**2
+
+
+class AssetAccessLevels(enum.Enum):
+    PUBLIC = "public"
+    PRIVATE = "private"
 
 
 class UploadedS3Object(SQLModel, table=True):
@@ -59,6 +65,7 @@ class AssetBase(SQLModel):
 class Asset(AssetBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     username: str
+    access_level: str = AssetAccessLevels.PRIVATE.value
 
     objects: List[UploadedS3Object] = Relationship(
         back_populates="asset", sa_relationship_kwargs={"lazy": "selectin"}
@@ -79,7 +86,12 @@ class AssetUpdate(SQLModel):
 
 
 async def build_selector(user: User, session: AsyncSession) -> UserSelectorBuilder:
-    return [Asset.username == user.username]
+    return [
+        or_(
+            Asset.username == user.username,
+            Asset.access_level == AssetAccessLevels.PUBLIC.value,
+        )
+    ]
 
 
 async def build_create_patch(

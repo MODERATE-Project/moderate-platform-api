@@ -273,7 +273,7 @@ async def read_many(
         _logger.debug("Applying selectinload: %s", item)
         statement = statement.options(selectinload(item))
 
-    if user_selector:
+    if not user.is_admin and user_selector:
         _logger.debug("Applying user selector as WHERE: %s", user_selector)
         statement = statement.where(*user_selector)
 
@@ -349,7 +349,7 @@ async def read_one(
         sql_model=sql_model,
         entity_id=entity_id,
         session=session,
-        user_selector=user_selector,
+        user_selector=user_selector if not user.is_admin else None,
         select_in_load=select_in_load,
     )
 
@@ -373,7 +373,7 @@ async def update_one(
         sql_model=sql_model,
         entity_id=entity_id,
         session=session,
-        user_selector=user_selector,
+        user_selector=user_selector if not user.is_admin else None,
     )
 
     entity_data = entity_update.dict(exclude_unset=True)
@@ -406,7 +406,7 @@ async def delete_one(
         sql_model=sql_model,
         entity_id=entity_id,
         session=session,
-        user_selector=user_selector,
+        user_selector=user_selector if not user.is_admin else None,
     )
 
     await session.delete(db_entity)
