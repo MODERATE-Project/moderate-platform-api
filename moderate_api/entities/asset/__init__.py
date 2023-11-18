@@ -142,12 +142,17 @@ async def download_asset(
     *, user: OptionalUserDep, session: AsyncSessionDep, s3: S3ClientDep, id: int
 ):
     stmt = select(Asset).where(Asset.id == id)
-    download_constraints = [Asset.access_level == AssetAccessLevels.PUBLIC]
+    or_constraints = []
 
-    if user:
-        download_constraints.append(Asset.username == user.username)
+    if user and user.is_admin:
+        _logger.debug("User is admin, allowing access to all assets")
+    else:
+        or_constraints.append(Asset.access_level == AssetAccessLevels.PUBLIC)
 
-    stmt = stmt.where(or_(*download_constraints))
+        if user:
+            or_constraints.append(Asset.username == user.username)
+
+    stmt = stmt.where(or_(*or_constraints))
     result = await session.execute(stmt)
     asset = result.one_or_none()
 
