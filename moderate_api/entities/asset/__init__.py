@@ -43,11 +43,14 @@ class AssetAccessLevels(enum.Enum):
     VISIBLE = "visible"
 
 
-class UploadedS3Object(SQLModel, table=True):
+class UploadedS3ObjectBase(SQLModel):
+    key: str
+
+
+class UploadedS3Object(UploadedS3ObjectBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     bucket: str
     etag: str
-    key: str
     location: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
     asset_id: Optional[int] = Field(default=None, foreign_key="asset.id")
@@ -59,6 +62,11 @@ class UploadedS3Object(SQLModel, table=True):
         back_populates="objects",
         sa_relationship_kwargs={"lazy": "selectin"},
     )
+
+
+class UploadedS3ObjectRead(UploadedS3ObjectBase):
+    id: int
+    created_at: datetime
 
 
 class AssetBase(SQLModel):
@@ -83,6 +91,7 @@ class AssetCreate(AssetBase):
 
 class AssetRead(AssetBase):
     id: int
+    objects: List[UploadedS3ObjectRead]
 
 
 class AssetUpdate(SQLModel):
@@ -380,3 +389,6 @@ async def delete_asset(*, user: UserDep, session: AsyncSessionDep, id: int):
         entity_id=id,
         user_selector=user_selector,
     )
+
+
+# ToDo: Add endpoint to DELETE an object from an asset
