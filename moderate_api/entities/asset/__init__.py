@@ -10,9 +10,10 @@ from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel
 from slugify import slugify
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.elements import BinaryExpression
 from sqlmodel import Field, Relationship, SQLModel, or_, select
 
-from moderate_api.authz import User, UserDep, UserSelectorBuilder
+from moderate_api.authz import User, UserDep
 from moderate_api.authz.user import OptionalUserDep, User
 from moderate_api.config import SettingsDep
 from moderate_api.db import AsyncSessionDep
@@ -26,7 +27,7 @@ from moderate_api.entities.crud import (
     select_one,
     update_one,
 )
-from moderate_api.enums import Actions, Entities
+from moderate_api.enums import Actions, Entities, Tags
 from moderate_api.object_storage import S3ClientDep, ensure_bucket
 
 _logger = logging.getLogger(__name__)
@@ -88,7 +89,7 @@ class AssetUpdate(SQLModel):
     name: Optional[str] = None
 
 
-async def build_selector(user: User, session: AsyncSession) -> UserSelectorBuilder:
+async def build_selector(user: User, session: AsyncSession) -> List[BinaryExpression]:
     return [
         or_(
             Asset.username == user.username,
@@ -138,8 +139,7 @@ async def get_asset_presigned_urls(
     return ret
 
 
-@router.get("/{id}/download-urls", response_model=List[AssetDownloadURL], tags=[_TAG])
-async def download_asset(
+async def _download_asset(
     *,
     user: OptionalUserDep,
     session: AsyncSessionDep,
@@ -170,6 +170,23 @@ async def download_asset(
     return await get_asset_presigned_urls(
         s3=s3, asset=asset, expiration_secs=expiration_secs
     )
+
+
+router.add_api_route(
+    "/{id}/download-urls",
+    _download_asset,
+    methods=["GET"],
+    response_model=List[AssetDownloadURL],
+    tags=[_TAG],
+)
+
+router.add_api_route(
+    "/public/{id}/download-urls",
+    _download_asset,
+    methods=["GET"],
+    response_model=List[AssetDownloadURL],
+    tags=[_TAG, Tags.PUBLIC.value],
+)
 
 
 @router.post("/{id}/object", response_model=UploadedS3Object, tags=[_TAG])
@@ -266,19 +283,23 @@ async def create_asset(*, user: UserDep, session: AsyncSessionDep, entity: Asset
     )
 
 
-@router.get("/", response_model=List[AssetRead], tags=[_TAG])
-async def read_assets(
+async def _read_assets(
     *,
-    user: UserDep,
+    user: OptionalUserDep,
     session: AsyncSessionDep,
     offset: int = 0,
     limit: int = Query(default=100, le=100),
     filters: Optional[str] = CrudFiltersQuery,
     sorts: Optional[str] = CrudSortsQuery,
 ):
-    """Read many assets."""
+    """Query the catalog for assets."""
 
-    user_selector = await build_selector(user=user, session=session)
+    if user:
+        user_selector = await build_selector(user=user, session=session)
+    else:
+        user_selector: List[BinaryExpression] = [
+            Asset.access_level == AssetAccessLevels.PUBLIC
+        ]
 
     return await read_many(
         user=user,
@@ -291,6 +312,23 @@ async def read_assets(
         json_filters=filters,
         json_sorts=sorts,
     )
+
+
+router.add_api_route(
+    "/",
+    _read_assets,
+    methods=["GET"],
+    response_model=List[AssetRead],
+    tags=[_TAG],
+)
+
+router.add_api_route(
+    "/public",
+    _read_assets,
+    methods=["GET"],
+    response_model=List[AssetRead],
+    tags=[_TAG, Tags.PUBLIC.value],
+)
 
 
 @router.get("/{id}", response_model=AssetRead, tags=[_TAG])

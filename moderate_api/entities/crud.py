@@ -244,10 +244,10 @@ async def create_one(
 
 async def read_many(
     *,
-    user: User,
     entity: Entities,
     sql_model: Type[SQLModel],
     session: AsyncSession,
+    user: Optional[User] = None,
     offset: int = 0,
     limit: int = 100,
     user_selector: Optional[List[BinaryExpression]] = None,
@@ -257,7 +257,8 @@ async def read_many(
 ):
     """Reusable helper function to read many entities."""
 
-    user.enforce_raise(obj=entity.value, act=Actions.READ.value)
+    if user:
+        user.enforce_raise(obj=entity.value, act=Actions.READ.value)
 
     crud_filters: List[CrudFilter] = (
         CrudFilter.from_json(json_filters) if json_filters else []
@@ -273,7 +274,7 @@ async def read_many(
         _logger.debug("Applying selectinload: %s", item)
         statement = statement.options(selectinload(item))
 
-    if not user.is_admin and user_selector:
+    if user and not user.is_admin and user_selector:
         _logger.debug("Applying user selector as WHERE: %s", user_selector)
         statement = statement.where(*user_selector)
 
@@ -452,8 +453,7 @@ with warnings.catch_warnings():
             "A JSON-encoded array of arrays or objects that represent sorting fields and directions. "
             "A _sort element_ can be either an array like `[field, order]`, "
             'or an object, like `{"field": field, "order": order}`. '
-            "Please check the [Refine documentation](https://refine.dev/docs/api-reference/core/interfaceReferences/#crudsort) "
-            "for additional context."
+            "The direction can be either `asc` or `desc`."
         ),
         example="`{}`".format(_example_crud_sorts),
         examples=[_example_crud_sorts],

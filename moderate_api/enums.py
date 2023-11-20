@@ -1,6 +1,12 @@
 import enum
 
 
+class Tags(enum.Enum):
+    """Enumeration of route tags."""
+
+    PUBLIC = "Public"
+
+
 class Entities(enum.Enum):
     "Enumeration of types of entities or classes in the API."
 
