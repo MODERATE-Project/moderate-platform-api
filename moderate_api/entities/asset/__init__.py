@@ -140,7 +140,12 @@ async def get_asset_presigned_urls(
 
 @router.get("/{id}/download-urls", response_model=List[AssetDownloadURL], tags=[_TAG])
 async def download_asset(
-    *, user: OptionalUserDep, session: AsyncSessionDep, s3: S3ClientDep, id: int
+    *,
+    user: OptionalUserDep,
+    session: AsyncSessionDep,
+    s3: S3ClientDep,
+    id: int,
+    expiration_secs: int = Query(default=600, ge=60, le=int(3600 * 24)),
 ):
     stmt = select(Asset).where(Asset.id == id)
     or_constraints = []
@@ -162,7 +167,9 @@ async def download_asset(
 
     asset = asset[0]
 
-    return await get_asset_presigned_urls(s3=s3, asset=asset)
+    return await get_asset_presigned_urls(
+        s3=s3, asset=asset, expiration_secs=expiration_secs
+    )
 
 
 @router.post("/{id}/object", response_model=UploadedS3Object, tags=[_TAG])
