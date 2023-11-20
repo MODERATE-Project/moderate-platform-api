@@ -86,16 +86,18 @@ class Asset(AssetBase, table=True):
 
 
 class AssetCreate(AssetBase):
-    pass
+    access_level: AssetAccessLevels = AssetAccessLevels.PRIVATE
 
 
 class AssetRead(AssetBase):
     id: int
     objects: List[UploadedS3ObjectRead]
+    access_level: AssetAccessLevels
 
 
 class AssetUpdate(SQLModel):
     name: Optional[str] = None
+    access_level: Optional[AssetAccessLevels] = None
 
 
 async def build_selector(user: User, session: AsyncSession) -> List[BinaryExpression]:
