@@ -4,15 +4,18 @@ from typing import Union
 
 from fastapi import APIRouter, Request
 
-from moderate_api.authz import OptionalUserDep, User, UserDep
+from moderate_api.authz import OptionalUserDep
+from moderate_api.enums import Tags
 from moderate_api.ping.models import PingResponse
 
-_TAG_PING = "Ping"
+_TAG = "Ping"
 
 router = APIRouter()
 
 
-async def build_ping_response(request: Request, user: Union[User, None]):
+async def _respond_to_ping(request: Request, user: OptionalUserDep):
+    """Respond to a ping request with the current Python version and UTC time."""
+
     return {
         "python_version": platform.python_version(),
         "datetime": datetime.datetime.utcnow(),
@@ -21,16 +24,18 @@ async def build_ping_response(request: Request, user: Union[User, None]):
     }
 
 
-@router.get("/", response_model=PingResponse, tags=[_TAG_PING])
-async def respond_to_ping_without_auth(request: Request, user: OptionalUserDep):
-    """Respond to a ping request with the current Python version and UTC time."""
+router.add_api_route(
+    "/",
+    _respond_to_ping,
+    methods=["GET"],
+    response_model=PingResponse,
+    tags=[_TAG],
+)
 
-    return await build_ping_response(request=request, user=user)
-
-
-@router.get("/auth", response_model=PingResponse, tags=[_TAG_PING])
-async def respond_to_ping(request: Request, user: UserDep):
-    """Respond to a ping request with the current Python version and UTC time
-    while ensuring the user is authenticated."""
-
-    return await build_ping_response(request=request, user=user)
+router.add_api_route(
+    "/public",
+    _respond_to_ping,
+    methods=["GET"],
+    response_model=PingResponse,
+    tags=[_TAG, Tags.PUBLIC.value],
+)

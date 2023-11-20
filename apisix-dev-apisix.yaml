@@ -3,6 +3,13 @@ routes:
     service_id: 1002
   - uri: /openapi.json
     service_id: 1002
+  # This route matches all paths that contain a "public" element
+  # This does not mean that these endpoints are not secure
+  # It means that a JWT token is not required to access them
+  # However, if the controller is programmed to enforce RBAC, the request will fail
+  - uri: /*
+    vars: [[uri, ~~, public(\/|$)]]
+    service_id: 1002
   - uri: /*
     service_id: 1002
     plugins:

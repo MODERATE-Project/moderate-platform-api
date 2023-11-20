@@ -92,7 +92,12 @@ class User:
 
 async def _get_user(request: Request, settings: Settings) -> User:
     token_decoded = await get_request_token(request=request, settings=settings)
-    return User(token_decoded=token_decoded, _settings=settings)
+    user = User(token_decoded=token_decoded, _settings=settings)
+
+    if not user.is_enabled:
+        raise Exception("API access is not enabled for this user")
+
+    return user
 
 
 async def get_user(request: Request, settings: SettingsDep) -> User:
@@ -100,12 +105,7 @@ async def get_user(request: Request, settings: SettingsDep) -> User:
     Raise an exception if the token is invalid or not present."""
 
     try:
-        user = await _get_user(request=request, settings=settings)
-
-        if not user.is_enabled:
-            raise Exception("API access is not enabled for this user")
-
-        return user
+        return await _get_user(request=request, settings=settings)
     except Exception as ex:
         _logger.debug("Unauthorized request:\n%s", pprint.pformat(dict(request)))
 
@@ -126,7 +126,10 @@ async def get_user_optional(
     try:
         return await _get_user(request=request, settings=settings)
     except Exception:
-        _logger.debug("No user found in request: %s", dict(request))
+        _logger.debug(
+            "User is missing or unauthorized:\n%s", pprint.pformat(dict(request))
+        )
+
         return None
 
 
