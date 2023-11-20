@@ -14,6 +14,7 @@ from sqlmodel import Field, Relationship, SQLModel, or_, select
 
 from moderate_api.authz import User, UserDep, UserSelectorBuilder
 from moderate_api.authz.user import OptionalUserDep, User
+from moderate_api.config import SettingsDep
 from moderate_api.db import AsyncSessionDep
 from moderate_api.entities.crud import (
     CrudFiltersQuery,
@@ -105,14 +106,14 @@ async def build_create_patch(
 router = APIRouter()
 
 
-def build_object_key(obj: UploadFile) -> str:
+def build_object_key(obj: UploadFile, user: User) -> str:
     ext = os.path.splitext(obj.filename)[1]
     safe_name = slugify(obj.filename)
-    return "{}-{}{}".format(safe_name, uuid.uuid4().hex, ext)
 
-
-def get_user_assets_bucket(user: User) -> str:
-    return f"moderate-{user.username}-assets"
+    return os.path.join(
+        f"{user.username}-assets",
+        "{}-{}{}".format(safe_name, uuid.uuid4().hex, ext),
+    )
 
 
 class AssetDownloadURL(BaseModel):
@@ -170,6 +171,7 @@ async def upload_object(
     session: AsyncSessionDep,
     id: int,
     s3: S3ClientDep,
+    settings: SettingsDep,
     obj: UploadFile = File(...),
 ):
     """Uploads a new object (e.g. a CSV dataset file) to MODERATE's
@@ -186,10 +188,10 @@ async def upload_object(
         user_selector=user_selector,
     )
 
-    obj_key = build_object_key(obj=obj)
+    obj_key = build_object_key(obj=obj, user=user)
     _logger.info("Uploading object to S3: %s", obj_key)
 
-    user_bucket = get_user_assets_bucket(user=user)
+    user_bucket = settings.s3.bucket
     _logger.debug("Ensuring user assets bucket exists: %s", user_bucket)
     await ensure_bucket(s3=s3, bucket=user_bucket)
 
