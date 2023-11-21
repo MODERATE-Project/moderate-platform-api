@@ -413,7 +413,7 @@ async def delete_one(
     await session.delete(db_entity)
     await session.commit()
 
-    return {"ok": True}
+    return {"ok": True, "id": entity_id}
 
 
 _example_crud_filters = json.dumps(

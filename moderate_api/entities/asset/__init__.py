@@ -393,4 +393,37 @@ async def delete_asset(*, user: UserDep, session: AsyncSessionDep, id: int):
     )
 
 
-# ToDo: Add endpoint to DELETE an object from an asset
+@router.delete("/{id}/object/{object_id}", tags=[_TAG])
+async def delete_asset_object(
+    *, user: UserDep, session: AsyncSessionDep, id: int, object_id: int
+):
+    """Delete an object from a given data asset."""
+
+    user.enforce_raise(obj=Entities.ASSET.value, act=Actions.DELETE.value)
+    user_selector = await build_selector(user=user, session=session)
+
+    the_asset = await read_one(
+        user=user,
+        entity=_ENTITY,
+        sql_model=Asset,
+        session=session,
+        entity_id=id,
+        user_selector=user_selector,
+    )
+
+    if not the_asset:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    select_object = select(UploadedS3Object).where(UploadedS3Object.id == object_id)
+    result_object = await session.execute(select_object)
+    the_asset_object = result_object.one_or_none()
+
+    if not the_asset_object:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    the_asset_object = the_asset_object[0]
+    _logger.info("Deleting asset object: %s", the_asset_object)
+    await session.delete(the_asset_object)
+    await session.commit()
+
+    return {"ok": True, "asset_id": id, "object_id": object_id}

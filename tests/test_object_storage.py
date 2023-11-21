@@ -172,3 +172,32 @@ async def test_delete_asset_with_objects(access_token):
         assert response.raise_for_status()
 
     assert await _get_num_uploaded_objects() == 0
+
+
+@pytest.mark.asyncio
+async def test_delete_object_from_asset(access_token):
+    num_files = random.randint(2, 5)
+    asset_id = _upload_test_files(access_token, num_files=num_files)
+
+    async with with_session() as session:
+        stmt = select(Asset).where(Asset.id == asset_id)
+        result = await session.execute(stmt)
+        the_asset = result.one_or_none()[0]
+
+        assert len(the_asset.objects) == num_files
+        deleted_object = random.sample(the_asset.objects, 1)[0]
+        _logger.info("Asset object to delete:\n%s", deleted_object)
+
+        with TestClient(app) as client:
+            res = client.delete(
+                f"/asset/{the_asset.id}/object/{deleted_object.id}",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+
+            assert res.raise_for_status()
+            res_json = res.json()
+            assert res_json
+
+        await session.refresh(the_asset)
+        assert len(the_asset.objects) == num_files - 1
+        assert all(obj.id != deleted_object.id for obj in the_asset.objects)
