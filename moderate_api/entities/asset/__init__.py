@@ -76,6 +76,7 @@ class AssetBase(SQLModel):
 
 class Asset(AssetBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
+    uuid: str = Field(default_factory=uuid.uuid4, unique=True)
     username: str
     access_level: AssetAccessLevels = Field(default=AssetAccessLevels.PRIVATE)
 
