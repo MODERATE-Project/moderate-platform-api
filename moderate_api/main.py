@@ -3,11 +3,14 @@ import logging
 from contextlib import asynccontextmanager
 from importlib.metadata import PackageNotFoundError, version
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlmodel import SQLModel
 
 import moderate_api.entities.asset
 import moderate_api.ping.router
+from moderate_api.config import get_settings
 from moderate_api.db import DBEngine
 
 _logger = logging.getLogger(__name__)
@@ -50,6 +53,14 @@ app = FastAPI(
     },
     lifespan=lifespan,
 )
+
+
+@app.exception_handler(DBAPIError)
+async def db_exception_handler(request: Request, exc: DBAPIError):
+    settings = get_settings()
+    status_code = 409 if isinstance(exc, IntegrityError) else 500
+    msg = str(exc) if settings.verbose_errors else "Database operation error"
+    return JSONResponse(status_code=status_code, content={"message": msg})
 
 
 app.include_router(moderate_api.ping.router.router, prefix=Prefixes.PING.value)
