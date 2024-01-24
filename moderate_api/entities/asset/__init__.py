@@ -7,7 +7,7 @@ from io import BytesIO
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 from slugify import slugify
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import BinaryExpression
@@ -77,7 +77,7 @@ class AssetBase(SQLModel):
 class Asset(AssetBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     uuid: str = Field(default_factory=uuid.uuid4, unique=True)
-    username: str
+    username: Optional[str]
     access_level: AssetAccessLevels = Field(default=AssetAccessLevels.PRIVATE)
 
     objects: List[UploadedS3Object] = Relationship(
@@ -85,9 +85,17 @@ class Asset(AssetBase, table=True):
         sa_relationship_kwargs={"lazy": "selectin", "cascade": "delete"},
     )
 
+    @validator("access_level", always=True)
+    def username_and_access_level_check(cls, access_level, values):
+        username = values.get("username")
+        if username is None and access_level != AssetAccessLevels.PUBLIC:
+            raise ValueError("If username is None then access_level must be PUBLIC")
+        return access_level
+
 
 class AssetCreate(AssetBase):
     access_level: AssetAccessLevels = AssetAccessLevels.PRIVATE
+    is_public_ownerless: bool = False
 
 
 class AssetRead(AssetBase):
@@ -284,6 +292,14 @@ async def create_asset(*, user: UserDep, session: AsyncSessionDep, entity: Asset
     """Create a new asset."""
 
     entity_create_patch = await build_create_patch(user=user, session=session)
+
+    if entity.is_public_ownerless:
+        entity_create_patch.update(
+            {
+                Asset.username.key: None,
+                Asset.access_level.key: AssetAccessLevels.PUBLIC,
+            }
+        )
 
     return await create_one(
         user=user,
