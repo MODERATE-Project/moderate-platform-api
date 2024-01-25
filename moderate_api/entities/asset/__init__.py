@@ -1,4 +1,5 @@
 import enum
+import json
 import logging
 import os
 import uuid
@@ -6,12 +7,13 @@ from datetime import datetime
 from io import BytesIO
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel, validator
 from slugify import slugify
+from sqlalchemy import Column
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import BinaryExpression
-from sqlmodel import Field, Relationship, SQLModel, or_, select
+from sqlmodel import JSON, Field, Relationship, SQLModel, or_, select
 
 from moderate_api.authz import User, UserDep
 from moderate_api.authz.user import OptionalUserDep, User
@@ -44,7 +46,10 @@ class AssetAccessLevels(enum.Enum):
 
 
 class UploadedS3ObjectBase(SQLModel):
-    key: str
+    key: str = Field(unique=True)
+    tags: Optional[Dict] = Field(default=None, sa_column=Column(JSON))
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    series_id: Optional[str]
 
 
 class UploadedS3Object(UploadedS3ObjectBase, table=True):
@@ -52,7 +57,6 @@ class UploadedS3Object(UploadedS3ObjectBase, table=True):
     bucket: str
     etag: str
     location: str
-    created_at: datetime = Field(default_factory=datetime.utcnow)
     asset_id: Optional[int] = Field(default=None, foreign_key="asset.id")
 
     # It is necessary to set "lazy" to "selectin"
@@ -66,7 +70,6 @@ class UploadedS3Object(UploadedS3ObjectBase, table=True):
 
 class UploadedS3ObjectRead(UploadedS3ObjectBase):
     id: int
-    created_at: datetime
 
 
 class AssetBase(SQLModel):
@@ -128,8 +131,8 @@ router = APIRouter()
 
 
 def build_object_key(obj: UploadFile, user: User) -> str:
-    ext = os.path.splitext(obj.filename)[1]
-    safe_name = slugify(obj.filename)
+    path_name, ext = os.path.splitext(obj.filename)
+    safe_name = slugify(path_name)
 
     return os.path.join(
         f"{user.username}-assets",
@@ -217,6 +220,8 @@ async def upload_object(
     s3: S3ClientDep,
     settings: SettingsDep,
     obj: UploadFile = File(...),
+    tags: str = Form(default=None),
+    series_id: str = Form(default=None),
 ):
     """Uploads a new object (e.g. a CSV dataset file) to MODERATE's
     object storage service and associates it with the _Asset_ given by `id`.
@@ -225,12 +230,29 @@ async def upload_object(
     user.enforce_raise(obj=_ENTITY.value, act=Actions.UPDATE.value)
     user_selector = await build_selector(user=user, session=session)
 
+    if tags:
+        try:
+            tags = json.loads(tags)
+        except Exception as ex:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Tags should be a valid JSON object: {}".format(ex),
+            )
+
     the_asset = await select_one(
         sql_model=Asset,
         entity_id=id,
         session=session,
         user_selector=user_selector,
     )
+
+    if len(the_asset.objects) >= settings.max_objects_per_asset:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Asset already has {} objects, cannot upload more than {}".format(
+                len(the_asset.objects), settings.max_objects_per_asset
+            ),
+        )
 
     obj_key = build_object_key(obj=obj, user=user)
     _logger.info("Uploading object to S3: %s", obj_key)
@@ -279,6 +301,8 @@ async def upload_object(
         key=result_s3_upload["Key"],
         location=result_s3_upload["Location"],
         asset_id=the_asset.id,
+        tags=tags,
+        series_id=series_id,
     )
 
     session.add(uploaded_s3_object)

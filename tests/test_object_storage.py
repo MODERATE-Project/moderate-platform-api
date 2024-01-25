@@ -1,4 +1,6 @@
 import csv
+import datetime
+import json
 import logging
 import os
 import pprint
@@ -78,7 +80,11 @@ async def test_s3_client_dep(s3):
 
 
 def _post_upload(
-    client: TestClient, the_asset: dict, the_access_token: str, fh: BufferedReader
+    client: TestClient,
+    the_asset: dict,
+    the_access_token: str,
+    fh: BufferedReader,
+    form: Optional[dict] = None,
 ):
     upload_name = "upload-{}.csv".format(str(uuid.uuid4()))
 
@@ -86,13 +92,16 @@ def _post_upload(
         "/asset/{}/object".format(the_asset["id"]),
         headers={"Authorization": f"Bearer {the_access_token}"},
         files={"obj": (upload_name, fh)},
+        data=form or {},
     )
 
     assert response.raise_for_status()
     return response
 
 
-def _upload_test_files(the_access_token: str, num_files: Optional[int] = 2) -> str:
+def _upload_test_files(
+    the_access_token: str, num_files: Optional[int] = 2, form: Optional[dict] = None
+) -> str:
     with ExitStack() as stack:
         client = stack.enter_context(TestClient(app))
 
@@ -106,7 +115,10 @@ def _upload_test_files(the_access_token: str, num_files: Optional[int] = 2) -> s
 
         for temp_path in temp_csv_paths:
             with open(temp_path, "rb") as fh:
-                response = _post_upload(client, the_asset, the_access_token, fh)
+                response = _post_upload(
+                    client, the_asset, the_access_token, fh, form=form
+                )
+
                 res_json = response.json()
                 _logger.info("Response:\n%s", pprint.pformat(res_json))
 
@@ -201,3 +213,28 @@ async def test_delete_object_from_asset(access_token):
         await session.refresh(the_asset)
         assert len(the_asset.objects) == num_files - 1
         assert all(obj.id != deleted_object.id for obj in the_asset.objects)
+
+
+@pytest.mark.asyncio
+async def test_upload_object_with_metadata(access_token):
+    tags_dict = {
+        "uid": str(uuid.uuid4()),
+        "dtime": datetime.datetime.utcnow().isoformat(),
+    }
+
+    series_id = str(uuid.uuid4())
+
+    asset_id = _upload_test_files(
+        access_token,
+        num_files=1,
+        form={"tags": json.dumps(tags_dict), "series_id": series_id},
+    )
+
+    async with with_session() as session:
+        stmt = select(Asset).where(Asset.id == asset_id)
+        result = await session.execute(stmt)
+        the_asset = result.one_or_none()[0]
+        assert len(the_asset.objects) == 1
+        the_object = the_asset.objects[0]
+        assert the_object.tags == tags_dict
+        assert the_object.series_id == series_id
