@@ -15,6 +15,8 @@ vars:
   TESTS_MINIO_REGION: eu-central-1
   TESTS_MINIO_BUCKET_NAME: moderateapi-tests
   TESTS_MINIO_ENDPOINT_URL: http://localhost:{{.TESTS_MINIO_PUBLIC_PORT}}
+  DEV_KEYCLOAK_PORT: '{{default "8989" .DEV_KEYCLOAK_PORT}}'
+  DEV_POSTGRES_PORT: '{{default "5433" .DEV_POSTGRES_PORT}}'
 
 env:
   COMPOSE_PROJECT_NAME: "{{.COMPOSE_PROJECT_NAME}}"
@@ -30,12 +32,32 @@ env:
   TESTS_MINIO_REGION: "{{.TESTS_MINIO_REGION}}"
   TESTS_MINIO_BUCKET_NAME: "{{.TESTS_MINIO_BUCKET_NAME}}"
   TESTS_MINIO_ENDPOINT_URL: "{{.TESTS_MINIO_ENDPOINT_URL}}"
+  DEV_KEYCLOAK_PORT: "{{.DEV_KEYCLOAK_PORT}}"
+  DEV_POSTGRES_PORT: "{{.DEV_POSTGRES_PORT}}"
+  MODERATE_API_S3__ACCESS_KEY: "{{.MINIO_ROOT_USER}}"
+  MODERATE_API_S3__SECRET_KEY: "{{.MINIO_ROOT_PASSWORD}}"
+  MODERATE_API_S3__ENDPOINT_URL: http://minio:9000
+  MODERATE_API_S3__REGION: "{{.MINIO_REGION}}"
+  MODERATE_API_S3__BUCKET: "{{.MINIO_BUCKET_NAME}}"
 
 dotenv: [.env.dev, .env.dev.default]
 
 tasks:
   dev-up:
     desc: Start the development stack
+    cmds:
+      - docker compose -f {{.ROOT_DIR}}/docker-compose-dev.yml up -d --build
+
+  dev-up-gcs:
+    desc: Start the development stack using GCS instead of the local MinIO
+    requires:
+      vars: [ACCESS_KEY, SECRET_KEY]
+    env:
+      MODERATE_API_S3__ACCESS_KEY: "{{.ACCESS_KEY}}"
+      MODERATE_API_S3__SECRET_KEY: "{{.SECRET_KEY}}"
+      MODERATE_API_S3__ENDPOINT_URL: https://storage.googleapis.com
+      MODERATE_API_S3__REGION: '{{default "europe-west1" .GCS_REGION}}'
+      MODERATE_API_S3__BUCKET: '{{default "moderateapi-tests" .GCS_BUCKET}}'
     cmds:
       - docker compose -f {{.ROOT_DIR}}/docker-compose-dev.yml up -d --build
 
