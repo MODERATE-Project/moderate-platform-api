@@ -13,8 +13,8 @@ _logger = logging.getLogger(__name__)
 def create_asset(
     the_client: TestClient, the_access_token: str, the_uuid: Optional[str] = None
 ) -> dict:
-    the_uuid = the_uuid or uuid.uuid4().hex
-    asset = AssetCreate(uuid=the_uuid, name=uuid.uuid4().hex)
+    the_uuid = the_uuid or str(uuid.uuid4())
+    asset = AssetCreate(uuid=the_uuid, name=str(uuid.uuid4()))
 
     response = the_client.post(
         "/asset",

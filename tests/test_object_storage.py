@@ -29,7 +29,7 @@ _logger = logging.getLogger(__name__)
 def _temp_csv(num_cols: Optional[int] = None, num_rows: Optional[int] = None) -> str:
     num_rows = num_rows or random.randint(200, 400)
     num_cols = num_cols or random.randint(100, 200)
-    abs_path = os.path.join(tempfile.gettempdir(), "{}.csv".format(uuid.uuid4().hex))
+    abs_path = os.path.join(tempfile.gettempdir(), "{}.csv".format(str(uuid.uuid4())))
 
     _logger.info(
         "Creating temp CSV file (rows=%s) (cols=%s): %s",
@@ -39,12 +39,12 @@ def _temp_csv(num_cols: Optional[int] = None, num_rows: Optional[int] = None) ->
     )
 
     with open(abs_path, mode="w", newline="") as csv_file:
-        fieldnames = [uuid.uuid4().hex for _ in range(num_cols)]
+        fieldnames = [str(uuid.uuid4()) for _ in range(num_cols)]
         writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
         writer.writeheader()
 
         for _ in range(num_rows):
-            writer.writerow({name: uuid.uuid4().hex for name in fieldnames})
+            writer.writerow({name: str(uuid.uuid4()) for name in fieldnames})
 
     _logger.info("Created temp CSV file: %s", abs_path)
 
@@ -58,7 +58,7 @@ def _temp_csv(num_cols: Optional[int] = None, num_rows: Optional[int] = None) ->
 
 
 def _create_asset(the_client: TestClient, the_access_token: str) -> dict:
-    asset = AssetCreate(uuid=uuid.uuid4().hex, name=uuid.uuid4().hex)
+    asset = AssetCreate(uuid=str(uuid.uuid4()), name=str(uuid.uuid4()))
 
     response = the_client.post(
         "/asset",
@@ -80,7 +80,7 @@ async def test_s3_client_dep(s3):
 def _post_upload(
     client: TestClient, the_asset: dict, the_access_token: str, fh: BufferedReader
 ):
-    upload_name = "upload-{}.csv".format(uuid.uuid4().hex)
+    upload_name = "upload-{}.csv".format(str(uuid.uuid4()))
 
     response = client.post(
         "/asset/{}/object".format(the_asset["id"]),

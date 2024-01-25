@@ -70,7 +70,7 @@ class UploadedS3ObjectRead(UploadedS3ObjectBase):
 
 
 class AssetBase(SQLModel):
-    uuid: str
+    uuid: str = Field(default_factory=uuid.uuid4)
     name: str
 
 
@@ -133,7 +133,7 @@ def build_object_key(obj: UploadFile, user: User) -> str:
 
     return os.path.join(
         f"{user.username}-assets",
-        "{}-{}{}".format(safe_name, uuid.uuid4().hex, ext),
+        "{}-{}{}".format(safe_name, str(uuid.uuid4()), ext),
     )
 
 

@@ -100,7 +100,7 @@ def access_token(request):
         access_enabled = True
 
     basic_access_role = (
-        _test_env[_ENV_ROLE_BASIC_ACCESS] if access_enabled else uuid.uuid4().hex
+        _test_env[_ENV_ROLE_BASIC_ACCESS] if access_enabled else str(uuid.uuid4())
     )
 
     token_dict = {

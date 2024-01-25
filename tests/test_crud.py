@@ -31,7 +31,7 @@ async def test_read_one(access_token):
 async def test_update_one(access_token):
     with TestClient(app) as client:
         asset_created = create_asset(client, access_token)
-        new_name = uuid.uuid4().hex
+        new_name = str(uuid.uuid4())
         asset_updated = update_asset(client, access_token, asset_created, new_name)
         asset_read = read_asset(client, access_token, asset_updated)
         assert asset_read["name"] == new_name
