@@ -6,7 +6,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from moderate_api.entities.asset import AssetCreate
+from moderate_api.entities.asset.models import AssetCreate
 from moderate_api.main import app
 from tests.utils import create_asset
 

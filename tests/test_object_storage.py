@@ -16,12 +16,8 @@ from fastapi.testclient import TestClient
 from sqlmodel import select
 
 from moderate_api.db import with_session
-from moderate_api.entities.asset import (
-    Asset,
-    AssetCreate,
-    UploadedS3Object,
-    get_asset_presigned_urls,
-)
+from moderate_api.entities.asset.models import Asset, AssetCreate, UploadedS3Object
+from moderate_api.entities.asset.router import get_asset_presigned_urls
 from moderate_api.main import app
 
 _logger = logging.getLogger(__name__)

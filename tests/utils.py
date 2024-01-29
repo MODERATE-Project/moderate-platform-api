@@ -5,7 +5,7 @@ from typing import Optional
 
 from fastapi.testclient import TestClient
 
-from moderate_api.entities.asset import AssetCreate
+from moderate_api.entities.asset.models import AssetCreate
 
 _logger = logging.getLogger(__name__)
 

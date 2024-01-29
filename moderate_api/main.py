@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlmodel import SQLModel
 
-import moderate_api.entities.asset
+import moderate_api.entities.asset.router
 import moderate_api.ping.router
 from moderate_api.config import get_settings
 from moderate_api.db import DBEngine
@@ -64,4 +64,7 @@ async def db_exception_handler(request: Request, exc: DBAPIError):
 
 
 app.include_router(moderate_api.ping.router.router, prefix=Prefixes.PING.value)
-app.include_router(moderate_api.entities.asset.router, prefix=Prefixes.ASSET.value)
+
+app.include_router(
+    moderate_api.entities.asset.router.router, prefix=Prefixes.ASSET.value
+)
