@@ -2,4 +2,8 @@ p, apisix:api_basic_access, asset, create, allow
 p, apisix:api_basic_access, asset, read, allow
 p, apisix:api_basic_access, asset, update, allow
 p, apisix:api_basic_access, asset, delete, allow
+p, apisix:api_basic_access, user, create, deny
+p, apisix:api_basic_access, user, read, allow
+p, apisix:api_basic_access, user, update, allow
+p, apisix:api_basic_access, user, delete, deny
 g, apisix:api_admin, apisix:api_basic_access

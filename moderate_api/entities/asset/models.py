@@ -17,6 +17,7 @@ class AssetAccessLevels(enum.Enum):
 class AssetBase(SQLModel):
     uuid: str = Field(default_factory=uuid.uuid4)
     name: str
+    meta: Optional[Dict] = Field(default=None, sa_column=Column(JSON))
 
 
 class UploadedS3ObjectBase(SQLModel):
@@ -49,7 +50,6 @@ class Asset(AssetBase, table=True):
     username: Optional[str]
     access_level: AssetAccessLevels = Field(default=AssetAccessLevels.PRIVATE)
     description: Optional[str] = Field(default=None, sa_column=Column(Text))
-    meta: Optional[Dict] = Field(default=None, sa_column=Column(JSON))
 
     objects: List[UploadedS3Object] = Relationship(
         back_populates="asset",

@@ -83,8 +83,12 @@ class User:
             "roles": self.enforcer.get_implicit_roles_for_user(self.username),
         }
 
-    def enforce_raise(self, obj: str, act: str):
+    def enforce_raise(self, obj: str, act: str, admin_bypass: bool = True):
         _logger.debug("Enforcing sub='%s' obj='%s' act='%s'", self.username, obj, act)
+
+        if admin_bypass and self.is_admin:
+            _logger.debug("Admin '%s' is allowed to perform any action", self.username)
+            return
 
         if not self.enforcer.enforce(self.username, obj, act):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)

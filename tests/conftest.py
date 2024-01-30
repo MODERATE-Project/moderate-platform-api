@@ -19,6 +19,7 @@ _ENV_POSTGRES_URL = "MODERATE_API_POSTGRES_URL"
 _ENV_DISABLE_AUTH_VERIFICATION = "MODERATE_API_DISABLE_TOKEN_VERIFICATION"
 _ENV_API_GW_CLIENT_ID = "MODERATE_API_OAUTH_NAMES__API_GW_CLIENT_ID"
 _ENV_ROLE_BASIC_ACCESS = "MODERATE_API_OAUTH_NAMES__ROLE_BASIC_ACCESS"
+_ENV_ROLE_ADMIN = "MODERATE_API_OAUTH_NAMES__ROLE_ADMIN"
 _ENV_LOG_LEVEL = "LOG_LEVEL"
 _ENV_S3_ACCESS_KEY = "MODERATE_API_S3__ACCESS_KEY"
 _ENV_S3_SECRET_KEY = "MODERATE_API_S3__SECRET_KEY"
@@ -31,6 +32,7 @@ _ENV_KEYS = [
     _ENV_DISABLE_AUTH_VERIFICATION,
     _ENV_API_GW_CLIENT_ID,
     _ENV_ROLE_BASIC_ACCESS,
+    _ENV_ROLE_ADMIN,
     _ENV_LOG_LEVEL,
     _ENV_POSTGRES_URL,
     _ENV_S3_ACCESS_KEY,
@@ -48,6 +50,7 @@ _test_env = {
     _ENV_DISABLE_AUTH_VERIFICATION: "true",
     _ENV_API_GW_CLIENT_ID: "apisix",
     _ENV_ROLE_BASIC_ACCESS: "api_basic_access",
+    _ENV_ROLE_ADMIN: "api_admin",
     _ENV_LOG_LEVEL: "DEBUG",
     _ENV_POSTGRES_URL: os.getenv(
         ENV_TESTS_POSTGRES_URL,
@@ -99,9 +102,22 @@ def access_token(request):
     except AttributeError:
         access_enabled = True
 
-    basic_access_role = (
+    try:
+        is_admin = request.param.get("is_admin", False)
+    except AttributeError:
+        is_admin = False
+
+    try:
+        username = request.param.get("username", "andres.garcia")
+    except AttributeError:
+        username = "andres.garcia"
+
+    client_level_roles = [
         _test_env[_ENV_ROLE_BASIC_ACCESS] if access_enabled else str(uuid.uuid4())
-    )
+    ]
+
+    if is_admin:
+        client_level_roles.append(_test_env[_ENV_ROLE_ADMIN])
 
     token_dict = {
         "exp": now + 3600,
@@ -125,7 +141,7 @@ def access_token(request):
             ]
         },
         "resource_access": {
-            _test_env[_ENV_API_GW_CLIENT_ID]: {"roles": [basic_access_role]},
+            _test_env[_ENV_API_GW_CLIENT_ID]: {"roles": client_level_roles},
             "account": {
                 "roles": ["manage-account", "manage-account-links", "view-profile"]
             },
@@ -134,7 +150,7 @@ def access_token(request):
         "sid": "dd6aa81b-3df6-4050-8583-cfacc9a1e994",
         "email_verified": True,
         "name": "Andrés García Mangas",
-        "preferred_username": "andres.garcia",
+        "preferred_username": username,
         "given_name": "Andrés",
         "family_name": "García Mangas",
         "email": "andres.garcia@fundacionctic.org",

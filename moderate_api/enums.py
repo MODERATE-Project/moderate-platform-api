@@ -11,6 +11,7 @@ class Entities(enum.Enum):
     "Enumeration of types of entities or classes in the API."
 
     ASSET = "asset"
+    USER = "user"
 
 
 class Actions(enum.Enum):
@@ -20,3 +21,11 @@ class Actions(enum.Enum):
     READ = "read"
     UPDATE = "update"
     DELETE = "delete"
+
+
+class Prefixes(enum.Enum):
+    """The prefixes for the different API endpoints."""
+
+    PING = "/ping"
+    ASSET = "/asset"
+    USER = "/user"

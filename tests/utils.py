@@ -1,13 +1,55 @@
 import logging
 import pprint
+import random
 import uuid
 from typing import Optional
 
 from fastapi.testclient import TestClient
 
 from moderate_api.entities.asset.models import AssetCreate
+from moderate_api.entities.user.models import UserMetaCreate
 
 _logger = logging.getLogger(__name__)
+
+
+def create_user_meta(the_client: TestClient, the_access_token: str, **kwargs) -> dict:
+    create_kwargs = {
+        "username": str(uuid.uuid4()),
+        "trust_did": "did:web:trust",
+        "meta": {"hello": "world", "random": random.randint(0, 1000)},
+    }
+
+    create_kwargs.update(kwargs)
+    user_meta = UserMetaCreate(**create_kwargs)
+
+    response = the_client.post(
+        "/user",
+        headers={"Authorization": f"Bearer {the_access_token}"},
+        data=user_meta.json(),
+    )
+
+    resp_json = response.json()
+    _logger.debug("Response:\n%s", pprint.pformat(resp_json))
+    assert response.raise_for_status()
+    assert resp_json["username"] == user_meta.username
+    assert isinstance(resp_json["meta"], dict)
+    return resp_json
+
+
+def read_user_meta(
+    the_client: TestClient, the_access_token: str, the_user_meta: dict
+) -> dict:
+    user_meta_id = the_user_meta["id"]
+
+    response = the_client.get(
+        f"/user/{user_meta_id}",
+        headers={"Authorization": f"Bearer {the_access_token}"},
+    )
+
+    assert response.raise_for_status()
+    resp_json = response.json()
+    _logger.debug("Response:\n%s", pprint.pformat(resp_json))
+    return resp_json
 
 
 def create_asset(
