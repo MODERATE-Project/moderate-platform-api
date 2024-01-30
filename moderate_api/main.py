@@ -9,6 +9,7 @@ from sqlmodel import SQLModel
 
 import moderate_api.entities.asset.router
 import moderate_api.entities.user.router
+import moderate_api.long_running
 import moderate_api.ping.router
 from moderate_api.config import get_settings
 from moderate_api.db import DBEngine

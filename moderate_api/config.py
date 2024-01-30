@@ -1,6 +1,6 @@
 import logging
 from functools import lru_cache
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import Depends
 from pydantic import BaseModel, BaseSettings
@@ -27,6 +27,16 @@ class S3Model(BaseModel):
     bucket: str
 
 
+class TrustService(BaseModel):
+    endpoint_url: str  # Scheme, host and port without paths
+
+    def build_url(self, *parts: List[str]) -> str:
+        return self.endpoint_url.strip("/") + "/" + "/".join(parts)
+
+    def url_create_did(self) -> str:
+        return self.build_url("api", "dids")
+
+
 class Settings(BaseSettings):
     class Config:
         env_prefix = _ENV_PREFIX
@@ -38,6 +48,7 @@ class Settings(BaseSettings):
     disable_token_verification: bool = False
     verbose_errors: bool = False
     max_objects_per_asset: int = 100
+    trust_service: Optional[TrustService] = None
 
     postgres_url: str = (
         "postgresql+asyncpg://postgres:postgres@localhost:5432/moderateapi/"
