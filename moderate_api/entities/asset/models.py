@@ -24,6 +24,7 @@ class UploadedS3ObjectBase(SQLModel):
     tags: Optional[Dict] = Field(default=None, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=datetime.utcnow)
     series_id: Optional[str]
+    sha256_hash: str
 
 
 class UploadedS3Object(UploadedS3ObjectBase, table=True):

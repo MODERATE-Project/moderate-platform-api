@@ -1,5 +1,6 @@
 import csv
 import datetime
+import hashlib
 import json
 import logging
 import os
@@ -234,3 +235,47 @@ async def test_upload_object_with_metadata(access_token):
         the_object = the_asset.objects[0]
         assert the_object.tags == tags_dict
         assert the_object.series_id == series_id
+
+
+def _get_file_hash(file_path):
+    sha256_hash = hashlib.sha256()
+
+    with open(file_path, "rb") as f:
+        byte_block = f.read()
+
+        _logger.info(
+            "Hashing file (%s MiB): %s",
+            round(len(byte_block) / (1024.0**2), 2),
+            file_path,
+        )
+
+        sha256_hash.update(byte_block)
+
+    return sha256_hash.hexdigest()
+
+
+@pytest.mark.asyncio
+async def test_object_hashes(access_token):
+    with ExitStack() as stack:
+        client = stack.enter_context(TestClient(app))
+        temp_csv_paths = []
+        hashes = []
+
+        for _ in range(1):
+            temp_csv_path = stack.enter_context(
+                _temp_csv(num_rows=random.randint(int(1e3), int(1e4)))
+            )
+
+            temp_csv_paths.append(temp_csv_path)
+            hashes.append(_get_file_hash(temp_csv_path))
+
+        the_asset = _create_asset(client, access_token)
+
+        for idx, temp_path in enumerate(temp_csv_paths):
+            with open(temp_path, "rb") as fh:
+                response = _post_upload(client, the_asset, access_token, fh)
+                res_json = response.json()
+                _logger.info("Response:\n%s", pprint.pformat(res_json))
+                assert res_json["sha256_hash"] == hashes[idx]
+
+        assert the_asset

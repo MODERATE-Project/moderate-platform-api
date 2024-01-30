@@ -4,6 +4,7 @@ import os
 import uuid
 from io import BytesIO
 from typing import Any, Dict, List, Optional
+import hashlib
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel
@@ -198,12 +199,15 @@ async def upload_object(
 
     parts = []
     part_number = 1
+    hash_object = hashlib.sha256()
 
     while True:
         chunk = await obj.read(_CHUNK_SIZE)
 
         if not chunk:
             break
+
+        hash_object.update(chunk)
 
         part = await s3.upload_part(
             Bucket=user_bucket,
@@ -227,6 +231,10 @@ async def upload_object(
         MultipartUpload={"Parts": parts},
     )
 
+    sha256_hash = hash_object.hexdigest()
+
+    _logger.debug("SHA256 hash of object: %s", sha256_hash)
+
     uploaded_s3_object = UploadedS3Object(
         bucket=result_s3_upload["Bucket"],
         etag=result_s3_upload["ETag"],
@@ -235,6 +243,7 @@ async def upload_object(
         asset_id=the_asset.id,
         tags=tags,
         series_id=series_id,
+        sha256_hash=sha256_hash,
     )
 
     session.add(uploaded_s3_object)
