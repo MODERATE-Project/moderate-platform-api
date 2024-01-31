@@ -55,6 +55,7 @@ async def db_exception_handler(request: Request, exc: DBAPIError):
     settings = get_settings()
     status_code = 409 if isinstance(exc, IntegrityError) else 500
     msg = str(exc) if settings.verbose_errors else "Database operation error"
+    _logger.warning("Database error: %s", exc, exc_info=exc)
     return JSONResponse(status_code=status_code, content={"message": msg})
 
 
