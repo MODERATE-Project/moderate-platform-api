@@ -1,3 +1,5 @@
+import base64
+import hashlib
 import logging
 import pprint
 from functools import wraps
@@ -5,14 +7,19 @@ from typing import Optional, Union
 
 import httpx
 from fastapi.encoders import jsonable_encoder
+from pydantic import BaseModel
 from sqlmodel import select
 
-from moderate_api.db import with_session
-from moderate_api.entities.asset.models import find_s3object_by_key_or_id
+from moderate_api.db import AsyncSessionDep, with_session
+from moderate_api.entities.asset.models import (
+    UploadedS3Object,
+    find_s3object_by_key_or_id,
+)
 from moderate_api.entities.user.models import UserMeta, get_did_for_username
 from moderate_api.long_running import set_task_error, set_task_result
 
-_TIMEOUT_SECS = 600
+_TIMEOUT_SECS_HIGH = 600
+_TIMEOUT_SECS_LOW = 30
 
 _logger = logging.getLogger(__name__)
 
@@ -38,7 +45,7 @@ def _handle_task_error(func):
 
 @_handle_task_error
 async def create_did_task(
-    task_id: str, username: str, did_url: str, timeout_seconds: int = _TIMEOUT_SECS
+    task_id: str, username: str, did_url: str, timeout_seconds: int = _TIMEOUT_SECS_HIGH
 ):
     async with with_session() as session:
         _logger.debug("Creating DID for %s", username)
@@ -84,7 +91,7 @@ async def create_proof_task(
     s3object_key_or_id: Union[str, int],
     requester_username: str,
     user_did: Optional[str] = None,
-    timeout_seconds: int = _TIMEOUT_SECS,
+    timeout_seconds: int = _TIMEOUT_SECS_HIGH,
 ):
     async with with_session() as session:
         s3obj = await find_s3object_by_key_or_id(
@@ -152,3 +159,84 @@ async def create_proof_task(
 
         result = jsonable_encoder(s3obj)
         await set_task_result(session=session, task_id=task_id, result=result)
+
+
+def compute_trust_api_digest(
+    input_string: str, input_encode: str = "utf-8", digest_size: int = 32
+) -> str:
+    input_bytes = input_string.encode(input_encode)
+    hash_object = hashlib.blake2b(input_bytes, digest_size=digest_size)
+    return base64.b64encode(hash_object.digest()).decode()
+
+
+class ProofResponse(BaseModel):
+    metadata_digest: str
+
+
+async def fetch_proof(
+    asset_obj_key: str, get_proof_url: str, timeout_seconds: int = _TIMEOUT_SECS_LOW
+) -> ProofResponse:
+    async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+        params = {"assetId": asset_obj_key}
+
+        _logger.debug(
+            "Calling %s with params:\n%s",
+            get_proof_url,
+            pprint.pformat(params),
+        )
+
+        resp = await client.get(get_proof_url, params=params)
+        resp.raise_for_status()
+        resp_dict = resp.json()
+
+        return ProofResponse(metadata_digest=resp_dict["metadataDigest"])
+
+
+class ProofVerificationResult(BaseModel):
+    valid: bool
+    reason: Optional[str] = None
+
+
+async def fetch_verify_proof(
+    session: AsyncSessionDep,
+    asset_obj_key: str,
+    get_proof_url: str,
+    timeout_seconds: int = _TIMEOUT_SECS_LOW,
+) -> ProofVerificationResult:
+    stmt = select(UploadedS3Object).where(UploadedS3Object.key == asset_obj_key)
+    result = await session.execute(stmt)
+    s3obj: UploadedS3Object = result.scalar_one_or_none()
+
+    if not s3obj:
+        return ProofVerificationResult(
+            valid=False, reason=f"Asset object {asset_obj_key} not found"
+        )
+
+    if not s3obj.sha256_hash:
+        return ProofVerificationResult(
+            valid=False, reason=f"Asset object {asset_obj_key} has no hash"
+        )
+
+    try:
+        proof_resp = await fetch_proof(
+            asset_obj_key=asset_obj_key,
+            get_proof_url=get_proof_url,
+            timeout_seconds=timeout_seconds,
+        )
+    except Exception as ex:
+        return ProofVerificationResult(
+            valid=False,
+            reason=f"Error fetching proof for {asset_obj_key}: {ex}",
+        )
+
+    expected_proof_digest = compute_trust_api_digest(s3obj.sha256_hash)
+
+    if proof_resp.metadata_digest != expected_proof_digest:
+        return ProofVerificationResult(
+            valid=False,
+            reason="Proof digest obtained from Trust API ({}) does not match expected ({})".format(
+                proof_resp.metadata_digest, expected_proof_digest
+            ),
+        )
+
+    return ProofVerificationResult(valid=True)

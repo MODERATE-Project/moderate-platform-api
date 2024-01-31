@@ -48,7 +48,11 @@ from moderate_api.entities.crud import (
 from moderate_api.enums import Actions, Entities, Tags
 from moderate_api.long_running import LongRunningTask, get_task, init_task
 from moderate_api.object_storage import S3ClientDep, ensure_bucket
-from moderate_api.trust import create_proof_task
+from moderate_api.trust import (
+    ProofVerificationResult,
+    create_proof_task,
+    fetch_verify_proof,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -432,21 +436,10 @@ class AssetObjectProofCreationResponse(BaseModel):
     obj: Optional[UploadedS3Object]
 
 
-@router.post("/proof", response_model=AssetObjectProofCreationResponse, tags=[_TAG])
-async def ensure_user_trust_did(
-    *,
-    user: UserDep,
-    session: AsyncSessionDep,
-    settings: SettingsDep,
-    background_tasks: BackgroundTasks,
-    body: AssetObjectProofCreationRequest,
-):
-    if not settings.trust_service or not settings.trust_service.endpoint_url:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
-
-    s3object = await find_s3object_by_key_or_id(
-        val=body.object_key_or_id, session=session
-    )
+async def _find_enforce_s3obj(
+    object_key_or_id: Union[str, int], session: AsyncSessionDep, user: UserDep
+) -> UploadedS3Object:
+    s3object = await find_s3object_by_key_or_id(val=object_key_or_id, session=session)
 
     if not s3object:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
@@ -457,6 +450,25 @@ async def ensure_user_trust_did(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Asset not owned by user"
         )
+
+    return s3object
+
+
+@router.post("/proof", response_model=AssetObjectProofCreationResponse, tags=[_TAG])
+async def ensure_trust_proof(
+    *,
+    user: UserDep,
+    session: AsyncSessionDep,
+    settings: SettingsDep,
+    background_tasks: BackgroundTasks,
+    body: AssetObjectProofCreationRequest,
+):
+    if not settings.trust_service or not settings.trust_service.endpoint_url:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+    s3object = await _find_enforce_s3obj(
+        object_key_or_id=body.object_key_or_id, session=session, user=user
+    )
 
     if s3object.proof_id:
         return AssetObjectProofCreationResponse(obj=s3object)
@@ -489,3 +501,25 @@ async def get_user_did_task_result(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
     return task
+
+
+@router.get("/proof/integrity", response_model=ProofVerificationResult, tags=[_TAG])
+async def verify_trust_proof(
+    *,
+    user: UserDep,
+    session: AsyncSessionDep,
+    settings: SettingsDep,
+    object_key_or_id: Union[str, int],
+):
+    if not settings.trust_service or not settings.trust_service.endpoint_url:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+    s3object = await _find_enforce_s3obj(
+        object_key_or_id=object_key_or_id, session=session, user=user
+    )
+
+    return await fetch_verify_proof(
+        session=session,
+        asset_obj_key=s3object.key,
+        get_proof_url=settings.trust_service.url_get_proof(),
+    )
