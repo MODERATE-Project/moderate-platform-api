@@ -216,10 +216,12 @@ async def ensure_user_trust_did(
 
     task_id = await init_task(session=session, username_owner=user.username)
 
+    _logger.debug("Creating background task (id=%s) for username: %s", task_id, body.username)
+
     background_tasks.add_task(
         _create_did,
         task_id=task_id,
-        username=user.username,
+        username=body.username,
         did_url=settings.trust_service.url_create_did(),
     )
 
