@@ -1,12 +1,21 @@
+import hashlib
 import json
 import logging
 import os
 import uuid
 from io import BytesIO
-from typing import Any, Dict, List, Optional
-import hashlib
+from typing import Any, Dict, List, Optional, Union
 
-from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    UploadFile,
+    status,
+)
 from pydantic import BaseModel
 from slugify import slugify
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,6 +33,7 @@ from moderate_api.entities.asset.models import (
     AssetRead,
     AssetUpdate,
     UploadedS3Object,
+    find_s3object_by_key_or_id,
 )
 from moderate_api.entities.crud import (
     CrudFiltersQuery,
@@ -36,7 +46,9 @@ from moderate_api.entities.crud import (
     update_one,
 )
 from moderate_api.enums import Actions, Entities, Tags
+from moderate_api.long_running import LongRunningTask, get_task, init_task
 from moderate_api.object_storage import S3ClientDep, ensure_bucket
+from moderate_api.trust import create_proof_task
 
 _logger = logging.getLogger(__name__)
 
@@ -409,3 +421,71 @@ async def delete_asset_object(
     await session.commit()
 
     return {"ok": True, "asset_id": id, "object_id": object_id}
+
+
+class AssetObjectProofCreationRequest(BaseModel):
+    object_key_or_id: Union[str, int]
+
+
+class AssetObjectProofCreationResponse(BaseModel):
+    task_id: Optional[int]
+    obj: Optional[UploadedS3Object]
+
+
+@router.post("/proof", response_model=AssetObjectProofCreationResponse, tags=[_TAG])
+async def ensure_user_trust_did(
+    *,
+    user: UserDep,
+    session: AsyncSessionDep,
+    settings: SettingsDep,
+    background_tasks: BackgroundTasks,
+    body: AssetObjectProofCreationRequest,
+):
+    if not settings.trust_service or not settings.trust_service.endpoint_url:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+    s3object = await find_s3object_by_key_or_id(
+        val=body.object_key_or_id, session=session
+    )
+
+    if not s3object:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    if not user.is_admin and (
+        not s3object.asset.username or s3object.asset.username != user.username
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Asset not owned by user"
+        )
+
+    if s3object.proof_id:
+        return AssetObjectProofCreationResponse(obj=s3object)
+
+    task_id = await init_task(session=session, username_owner=user.username)
+
+    background_tasks.add_task(
+        create_proof_task,
+        task_id=task_id,
+        s3object_key_or_id=body.object_key_or_id,
+        requester_username=user.username,
+        user_did=None,
+        create_proof_url=settings.trust_service.url_create_proof(),
+    )
+
+    return AssetObjectProofCreationResponse(task_id=task_id)
+
+
+@router.get("/proof/task/{task_id}", response_model=LongRunningTask, tags=[_TAG])
+async def get_user_did_task_result(
+    *, user: UserDep, session: AsyncSessionDep, task_id: int
+):
+    username_owner = None if user.is_admin else user.username
+
+    task = await get_task(
+        session=session, task_id=task_id, username_owner=username_owner
+    )
+
+    if not task:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    return task

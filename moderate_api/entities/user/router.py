@@ -1,18 +1,16 @@
-import json
 import logging
 from typing import Any, Dict, List, Optional
 
-import httpx
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import BinaryExpression
-from sqlmodel import or_, select
+from sqlmodel import or_
 
 from moderate_api.authz import User, UserDep
 from moderate_api.authz.user import User
-from moderate_api.config import Settings, SettingsDep
-from moderate_api.db import AsyncSessionDep, with_session
+from moderate_api.config import SettingsDep
+from moderate_api.db import AsyncSessionDep
 from moderate_api.entities.crud import (
     CrudFiltersQuery,
     CrudSortsQuery,
@@ -30,13 +28,8 @@ from moderate_api.entities.user.models import (
     ensure_user_meta,
 )
 from moderate_api.enums import Entities
-from moderate_api.long_running import (
-    LongRunningTask,
-    get_task,
-    init_task,
-    set_task_error,
-    set_task_result,
-)
+from moderate_api.long_running import LongRunningTask, get_task, init_task
+from moderate_api.trust import create_did_task
 
 _TAG = "User metadata"
 _ENTITY = Entities.USER
@@ -147,42 +140,6 @@ async def delete_user_meta(*, user: UserDep, session: AsyncSessionDep, id: int):
     )
 
 
-async def _create_did(
-    task_id: str, username: str, did_url: str, timeout_seconds: int = 600
-):
-    async with with_session() as session:
-        try:
-            _logger.debug("Creating DID for %s", username)
-            stmt = select(UserMeta).where(UserMeta.username == username)
-            result = await session.execute(stmt)
-            user_meta: UserMeta = result.scalar_one_or_none()
-            _logger.debug("Found UserMeta: %s", user_meta)
-
-            if not user_meta:
-                raise ValueError(f"User {username} not found")
-
-            if user_meta.trust_did:
-                raise ValueError(f"User {username} already has a DID")
-
-            async with httpx.AsyncClient(timeout=timeout_seconds) as client:
-                _logger.debug("Calling %s", did_url)
-                resp = await client.post(did_url)
-                resp.raise_for_status()
-                trust_did = resp.text
-                _logger.debug("Got DID: %s", trust_did)
-
-            user_meta.trust_did = trust_did
-            session.add(user_meta)
-            await session.commit()
-            await session.refresh(user_meta)
-            _logger.debug("Updated UserMeta: %s", user_meta)
-            result = json.loads(user_meta.json())
-            await set_task_result(session=session, task_id=task_id, result=result)
-        except Exception as ex:
-            _logger.debug("Error creating DID for %s", username, exc_info=ex)
-            await set_task_error(session=session, task_id=task_id, ex=ex)
-
-
 class UserDIDCreationRequest(BaseModel):
     username: str
 
@@ -216,10 +173,12 @@ async def ensure_user_trust_did(
 
     task_id = await init_task(session=session, username_owner=user.username)
 
-    _logger.debug("Creating background task (id=%s) for username: %s", task_id, body.username)
+    _logger.debug(
+        "Creating background task (id=%s) for username: %s", task_id, body.username
+    )
 
     background_tasks.add_task(
-        _create_did,
+        create_did_task,
         task_id=task_id,
         username=body.username,
         did_url=settings.trust_service.url_create_did(),

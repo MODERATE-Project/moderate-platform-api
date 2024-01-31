@@ -36,6 +36,9 @@ class TrustService(BaseModel):
     def url_create_did(self) -> str:
         return self.build_url("api", "dids")
 
+    def url_create_proof(self) -> str:
+        return self.build_url("api", "proofs")
+
 
 class Settings(BaseSettings):
     class Config:

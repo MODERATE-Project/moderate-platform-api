@@ -49,3 +49,17 @@ async def ensure_user_meta(username: str, session: AsyncSessionDep) -> UserMeta:
         await session.refresh(user_meta)
 
     return user_meta
+
+
+async def get_did_for_username(
+    username: str, session: AsyncSessionDep
+) -> Optional[str]:
+    stmt = select(UserMeta).where(UserMeta.username == username)
+    result = await session.execute(stmt)
+    user_meta: UserMeta = result.scalar_one_or_none()
+
+    if not user_meta or not user_meta.trust_did:
+        _logger.info(f"User {username} not found or does not have a DID")
+        return None
+
+    return user_meta.trust_did

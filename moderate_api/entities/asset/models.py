@@ -1,11 +1,13 @@
 import enum
 import uuid
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 from pydantic import validator
-from sqlalchemy import Column, Text
+from sqlalchemy import Column, Text, or_, select
 from sqlmodel import JSON, Field, Relationship, SQLModel
+
+from moderate_api.db import AsyncSessionDep
 
 
 class AssetAccessLevels(enum.Enum):
@@ -14,8 +16,12 @@ class AssetAccessLevels(enum.Enum):
     VISIBLE = "visible"
 
 
+def _uuid_factory() -> str:
+    return str(uuid.uuid4())
+
+
 class AssetBase(SQLModel):
-    uuid: str = Field(default_factory=uuid.uuid4)
+    uuid: str = Field(default_factory=_uuid_factory)
     name: str
     meta: Optional[Dict] = Field(default=None, sa_column=Column(JSON))
 
@@ -26,6 +32,7 @@ class UploadedS3ObjectBase(SQLModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     series_id: Optional[str]
     sha256_hash: str
+    proof_id: Optional[str]
 
 
 class UploadedS3Object(UploadedS3ObjectBase, table=True):
@@ -46,7 +53,7 @@ class UploadedS3Object(UploadedS3ObjectBase, table=True):
 
 class Asset(AssetBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    uuid: str = Field(default_factory=uuid.uuid4, unique=True)
+    uuid: str = Field(default_factory=_uuid_factory, unique=True)
     username: Optional[str]
     access_level: AssetAccessLevels = Field(default=AssetAccessLevels.PRIVATE)
     description: Optional[str] = Field(default=None, sa_column=Column(Text))
@@ -82,3 +89,19 @@ class AssetRead(AssetBase):
 class AssetUpdate(SQLModel):
     name: Optional[str] = None
     access_level: Optional[AssetAccessLevels] = None
+
+
+async def find_s3object_by_key_or_id(
+    val: Union[str, int], session: AsyncSessionDep
+) -> Union[UploadedS3Object, None]:
+    where_items = [UploadedS3Object.key == str(val)]
+
+    try:
+        where_items.append(UploadedS3Object.id == int(val))
+    except (ValueError, TypeError):
+        pass
+
+    stmt = select(UploadedS3Object).where(or_(*where_items))
+    result = await session.execute(stmt)
+    s3object: UploadedS3Object = result.scalar_one_or_none()
+    return s3object
