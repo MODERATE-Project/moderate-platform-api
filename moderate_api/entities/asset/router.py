@@ -437,19 +437,29 @@ class AssetObjectProofCreationResponse(BaseModel):
 
 
 async def _find_enforce_s3obj(
-    object_key_or_id: Union[str, int], session: AsyncSessionDep, user: UserDep
+    object_key_or_id: Union[str, int],
+    session: AsyncSessionDep,
+    user: UserDep,
+    public_assets_allowed: bool = False,
 ) -> UploadedS3Object:
     s3object = await find_s3object_by_key_or_id(val=object_key_or_id, session=session)
 
     if not s3object:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
-    if not user.is_admin and (
-        not s3object.asset.username or s3object.asset.username != user.username
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Asset not owned by user"
-        )
+    is_asset_owner = (
+        s3object.asset.username and s3object.asset.username == user.username
+    )
+
+    is_public = (
+        s3object.asset.access_level == AssetAccessLevels.PUBLIC
+        and public_assets_allowed
+    )
+
+    is_allowed = user.is_admin or is_asset_owner or is_public
+
+    if not is_allowed:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
 
     return s3object
 
@@ -467,7 +477,10 @@ async def ensure_trust_proof(
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
 
     s3object = await _find_enforce_s3obj(
-        object_key_or_id=body.object_key_or_id, session=session, user=user
+        object_key_or_id=body.object_key_or_id,
+        session=session,
+        user=user,
+        public_assets_allowed=False,
     )
 
     if s3object.proof_id:
@@ -515,7 +528,10 @@ async def verify_trust_proof(
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
 
     s3object = await _find_enforce_s3obj(
-        object_key_or_id=object_key_or_id, session=session, user=user
+        object_key_or_id=object_key_or_id,
+        session=session,
+        user=user,
+        public_assets_allowed=True,
     )
 
     return await fetch_verify_proof(
