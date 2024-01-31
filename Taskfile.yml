@@ -17,7 +17,12 @@ vars:
   TESTS_MINIO_ENDPOINT_URL: http://localhost:{{.TESTS_MINIO_PUBLIC_PORT}}
   DEV_KEYCLOAK_PORT: '{{default "8989" .DEV_KEYCLOAK_PORT}}'
   DEV_POSTGRES_PORT: '{{default "5433" .DEV_POSTGRES_PORT}}'
-  TRUST_API_URL: '{{default "" .TRUST_API_URL}}'
+  MAIN_IP_ADDRESS:
+    sh: ip route get 1.2.3.4 | awk '{print $7}'
+  TRUST_COMPOSE_PROJECT_NAME: moderate-trust
+  TRUST_MONGO_PORT: 27117
+  TRUST_API_PORT: 8081
+  TRUST_API_URL: http://{{.MAIN_IP_ADDRESS}}:{{.TRUST_API_PORT}}
 
 env:
   COMPOSE_PROJECT_NAME: "{{.COMPOSE_PROJECT_NAME}}"
@@ -48,6 +53,7 @@ tasks:
   dev-up:
     desc: Start the development stack
     cmds:
+      - task: trust-up
       - docker compose -f {{.ROOT_DIR}}/docker-compose-dev.yml up -d --build
 
   dev-up-gcs:
@@ -61,12 +67,14 @@ tasks:
       MODERATE_API_S3__REGION: '{{default "europe-west1" .GCS_REGION}}'
       MODERATE_API_S3__BUCKET: '{{default "moderateapi-tests" .GCS_BUCKET}}'
     cmds:
+      - task: trust-up
       - docker compose -f {{.ROOT_DIR}}/docker-compose-dev.yml up -d --build
 
   dev-down:
     desc: Stop and remove all traces of the development stack
     cmds:
       - docker compose -f {{.ROOT_DIR}}/docker-compose-dev.yml down -v
+      - task: trust-down
 
   test-deps-up:
     desc: Start the services needed for testing
@@ -118,3 +126,23 @@ tasks:
         {{.ROOT_DIR}}
       - docker tag {{.ACTIONS_MINIO_IMAGE_LOCAL}} {{.ACTIONS_MINIO_IMAGE_REMOTE}}:{{.ACTIONS_MINIO_IMAGE_REMOTE_TAG}}
       - docker push {{.ACTIONS_MINIO_IMAGE_REMOTE}}:{{.ACTIONS_MINIO_IMAGE_REMOTE_TAG}}
+
+  trust-up:
+    desc: Start the Trust Services Compose stack
+    env:
+      COMPOSE_PROJECT_NAME: "{{.TRUST_COMPOSE_PROJECT_NAME}}"
+      MONGO_PORT: "{{.TRUST_MONGO_PORT}}"
+      TRUST_PORT: "{{.TRUST_API_PORT}}"
+    cmds:
+      - echo "📣 You need to be logged in to Artifact Registry to pull the Trust Services images"
+      - echo "💻 gcloud auth configure-docker europe-west1-docker.pkg.dev"
+      - docker compose -f {{.ROOT_DIR}}/docker-compose-trust.yml up -d --build --wait
+
+  trust-down:
+    desc: Stop and remove all traces of the Trust Services stack
+    env:
+      COMPOSE_PROJECT_NAME: "{{.TRUST_COMPOSE_PROJECT_NAME}}"
+      MONGO_PORT: "{{.TRUST_MONGO_PORT}}"
+      TRUST_PORT: "{{.TRUST_API_PORT}}"
+    cmds:
+      - docker compose -f {{.ROOT_DIR}}/docker-compose-trust.yml down -v
