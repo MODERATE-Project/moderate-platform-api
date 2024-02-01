@@ -161,6 +161,31 @@ router.add_api_route(
 )
 
 
+@router.get("/object", response_model=List[UploadedS3Object], tags=[_TAG])
+async def query_asset_objects(
+    *,
+    user: UserDep,
+    session: AsyncSessionDep,
+    offset: int = 0,
+    limit: int = Query(default=100, le=100),
+    filters: Optional[str] = CrudFiltersQuery,
+    sorts: Optional[str] = CrudSortsQuery,
+):
+    user_selector = await build_selector(user=user, session=session)
+
+    return await read_many(
+        user=user,
+        entity=Entities.UPLOADED_OBJECT,
+        sql_model=UploadedS3Object,
+        session=session,
+        offset=offset,
+        limit=limit,
+        user_selector=user_selector,
+        json_filters=filters,
+        json_sorts=sorts,
+    )
+
+
 @router.post("/{id}/object", response_model=UploadedS3Object, tags=[_TAG])
 async def upload_object(
     user: UserDep,

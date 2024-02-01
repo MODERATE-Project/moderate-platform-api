@@ -11,6 +11,7 @@ class Entities(enum.Enum):
     "Enumeration of types of entities or classes in the API."
 
     ASSET = "asset"
+    UPLOADED_OBJECT = "uploaded_object"
     USER = "user"
 
 
