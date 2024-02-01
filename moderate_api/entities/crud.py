@@ -141,7 +141,7 @@ class CrudFilter(BaseModel):
 
     field: str
     operator: str
-    value: str
+    value: Union[str, int, float, None]
 
     @classmethod
     def from_json(cls, json_str: str) -> List["CrudFilter"]:
@@ -159,7 +159,10 @@ class CrudFilter(BaseModel):
             ) from ex
 
     @property
-    def parsed_value(self) -> Union[datetime, int, float, str, bool, List]:
+    def parsed_value(self) -> Union[datetime, int, float, str, bool, List, None]:
+        if self.value is None:
+            return None
+
         ret = _parse_value(self.value)
 
         if isinstance(ret, list):
