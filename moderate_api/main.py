@@ -19,7 +19,7 @@ from moderate_api.enums import Prefixes
 _logger = logging.getLogger(__name__)
 
 
-def abort_if_trailing_slashes(the_app: FastAPI):
+def raise_if_trailing_slashes(the_app: FastAPI):
     """Checks the app's routes for trailing slashes and exits if any are found.
     https://github.com/tiangolo/fastapi/discussions/7298#discussioncomment-5135720"""
 
@@ -28,11 +28,14 @@ def abort_if_trailing_slashes(the_app: FastAPI):
             if route.path == "/":
                 continue
 
-            _logger.warning(
-                "Aborting: paths may not end with a slash. Check route: %s", route
+            err_msg = (
+                "Aborting: paths may not end with a slash. Check route: {}".format(
+                    route
+                )
             )
 
-            sys.exit(1)
+            _logger.error(err_msg)
+            raise Exception(err_msg)
 
 
 @asynccontextmanager
@@ -91,4 +94,4 @@ app.include_router(
     prefix=Prefixes.USER.value,
 )
 
-abort_if_trailing_slashes(the_app=app)
+raise_if_trailing_slashes(the_app=app)
