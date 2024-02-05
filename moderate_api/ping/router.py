@@ -25,7 +25,7 @@ async def _respond_to_ping(request: Request, user: OptionalUserDep):
 
 
 router.add_api_route(
-    "/",
+    "",
     _respond_to_ping,
     methods=["GET"],
     response_model=PingResponse,

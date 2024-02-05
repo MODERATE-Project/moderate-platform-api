@@ -1,4 +1,5 @@
 import logging
+import sys
 from contextlib import asynccontextmanager
 from importlib.metadata import PackageNotFoundError, version
 
@@ -16,6 +17,22 @@ from moderate_api.db import DBEngine
 from moderate_api.enums import Prefixes
 
 _logger = logging.getLogger(__name__)
+
+
+def abort_if_trailing_slashes(the_app: FastAPI):
+    """Checks the app's routes for trailing slashes and exits if any are found.
+    https://github.com/tiangolo/fastapi/discussions/7298#discussioncomment-5135720"""
+
+    for route in the_app.routes:
+        if route.path.endswith("/"):
+            if route.path == "/":
+                continue
+
+            _logger.warning(
+                "Aborting: paths may not end with a slash. Check route: %s", route
+            )
+
+            sys.exit(1)
 
 
 @asynccontextmanager
@@ -73,3 +90,5 @@ app.include_router(
     moderate_api.entities.user.router.router,
     prefix=Prefixes.USER.value,
 )
+
+abort_if_trailing_slashes(the_app=app)

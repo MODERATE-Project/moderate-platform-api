@@ -293,7 +293,7 @@ async def upload_object(
     return uploaded_s3_object
 
 
-@router.post("/", response_model=AssetRead, tags=[_TAG])
+@router.post("", response_model=AssetRead, tags=[_TAG])
 async def create_asset(*, user: UserDep, session: AsyncSessionDep, entity: AssetCreate):
     """Create a new asset."""
 
@@ -349,7 +349,7 @@ async def _read_assets(
 
 
 router.add_api_route(
-    "/",
+    "",
     _read_assets,
     methods=["GET"],
     response_model=List[AssetRead],

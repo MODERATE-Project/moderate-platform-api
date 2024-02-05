@@ -54,7 +54,7 @@ async def build_create_patch(
 router = APIRouter()
 
 
-@router.post("/", response_model=UserMetaRead, tags=[_TAG])
+@router.post("", response_model=UserMetaRead, tags=[_TAG])
 async def create_user_meta(
     *, user: UserDep, session: AsyncSessionDep, entity: UserMetaCreate
 ):
@@ -70,7 +70,7 @@ async def create_user_meta(
     )
 
 
-@router.get("/", response_model=List[UserMetaRead], tags=[_TAG])
+@router.get("", response_model=List[UserMetaRead], tags=[_TAG])
 async def query_user_meta(
     *,
     user: UserDep,
