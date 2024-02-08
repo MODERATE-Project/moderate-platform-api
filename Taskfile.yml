@@ -136,7 +136,8 @@ tasks:
     cmds:
       - echo "📣 You need to be logged in to Artifact Registry to pull the Trust Services images"
       - echo "💻 gcloud auth configure-docker europe-west1-docker.pkg.dev"
-      - docker compose -f {{.ROOT_DIR}}/docker-compose-trust.yml up -d --build --wait
+      - cmd: docker compose -f {{.ROOT_DIR}}/docker-compose-trust.yml up -d --build --wait
+        ignore_error: true
 
   trust-down:
     desc: Stop and remove all traces of the Trust Services stack
