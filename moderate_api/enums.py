@@ -13,6 +13,7 @@ class Entities(enum.Enum):
     ASSET = "asset"
     UPLOADED_OBJECT = "uploaded_object"
     USER = "user"
+    VISUALIZATION = "visualization"
 
 
 class Actions(enum.Enum):
@@ -30,3 +31,4 @@ class Prefixes(enum.Enum):
     PING = "/ping"
     ASSET = "/asset"
     USER = "/user"
+    VISUALIZATION = "/visualization"

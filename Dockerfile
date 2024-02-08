@@ -6,6 +6,7 @@ ENV POETRY_VERSION=1.7.1
 
 RUN python3 -m venv ${VENV_PATH}
 RUN ${VENV_PATH}/bin/pip install -U pip setuptools poetry==${POETRY_VERSION}
+RUN apt-get update -y && apt-get install -y --no-install-recommends build-essential
 
 WORKDIR /app
 

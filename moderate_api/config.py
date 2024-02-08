@@ -50,11 +50,15 @@ class Settings(BaseSettings):
 
     s3: Optional[S3Model] = None
     oauth_names: OAuthNamesModel = OAuthNamesModel()
-    openid_config_url: str = "https://keycloak.moderate.cloud/realms/moderate/.well-known/openid-configuration"
+    openid_config_url: str = (
+        "https://keycloak.moderate.cloud/realms/moderate/.well-known/openid-configuration"
+    )
     disable_token_verification: bool = False
     verbose_errors: bool = False
     max_objects_per_asset: int = 100
     trust_service: Optional[TrustService] = None
+    visualization_max_size_mib: float = 15.0
+    visualization_expires_in_seconds: int = 1800
 
     postgres_url: str = (
         "postgresql+asyncpg://postgres:postgres@localhost:5432/moderateapi/"

@@ -8,6 +8,7 @@ from sqlalchemy import Column, Text, or_, select
 from sqlmodel import JSON, Field, Relationship, SQLModel
 
 from moderate_api.db import AsyncSessionDep
+from moderate_api.object_storage import S3ClientDep
 
 
 class AssetAccessLevels(enum.Enum):
@@ -105,3 +106,9 @@ async def find_s3object_by_key_or_id(
     result = await session.execute(stmt)
     s3object: UploadedS3Object = result.scalar_one_or_none()
     return s3object
+
+
+async def get_s3object_size_mib(s3_object: UploadedS3Object, s3: S3ClientDep) -> float:
+    response = await s3.head_object(Bucket=s3_object.bucket, Key=s3_object.key)
+    size_in_mib = response["ContentLength"] / (1024**2)
+    return size_in_mib

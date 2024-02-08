@@ -10,6 +10,7 @@ from sqlmodel import SQLModel
 
 import moderate_api.entities.asset.router
 import moderate_api.entities.user.router
+import moderate_api.entities.visualization.router
 import moderate_api.long_running
 import moderate_api.ping.router
 from moderate_api.config import get_settings
@@ -92,6 +93,11 @@ app.include_router(
 app.include_router(
     moderate_api.entities.user.router.router,
     prefix=Prefixes.USER.value,
+)
+
+app.include_router(
+    moderate_api.entities.visualization.router.router,
+    prefix=Prefixes.VISUALIZATION.value,
 )
 
 raise_if_trailing_slashes(the_app=app)
