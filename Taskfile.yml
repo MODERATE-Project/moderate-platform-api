@@ -23,6 +23,7 @@ vars:
   TRUST_MONGO_PORT: 27117
   TRUST_API_PORT: 8081
   TRUST_API_URL: http://{{.MAIN_IP_ADDRESS}}:{{.TRUST_API_PORT}}
+  KC_HOSTNAME_URL: http://localhost:{{.DEV_KEYCLOAK_PORT}}
 
 env:
   COMPOSE_PROJECT_NAME: "{{.COMPOSE_PROJECT_NAME}}"
@@ -46,6 +47,7 @@ env:
   MODERATE_API_S3__REGION: "{{.MINIO_REGION}}"
   MODERATE_API_S3__BUCKET: "{{.MINIO_BUCKET_NAME}}"
   MODERATE_API_TRUST_SERVICE__ENDPOINT_URL: "{{.TRUST_API_URL}}"
+  KC_HOSTNAME_URL: "{{.KC_HOSTNAME_URL}}"
 
 dotenv: [.env.dev, .env.dev.default]
 
@@ -147,3 +149,16 @@ tasks:
       TRUST_PORT: "{{.TRUST_API_PORT}}"
     cmds:
       - docker compose -f {{.ROOT_DIR}}/docker-compose-trust.yml down -v
+
+  ui-run-dev:
+    desc: Run the UI in development mode
+    dir: "{{.ROOT_DIR}}/moderate_ui"
+    vars:
+      VITE_API_URL: http://localhost:9080
+      VITE_KEYCLOAK_URL: "{{.KC_HOSTNAME_URL}}"
+    env:
+      VITE_API_URL: "{{.VITE_API_URL}}"
+      VITE_KEYCLOAK_URL: "{{.VITE_KEYCLOAK_URL}}"
+    cmds:
+      - echo "📣 Ensure that the API is listening on {{.VITE_API_URL}} and Keycloak is on {{.VITE_KEYCLOAK_URL}}"
+      - npm run dev

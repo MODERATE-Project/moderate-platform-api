@@ -20,6 +20,7 @@ routes:
         permissions: [moderateapi]
         ssl_verify: false
         password_grant_token_generation_incoming_uri: /api/token
+      cors: {}
 services:
   - id: 1002
     upstream_id: 2002
