@@ -22,24 +22,15 @@ import routerBindings, {
   NavigateToResource,
   UnsavedChangesNotifier,
 } from "@refinedev/react-router-v6";
-import dataProvider from "@refinedev/simple-rest";
 import axios from "axios";
 import { useTranslation } from "react-i18next";
 import { BrowserRouter, Outlet, Route, Routes } from "react-router-dom";
 import { Header } from "./components/header";
-import {
-  BlogPostCreate,
-  BlogPostEdit,
-  BlogPostList,
-  BlogPostShow,
-} from "./pages/blog-posts";
-import {
-  CategoryCreate,
-  CategoryEdit,
-  CategoryList,
-  CategoryShow,
-} from "./pages/categories";
+import { AssetCreate, AssetEdit, AssetList, AssetShow } from "./pages/assets";
+
+import { getBaseApiUrl } from "./api/utils";
 import { Login } from "./pages/login";
+import { dataProvider } from "./rest-data-provider";
 
 function App() {
   const [colorScheme, setColorScheme] = useLocalStorage<ColorScheme>({
@@ -155,30 +146,18 @@ function App() {
             <NotificationsProvider position="top-right">
               <DevtoolsProvider>
                 <Refine
-                  dataProvider={dataProvider(
-                    "https://api.fake-rest.refine.dev"
-                  )}
+                  dataProvider={dataProvider(getBaseApiUrl())}
                   notificationProvider={notificationProvider}
                   routerProvider={routerBindings}
                   authProvider={authProvider}
                   i18nProvider={i18nProvider}
                   resources={[
                     {
-                      name: "blog_posts",
-                      list: "/blog-posts",
-                      create: "/blog-posts/create",
-                      edit: "/blog-posts/edit/:id",
-                      show: "/blog-posts/show/:id",
-                      meta: {
-                        canDelete: true,
-                      },
-                    },
-                    {
-                      name: "categories",
-                      list: "/categories",
-                      create: "/categories/create",
-                      edit: "/categories/edit/:id",
-                      show: "/categories/show/:id",
+                      name: "asset",
+                      list: "/assets",
+                      create: "/assets/create",
+                      edit: "/assets/edit/:id",
+                      show: "/assets/show/:id",
                       meta: {
                         canDelete: true,
                       },
@@ -206,19 +185,13 @@ function App() {
                     >
                       <Route
                         index
-                        element={<NavigateToResource resource="blog_posts" />}
+                        element={<NavigateToResource resource="assets" />}
                       />
-                      <Route path="/blog-posts">
-                        <Route index element={<BlogPostList />} />
-                        <Route path="create" element={<BlogPostCreate />} />
-                        <Route path="edit/:id" element={<BlogPostEdit />} />
-                        <Route path="show/:id" element={<BlogPostShow />} />
-                      </Route>
-                      <Route path="/categories">
-                        <Route index element={<CategoryList />} />
-                        <Route path="create" element={<CategoryCreate />} />
-                        <Route path="edit/:id" element={<CategoryEdit />} />
-                        <Route path="show/:id" element={<CategoryShow />} />
+                      <Route path="/assets">
+                        <Route index element={<AssetList />} />
+                        <Route path="create" element={<AssetCreate />} />
+                        <Route path="edit/:id" element={<AssetEdit />} />
+                        <Route path="show/:id" element={<AssetShow />} />
                       </Route>
                       <Route path="*" element={<ErrorComponent />} />
                     </Route>
