@@ -1,4 +1,4 @@
-name: Build and push an image to Google Artifact Registry (GAR)
+name: Build and push the API image to Google Artifact Registry (GAR)
 
 on:
   push:
@@ -16,4 +16,3 @@ jobs:
     secrets:
       wif_provider: ${{ secrets.WIF_PROVIDER }}
       wif_service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
- 
