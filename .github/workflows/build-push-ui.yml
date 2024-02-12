@@ -5,10 +5,6 @@ on:
     branches:
       - main
 
-defaults:
-  run:
-    working-directory: ./moderate_ui
-
 jobs:
   call-build-push-artifact-registry:
     uses: MODERATE-Project/moderate-docs/.github/workflows/reusable-build-push-gar.yml@main
@@ -17,6 +13,7 @@ jobs:
       gar_location: ${{ vars.DEFAULT_GAR_LOCATION }}
       gar_repo: ${{ vars.DEFAULT_GAR_REPOSITORY }}
       image_name: moderate-ui
+      working_dir: moderate_ui
     secrets:
       wif_provider: ${{ secrets.WIF_PROVIDER }}
       wif_service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
