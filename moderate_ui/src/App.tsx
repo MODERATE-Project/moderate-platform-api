@@ -22,13 +22,12 @@ import routerBindings, {
   NavigateToResource,
   UnsavedChangesNotifier,
 } from "@refinedev/react-router-v6";
-import axios from "axios";
 import { useTranslation } from "react-i18next";
 import { BrowserRouter, Outlet, Route, Routes } from "react-router-dom";
+import { getBaseApiUrl } from "./api/utils";
+import { buildKeycloakAuthProvider } from "./auth-provider/keycloak";
 import { Header } from "./components/header";
 import { AssetCreate, AssetEdit, AssetList, AssetShow } from "./pages/assets";
-
-import { getBaseApiUrl } from "./api/utils";
 import { Login } from "./pages/login";
 import { dataProvider } from "./rest-data-provider";
 
@@ -38,6 +37,7 @@ function App() {
     defaultValue: "light",
     getInitialValueInEffect: true,
   });
+
   const { keycloak, initialized } = useKeycloak();
   const { t, i18n } = useTranslation();
 
@@ -48,80 +48,7 @@ function App() {
     return <div>Loading...</div>;
   }
 
-  const authProvider: AuthBindings = {
-    login: async () => {
-      const urlSearchParams = new URLSearchParams(window.location.search);
-      const { to } = Object.fromEntries(urlSearchParams.entries());
-      await keycloak.login({
-        redirectUri: to ? `${window.location.origin}${to}` : undefined,
-      });
-      return {
-        success: true,
-      };
-    },
-    logout: async () => {
-      try {
-        await keycloak.logout({
-          redirectUri: window.location.origin,
-        });
-        return {
-          success: true,
-          redirectTo: "/login",
-        };
-      } catch (error) {
-        return {
-          success: false,
-          error: new Error("Logout failed"),
-        };
-      }
-    },
-    onError: async (error) => {
-      console.error(error);
-      return { error };
-    },
-    check: async () => {
-      try {
-        const { token } = keycloak;
-        if (token) {
-          axios.defaults.headers.common = {
-            Authorization: `Bearer ${token}`,
-          };
-          return {
-            authenticated: true,
-          };
-        } else {
-          return {
-            authenticated: false,
-            logout: true,
-            redirectTo: "/login",
-            error: {
-              message: "Check failed",
-              name: "Token not found",
-            },
-          };
-        }
-      } catch (error) {
-        return {
-          authenticated: false,
-          logout: true,
-          redirectTo: "/login",
-          error: {
-            message: "Check failed",
-            name: "Token not found",
-          },
-        };
-      }
-    },
-    getPermissions: async () => null,
-    getIdentity: async () => {
-      if (keycloak?.tokenParsed) {
-        return {
-          name: keycloak.tokenParsed.family_name,
-        };
-      }
-      return null;
-    },
-  };
+  const authProvider: AuthBindings = buildKeycloakAuthProvider({ keycloak });
 
   const i18nProvider = {
     translate: (key: string, params: object) => t(key, params),
@@ -136,9 +63,8 @@ function App() {
           colorScheme={colorScheme}
           toggleColorScheme={toggleColorScheme}
         >
-          {/* You can change the theme colors here. example: theme={{ ...RefineThemes.Magenta, colorScheme:colorScheme }} */}
           <MantineProvider
-            theme={{ ...RefineThemes.Blue, colorScheme: colorScheme }}
+            theme={{ ...RefineThemes.Purple, colorScheme: colorScheme }}
             withNormalizeCSS
             withGlobalStyles
           >
