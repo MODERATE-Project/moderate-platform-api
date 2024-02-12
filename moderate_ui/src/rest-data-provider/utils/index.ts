@@ -1,14 +1,12 @@
-export const getHeadersFromMeta = (
-  meta: MetaQuery | undefined
-): { [k: string]: string; } => {
-  const { headers: headersFromMeta } = meta ?? {};
-  return Object.assign(axios.defaults.headers.common, headersFromMeta);
-};
-
 import { CrudFilters, HttpError, MetaQuery } from "@refinedev/core";
 import axios from "axios";
 
-import { MetaQuery } from "@refinedev/core";
+export const getHeadersFromMeta = (
+  meta: MetaQuery | undefined
+): { [k: string]: string } => {
+  const { headers: headersFromMeta } = meta ?? {};
+  return Object.assign(axios.defaults.headers.common, headersFromMeta);
+};
 
 export const validateFilters = (filters?: CrudFilters) => {
   const supportedOperators: string[] = [
