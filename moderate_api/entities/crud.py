@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Literal, Optional, Type, Union
 import arrow
 from fastapi import HTTPException, Query, status
 from pydantic import BaseModel
-from sqlalchemy import asc, desc
+from sqlalchemy import Text, asc, cast, desc, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.attributes import InstrumentedAttribute
@@ -40,8 +40,13 @@ def _models_from_json(
 
     parsed = json.loads(json_str)
 
+    if isinstance(parsed, list) and len(parsed) == 0:
+        return []
+
     if isinstance(parsed, list) and all(isinstance(item, str) for item in parsed):
         parsed = [parsed]
+
+    _logger.debug("JSON CRUD filters: %s", parsed)
 
     ret = []
 
@@ -180,6 +185,7 @@ class CrudFilter(BaseModel):
             "gte": _map_gte,
             "in": _map_in,
             "nin": _map_nin,
+            "contains": _map_contains,
         }
 
         if self.operator not in mappers:
@@ -218,6 +224,12 @@ def _map_in(model: Type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression:
 
 def _map_nin(model: Type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression:
     return getattr(model, crud_filter.field).notin_(crud_filter.parsed_value)
+
+
+def _map_contains(model: Type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression:
+    return cast(getattr(model, crud_filter.field), Text).match(
+        str(crud_filter.parsed_value)
+    )
 
 
 def _primary_key(sql_model: Type[SQLModel]) -> str:
