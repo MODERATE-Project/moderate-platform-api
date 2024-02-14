@@ -63,10 +63,11 @@ export const ColumnFilter: React.FC<{ column: Column<any, any> }> = ({
         <ActionIcon
           size="xs"
           onClick={open}
-          variant={column.getIsFiltered() ? "light" : "transparent"}
+          variant="light"
+          display="inline-flex"
           color={column.getIsFiltered() ? "primary" : "gray"}
         >
-          <IconFilter size={18} />
+          <IconFilter />
         </ActionIcon>
       </Menu.Target>
       <Menu.Dropdown>

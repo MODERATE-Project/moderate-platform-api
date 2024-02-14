@@ -1,4 +1,4 @@
-import { Group, Pagination, ScrollArea, Table } from "@mantine/core";
+import { Group, Pagination, ScrollArea, Space, Table } from "@mantine/core";
 import { IResourceComponentsProps, useTranslate } from "@refinedev/core";
 import { DeleteButton, EditButton, List, ShowButton } from "@refinedev/mantine";
 import { useTable } from "@refinedev/react-table";
@@ -94,13 +94,17 @@ export const AssetList: React.FC<IResourceComponentsProps> = () => {
                 {headerGroup.headers.map((header) => {
                   return (
                     <th key={header.id}>
-                      {!header.isPlaceholder &&
-                        flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
-                      <ColumnSorter column={header.column} />
-                      <ColumnFilter column={header.column} />
+                      <div style={{ display: "flex" }}>
+                        <ColumnSorter column={header.column} />
+                        <Space w="xs" />
+                        <ColumnFilter column={header.column} />
+                        <Space w="xs" />
+                        {!header.isPlaceholder &&
+                          flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                      </div>
                     </th>
                   );
                 })}

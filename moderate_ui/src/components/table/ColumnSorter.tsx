@@ -12,10 +12,15 @@ export const ColumnSorter: React.FC<{ column: Column<any, any> }> = ({
   const sorted = column.getIsSorted();
 
   return (
-    <ActionIcon size="xs" onClick={column.getToggleSortingHandler()}>
-      {!sorted && <IconSelector size={18} />}
-      {sorted === "asc" && <IconChevronDown size={18} />}
-      {sorted === "desc" && <IconChevronUp size={18} />}
+    <ActionIcon
+      size="xs"
+      variant="light"
+      display="inline-flex"
+      onClick={column.getToggleSortingHandler()}
+    >
+      {!sorted && <IconSelector />}
+      {sorted === "asc" && <IconChevronDown />}
+      {sorted === "desc" && <IconChevronUp />}
     </ActionIcon>
   );
 };
