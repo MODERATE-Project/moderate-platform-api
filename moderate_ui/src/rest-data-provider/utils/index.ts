@@ -1,7 +1,7 @@
 import { CrudFilters, HttpError, MetaQuery } from "@refinedev/core";
 import axios from "axios";
 
-export const getHeadersFromMeta = (
+export const getHeadersWithCommon = (
   meta: MetaQuery | undefined
 ): { [k: string]: string } => {
   const { headers: headersFromMeta } = meta ?? {};

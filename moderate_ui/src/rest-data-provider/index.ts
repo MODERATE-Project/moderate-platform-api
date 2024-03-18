@@ -1,7 +1,7 @@
 import { DataProvider } from "@refinedev/core";
-import { AxiosInstance } from "axios";
+import axios, { AxiosInstance } from "axios";
 import { stringify } from "query-string";
-import { axiosInstance, getHeadersFromMeta, validateFilters } from "./utils";
+import { axiosInstance, getHeadersWithCommon, validateFilters } from "./utils";
 
 type MethodTypes = "get" | "delete" | "head" | "options";
 type MethodTypesWithBody = "post" | "put" | "patch";
@@ -20,7 +20,7 @@ export const dataProvider = (
     const paginationOffset = pageSize * (current - 1);
 
     const { method } = meta ?? {};
-    const headersFromMeta = getHeadersFromMeta(meta);
+    const headersFromMeta = getHeadersWithCommon(meta);
     const requestMethod = (method as MethodTypes) ?? "get";
 
     const query: {
@@ -60,62 +60,64 @@ export const dataProvider = (
     };
   },
 
-  // ToDo: Adapt create()
-  create: async ({ resource, variables, meta }) => {
-    const url = `${apiUrl}/${resource}`;
-
-    const { headers, method } = meta ?? {};
-    const requestMethod = (method as MethodTypesWithBody) ?? "post";
-
-    const { data } = await httpClient[requestMethod](url, variables, {
-      headers,
-    });
-
-    return {
-      data,
-    };
-  },
-
-  // ToDo: Adapt update()
-  update: async ({ resource, id, variables, meta }) => {
-    const url = `${apiUrl}/${resource}/${id}`;
-
-    const { headers, method } = meta ?? {};
-    const requestMethod = (method as MethodTypesWithBody) ?? "patch";
-
-    const { data } = await httpClient[requestMethod](url, variables, {
-      headers,
-    });
-
-    return {
-      data,
-    };
-  },
-
-  // ToDo: Adapt getOne()
   getOne: async ({ resource, id, meta }) => {
     const url = `${apiUrl}/${resource}/${id}`;
 
-    const { headers, method } = meta ?? {};
+    const { method } = meta ?? {};
+    const headersFromMeta = getHeadersWithCommon(meta);
     const requestMethod = (method as MethodTypes) ?? "get";
 
-    const { data } = await httpClient[requestMethod](url, { headers });
+    const { data } = await httpClient[requestMethod](url, {
+      headers: headersFromMeta,
+    });
 
     return {
       data,
     };
   },
 
-  // ToDo: Adapt deleteOne()
+  create: async ({ resource, variables, meta }) => {
+    const url = `${apiUrl}/${resource}`;
+
+    const { method } = meta ?? {};
+    const headersFromMeta = getHeadersWithCommon(meta);
+    const requestMethod = (method as MethodTypesWithBody) ?? "post";
+
+    const { data } = await httpClient[requestMethod](url, variables, {
+      headers: headersFromMeta,
+    });
+
+    return {
+      data,
+    };
+  },
+
+  update: async ({ resource, id, variables, meta }) => {
+    const url = `${apiUrl}/${resource}/${id}`;
+
+    const { method } = meta ?? {};
+    const headersFromMeta = getHeadersWithCommon(meta);
+    const requestMethod = (method as MethodTypesWithBody) ?? "patch";
+
+    const { data } = await httpClient[requestMethod](url, variables, {
+      headers: headersFromMeta,
+    });
+
+    return {
+      data,
+    };
+  },
+
   deleteOne: async ({ resource, id, variables, meta }) => {
     const url = `${apiUrl}/${resource}/${id}`;
 
-    const { headers, method } = meta ?? {};
+    const { method } = meta ?? {};
+    const headersFromMeta = getHeadersWithCommon(meta);
     const requestMethod = (method as MethodTypesWithBody) ?? "delete";
 
     const { data } = await httpClient[requestMethod](url, {
       data: variables,
-      headers,
+      headers: headersFromMeta,
     });
 
     return {
@@ -127,7 +129,6 @@ export const dataProvider = (
     return apiUrl;
   },
 
-  // ToDo: Adapt custom()
   custom: async ({
     url,
     method,
@@ -153,24 +154,30 @@ export const dataProvider = (
       requestUrl = `${requestUrl}&${stringify(query)}`;
     }
 
+    const headersWithCommon = Object.assign(
+      axios.defaults.headers.common,
+      headers
+    );
+
     let axiosResponse;
+
     switch (method) {
       case "put":
       case "post":
       case "patch":
         axiosResponse = await httpClient[method](url, payload, {
-          headers,
+          headers: headersWithCommon,
         });
         break;
       case "delete":
         axiosResponse = await httpClient.delete(url, {
           data: payload,
-          headers: headers,
+          headers: headersWithCommon,
         });
         break;
       default:
         axiosResponse = await httpClient.get(requestUrl, {
-          headers,
+          headers: headersWithCommon,
         });
         break;
     }
