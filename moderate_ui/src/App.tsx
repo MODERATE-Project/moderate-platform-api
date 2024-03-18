@@ -14,6 +14,7 @@ import {
   ErrorComponent,
   RefineThemes,
   ThemedLayoutV2,
+  ThemedSiderV2,
   notificationProvider,
 } from "@refinedev/mantine";
 import routerBindings, {
@@ -103,7 +104,26 @@ function App() {
                           key="authenticated-inner"
                           fallback={<CatchAllNavigate to="/login" />}
                         >
-                          <ThemedLayoutV2 Header={() => <Header sticky />}>
+                          <ThemedLayoutV2
+                            Sider={() => (
+                              <ThemedSiderV2
+                                Title={({ collapsed }) => (
+                                  <img
+                                    src={
+                                      collapsed
+                                        ? "/images/moderate-logo-collapsed.png"
+                                        : "/images/moderate-logo-wide.png"
+                                    }
+                                    style={{
+                                      maxWidth: "90%",
+                                      maxHeight: "80%",
+                                    }}
+                                  />
+                                )}
+                              />
+                            )}
+                            Header={() => <Header sticky />}
+                          >
                             <Outlet />
                           </ThemedLayoutV2>
                         </Authenticated>
