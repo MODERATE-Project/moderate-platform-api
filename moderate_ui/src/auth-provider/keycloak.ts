@@ -75,7 +75,7 @@ export function buildKeycloakAuthProvider({
     getIdentity: async () => {
       if (keycloak?.tokenParsed) {
         return {
-          name: keycloak.tokenParsed.family_name,
+          name: keycloak.tokenParsed.preferred_username,
         };
       }
       return null;
