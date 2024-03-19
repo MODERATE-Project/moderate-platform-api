@@ -23,11 +23,13 @@ import routerBindings, {
   NavigateToResource,
   UnsavedChangesNotifier,
 } from "@refinedev/react-router-v6";
+import { IconBox } from "@tabler/icons";
 import { useTranslation } from "react-i18next";
 import { BrowserRouter, Outlet, Route, Routes } from "react-router-dom";
 import { getBaseApiUrl } from "./api/utils";
 import { buildKeycloakAuthProvider } from "./auth-provider/keycloak";
 import { Header } from "./components/header";
+import { AssetObjectShow } from "./pages/asset-objects/Show";
 import { AssetCreate, AssetEdit, AssetList, AssetShow } from "./pages/assets";
 import { Login } from "./pages/login";
 import { dataProvider } from "./rest-data-provider";
@@ -87,6 +89,7 @@ function App() {
                       show: "/assets/show/:id",
                       meta: {
                         canDelete: true,
+                        icon: <IconBox />,
                       },
                     },
                   ]}
@@ -138,6 +141,12 @@ function App() {
                         <Route path="create" element={<AssetCreate />} />
                         <Route path="edit/:id" element={<AssetEdit />} />
                         <Route path="show/:id" element={<AssetShow />} />
+                        <Route path=":id/objects">
+                          <Route
+                            path="show/:objectId"
+                            element={<AssetObjectShow />}
+                          />
+                        </Route>
                       </Route>
                       <Route path="*" element={<ErrorComponent />} />
                     </Route>

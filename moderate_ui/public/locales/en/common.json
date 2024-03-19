@@ -108,32 +108,18 @@
   "dashboard": {
     "title": "Dashboard"
   },
-  "categories": {
-    "categories": "Categories",
-    "fields": {
-      "id": "Id",
-      "title": "Title",
-      "createdAt": "Created At"
-    },
-    "titles": {
-      "create": "Create Category",
-      "edit": "Edit Category",
-      "list": "Categories",
-      "show": "Show Category"
-    }
-  },
   "documentTitle": {
     "default": "refine",
-    "suffix": " | refine",
-    "categories": {
-      "list": "Categories | refine",
-      "show": "#{{id}} Show Category | refine",
-      "edit": "#{{id}} Edit Category | refine",
-      "create": "Create new Category | refine",
-      "clone": "#{{id}} Clone Category | refine"
-    }
+    "suffix": " | refine"
   },
   "table": {
     "actions": "Actions"
+  },
+  "asset": {
+    "aboutDescription": "<b>Assets</b> represent collections of datasets published on the MODERATE platform. An <b>Asset</b> is a logical abstraction that may contain several <i>Asset Objects</i>, each of which is a specific dataset file."
+  },
+  "assetObject": {
+    "label": "Asset Objects",
+    "aboutDescription": "<b>Asset Objects</b> are the dataset files that are logically grouped under the umbrella of a given <i>Asset</i>. For example, the same <i>Asset</i> may have two <b>Asset Objects</b> representing the same dataset in different file formats."
   }
 }
