@@ -13,8 +13,6 @@ import { RefineKbar, RefineKbarProvider } from "@refinedev/kbar";
 import {
   ErrorComponent,
   RefineThemes,
-  ThemedLayoutV2,
-  ThemedSiderV2,
   notificationProvider,
 } from "@refinedev/mantine";
 import routerBindings, {
@@ -29,6 +27,9 @@ import { BrowserRouter, Outlet, Route, Routes } from "react-router-dom";
 import { getBaseApiUrl } from "./api/utils";
 import { buildKeycloakAuthProvider } from "./auth-provider/keycloak";
 import { Header } from "./components/header";
+import { ThemedLayoutV2 } from "./components/layout";
+import { ThemedSiderV2 } from "./components/layout/sider";
+import { Catalogue } from "./pages/Catalogue";
 import { AssetObjectShow } from "./pages/asset-objects/Show";
 import { AssetCreate, AssetEdit, AssetList, AssetShow } from "./pages/assets";
 import { Login } from "./pages/login";
@@ -136,6 +137,7 @@ function App() {
                         index
                         element={<NavigateToResource resource="assets" />}
                       />
+                      <Route path="/catalogue" element={<Catalogue />} />
                       <Route path="/assets">
                         <Route index element={<AssetList />} />
                         <Route path="create" element={<AssetCreate />} />

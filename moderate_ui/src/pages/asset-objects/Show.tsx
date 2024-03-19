@@ -18,10 +18,7 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
     <>
       <LoadingOverlay visible={isLoading} overlayBlur={2} />
       <div>
-        Lorem ipsum dolor sit amet consectetur adipisicing elit. Blanditiis
-        iusto officia facilis quaerat, quasi facere iure cumque alias deleniti
-        error temporibus quos similique quas consequuntur tempore? Consequuntur
-        vero obcaecati nostrum.
+        This is the show page for asset object with id: {params?.objectId}
       </div>
     </>
   );
