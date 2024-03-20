@@ -1,6 +1,6 @@
-import { Box, Button, Space, Text } from "@mantine/core";
+import { Box, Button, Space } from "@mantine/core";
 import { useLogin, useTranslate } from "@refinedev/core";
-import { ThemedTitleV2 } from "@refinedev/mantine";
+import { IconLogin } from "@tabler/icons";
 
 export const Login: React.FC = () => {
   const { mutate: login } = useLogin();
@@ -17,32 +17,23 @@ export const Login: React.FC = () => {
         alignItems: "center",
       }}
     >
-      <ThemedTitleV2
-        collapsed={false}
-        wrapperStyles={{
-          fontSize: "22px",
-        }}
-      />
+      <Box style={{ height: 70 }}>
+        <img
+          src="/images/moderate-logo-wide.png"
+          alt="MODERATE"
+          style={{ maxHeight: "100%" }}
+        />
+      </Box>
       <Space h="xl" />
-
       <Button
-        style={{ width: "240px" }}
         type="button"
         variant="filled"
+        size="lg"
+        leftIcon={<IconLogin />}
         onClick={() => login({})}
       >
         {t("pages.login.signin", "Sign in")}
       </Button>
-      <Space h="xl" />
-      <Text fz="sm" color="gray">
-        Powered by
-        <img
-          style={{ padding: "0 5px" }}
-          alt="Keycloak"
-          src="https://refine.ams3.cdn.digitaloceanspaces.com/superplate-auth-icons%2Fkeycloak.svg"
-        />
-        Keycloak
-      </Text>
     </Box>
   );
 };

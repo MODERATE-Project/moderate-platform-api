@@ -88,19 +88,6 @@ export const AssetList: React.FC<IResourceComponentsProps> = () => {
 
   return (
     <>
-      <Alert
-        p="xs"
-        mb="sm"
-        icon={<IconBulb size="1em" />}
-        color="violet"
-        variant="light"
-      >
-        <Box
-          dangerouslySetInnerHTML={{
-            __html: translate("asset.aboutDescription"),
-          }}
-        ></Box>
-      </Alert>
       <List>
         <ScrollArea>
           <Table highlightOnHover>

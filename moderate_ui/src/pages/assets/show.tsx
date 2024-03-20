@@ -15,7 +15,7 @@ import {
   useTranslate,
 } from "@refinedev/core";
 import { Show, TextField } from "@refinedev/mantine";
-import { IconBulb, IconExclamationCircle } from "@tabler/icons";
+import { IconExclamationCircle } from "@tabler/icons";
 import React from "react";
 import { AssetObjectCard } from "../../components/AssetObjectCard";
 
@@ -68,19 +68,6 @@ export const AssetShow: React.FC<IResourceComponentsProps> = () => {
       <Title order={5} color="dimmed" fw={300} my="md">
         {translate("asset.fields.objects")}
       </Title>
-      <Alert
-        p="xs"
-        mb="sm"
-        icon={<IconBulb size="1em" />}
-        color="violet"
-        variant="light"
-      >
-        <Box
-          dangerouslySetInnerHTML={{
-            __html: translate("assetObject.aboutDescription"),
-          }}
-        ></Box>
-      </Alert>
       {record?.objects?.length > 0 ? (
         <Stack spacing="md">
           {record?.objects?.map(

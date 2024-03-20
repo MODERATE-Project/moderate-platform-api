@@ -1,9 +1,12 @@
 import {
+  Box,
   ColorScheme,
   ColorSchemeProvider,
+  Container,
   Global,
   MantineProvider,
 } from "@mantine/core";
+
 import { useLocalStorage } from "@mantine/hooks";
 import { NotificationsProvider } from "@mantine/notifications";
 import { useKeycloak } from "@react-keycloak/web";
@@ -16,20 +19,18 @@ import {
   notificationProvider,
 } from "@refinedev/mantine";
 import routerBindings, {
-  CatchAllNavigate,
   DocumentTitleHandler,
   NavigateToResource,
   UnsavedChangesNotifier,
 } from "@refinedev/react-router-v6";
 import { IconBox } from "@tabler/icons";
+import axios from "axios";
 import { useTranslation } from "react-i18next";
 import { BrowserRouter, Outlet, Route, Routes } from "react-router-dom";
 import { getBaseApiUrl } from "./api/utils";
 import { buildKeycloakAuthProvider } from "./auth-provider/keycloak";
-import { Header } from "./components/header";
-import { ThemedLayoutV2 } from "./components/layout";
-import { ThemedSiderV2 } from "./components/layout/sider";
-import { Catalogue } from "./pages/Catalogue";
+import { HeaderMegaMenu } from "./components/HeaderMegaMenu";
+import { Homepage } from "./pages/Homepage";
 import { AssetObjectShow } from "./pages/asset-objects/Show";
 import { AssetCreate, AssetEdit, AssetList, AssetShow } from "./pages/assets";
 import { Login } from "./pages/login";
@@ -58,6 +59,40 @@ function App() {
     translate: (key: string, params: object) => t(key, params),
     changeLocale: (lang: string) => i18n.changeLanguage(lang),
     getLocale: () => i18n.language,
+  };
+
+  const TokenRouteParent: React.FC = () => {
+    const { keycloak } = useKeycloak();
+    const { token } = keycloak;
+
+    if (token) {
+      Object.assign(axios.defaults.headers.common, {
+        Authorization: `Bearer ${token}`,
+      });
+    }
+
+    return <Outlet />;
+  };
+
+  const AuthenticatedGuardRouteParent: React.FC = () => {
+    return (
+      <Authenticated key="authenticated-outer" fallback={<Outlet />}>
+        <NavigateToResource />
+      </Authenticated>
+    );
+  };
+
+  const HeaderContainerRouteParent: React.FC = () => {
+    return (
+      <>
+        <Box mb="lg">
+          <HeaderMegaMenu />
+        </Box>
+        <Container size="xl">
+          <Outlet />
+        </Container>
+      </>
+    );
   };
 
   return (
@@ -102,67 +137,26 @@ function App() {
                   }}
                 >
                   <Routes>
-                    <Route
-                      element={
-                        <Authenticated
-                          key="authenticated-inner"
-                          fallback={<CatchAllNavigate to="/login" />}
-                        >
-                          <ThemedLayoutV2
-                            Sider={() => (
-                              <ThemedSiderV2
-                                Title={({ collapsed }) => (
-                                  <img
-                                    src={
-                                      collapsed
-                                        ? "/images/moderate-logo-collapsed.png"
-                                        : "/images/moderate-logo-wide.png"
-                                    }
-                                    style={{
-                                      maxWidth: "90%",
-                                      maxHeight: "80%",
-                                    }}
-                                  />
-                                )}
-                              />
-                            )}
-                            Header={() => <Header sticky />}
-                          >
-                            <Outlet />
-                          </ThemedLayoutV2>
-                        </Authenticated>
-                      }
-                    >
-                      <Route
-                        index
-                        element={<NavigateToResource resource="assets" />}
-                      />
-                      <Route path="/catalogue" element={<Catalogue />} />
-                      <Route path="/assets">
-                        <Route index element={<AssetList />} />
-                        <Route path="create" element={<AssetCreate />} />
-                        <Route path="edit/:id" element={<AssetEdit />} />
-                        <Route path="show/:id" element={<AssetShow />} />
-                        <Route path=":id/objects">
-                          <Route
-                            path="show/:objectId"
-                            element={<AssetObjectShow />}
-                          />
+                    <Route element={<TokenRouteParent />}>
+                      <Route element={<HeaderContainerRouteParent />}>
+                        <Route path="" element={<Homepage />} />
+                        <Route path="/assets">
+                          <Route index element={<AssetList />} />
+                          <Route path="create" element={<AssetCreate />} />
+                          <Route path="edit/:id" element={<AssetEdit />} />
+                          <Route path="show/:id" element={<AssetShow />} />
+                          <Route path=":id/objects">
+                            <Route
+                              path="show/:objectId"
+                              element={<AssetObjectShow />}
+                            />
+                          </Route>
                         </Route>
                       </Route>
+                      <Route element={<AuthenticatedGuardRouteParent />}>
+                        <Route path="/login" element={<Login />} />
+                      </Route>
                       <Route path="*" element={<ErrorComponent />} />
-                    </Route>
-                    <Route
-                      element={
-                        <Authenticated
-                          key="authenticated-outer"
-                          fallback={<Outlet />}
-                        >
-                          <NavigateToResource />
-                        </Authenticated>
-                      }
-                    >
-                      <Route path="/login" element={<Login />} />
                     </Route>
                   </Routes>
                   <RefineKbar />
