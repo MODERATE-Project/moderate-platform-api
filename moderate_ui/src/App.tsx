@@ -31,6 +31,7 @@ import { getBaseApiUrl } from "./api/utils";
 import { buildKeycloakAuthProvider } from "./auth-provider/keycloak";
 import { HeaderMegaMenu } from "./components/HeaderMegaMenu";
 import { Homepage } from "./pages/Homepage";
+import { AssetObjectExploratoryDashboard } from "./pages/asset-objects/ExploratoryDashboard";
 import { AssetObjectShow } from "./pages/asset-objects/Show";
 import { AssetCreate, AssetEdit, AssetList, AssetShow } from "./pages/assets";
 import { Login } from "./pages/login";
@@ -85,10 +86,10 @@ function App() {
   const HeaderContainerRouteParent: React.FC = () => {
     return (
       <>
-        <Box mb="lg">
+        <Box mb="md">
           <HeaderMegaMenu />
         </Box>
-        <Container size="xl">
+        <Container size="xl" fluid>
           <Outlet />
         </Container>
       </>
@@ -149,6 +150,10 @@ function App() {
                             <Route
                               path="show/:objectId"
                               element={<AssetObjectShow />}
+                            />
+                            <Route
+                              path="explore/:objectId"
+                              element={<AssetObjectExploratoryDashboard />}
                             />
                           </Route>
                         </Route>

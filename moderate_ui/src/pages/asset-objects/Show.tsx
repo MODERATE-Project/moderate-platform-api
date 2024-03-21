@@ -14,6 +14,7 @@ import {
   IconTable,
 } from "@tabler/icons";
 import React, { useMemo } from "react";
+import { Link } from "react-router-dom";
 import { EllipsisButton } from "../../components/EllipsisButton";
 import { KeyValuesStack } from "../../components/KeyValuesStack";
 
@@ -44,12 +45,18 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
             <Group position="apart" mb="md">
               <Title order={3}>{assetObject.key}</Title>
               <EllipsisButton>
-                <Menu.Item icon={<IconReportSearch size="1em" color="blue" />}>
+                <Menu.Item
+                  component={Link}
+                  to={`/assets/${params?.id}/objects/explore/${assetObject.id}`}
+                  icon={<IconReportSearch size="1em" color="blue" />}
+                >
                   {t("assetObjects.actions.explore", "Explore")}
                 </Menu.Item>
+
                 <Menu.Item icon={<IconDownload size="1em" color="blue" />}>
                   {t("assetObjects.actions.download", "Download")}
                 </Menu.Item>
+
                 <Menu.Item icon={<IconFileCheck size="1em" color="blue" />}>
                   {t(
                     "assetObjects.actions.verifyIntegrity",
@@ -63,9 +70,11 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
                 <Tabs.Tab value="metadata" icon={<IconTable size={14} />}>
                   {t("assetObjects.metadata", "Metadata")}
                 </Tabs.Tab>
+
                 <Tabs.Tab value="description" icon={<IconFileText size={14} />}>
                   {t("assetObjects.description", "Description")}
                 </Tabs.Tab>
+
                 <Tabs.Tab
                   value="profile"
                   icon={<IconChartAreaLine size={14} />}
