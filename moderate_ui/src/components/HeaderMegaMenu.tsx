@@ -24,7 +24,7 @@ import {
   useLogin,
   useLogout,
 } from "@refinedev/core";
-import { IconBox, IconChevronDown, IconPower, IconUser } from "@tabler/icons";
+import { IconBox, IconChevronDown, IconUser } from "@tabler/icons";
 import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
@@ -120,7 +120,7 @@ export function HeaderMegaMenu() {
 
   const onLogin = useCallback(() => {
     login({});
-  }, []);
+  }, [login]);
 
   const isAuthenticated = useMemo((): boolean | undefined => {
     if (isLoading) {
@@ -148,7 +148,7 @@ export function HeaderMegaMenu() {
         ),
       },
     ];
-  }, []);
+  }, [t]);
 
   const megaMenuLinks = megaMenuItems.map((item) => (
     <UnstyledButton
@@ -197,7 +197,7 @@ export function HeaderMegaMenu() {
         )}
       </>
     );
-  }, [isAuthenticated, onLogout]);
+  }, [isAuthenticated, onLogout, identity, onLogin, t]);
 
   const mainLinks = useMemo(() => {
     return (
@@ -210,7 +210,7 @@ export function HeaderMegaMenu() {
         </Link>
       </>
     );
-  }, []);
+  }, [classes.link, t]);
 
   return (
     <Box>

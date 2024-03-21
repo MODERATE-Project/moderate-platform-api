@@ -1,11 +1,21 @@
-import { Badge, Button, Card, Group, Text } from "@mantine/core";
-import { useTranslate } from "@refinedev/core";
-import { IconEye } from "@tabler/icons";
+import { Badge, Card, Group, Text, createStyles } from "@mantine/core";
 import { DateTime } from "luxon";
 import React, { useMemo } from "react";
 import { Link } from "react-router-dom";
 
-export const parseObjectName = (
+const useStyles = createStyles((theme) => ({
+  card: {
+    transition: "0.3s",
+    "&:hover": {
+      backgroundColor:
+        theme.colorScheme === "dark"
+          ? theme.colors.dark[4]
+          : theme.colors.gray[1],
+    },
+  },
+}));
+
+const parseObjectName = (
   name: string
 ): { name: string; extension?: string } => {
   const parts = name.split("/");
@@ -22,7 +32,7 @@ export const AssetObjectCard: React.FC<{
   asset: { [key: string]: any };
   assetObject: { [key: string]: any };
 }> = ({ assetObject, asset }) => {
-  const translate = useTranslate();
+  const { classes } = useStyles();
 
   const { name, extension } = useMemo(
     () => parseObjectName(assetObject.key),
@@ -30,7 +40,14 @@ export const AssetObjectCard: React.FC<{
   );
 
   return (
-    <Card withBorder p="sm" radius="md">
+    <Card
+      className={classes.card}
+      component={Link}
+      to={`/assets/${asset.id}/objects/show/${assetObject.id}`}
+      withBorder
+      p="sm"
+      radius="md"
+    >
       <Card.Section withBorder inheritPadding py="sm">
         <Group mb="sm">
           <Badge color="gray">
@@ -41,20 +58,6 @@ export const AssetObjectCard: React.FC<{
           <Badge color="cyan">{extension}</Badge>
         </Group>
         <Text>{name}</Text>
-      </Card.Section>
-
-      <Card.Section withBorder inheritPadding py="sm">
-        <Group position="left">
-          <Button
-            component={Link}
-            to={`/assets/${asset.id}/objects/show/${assetObject.id}`}
-            leftIcon={<IconEye size="1em" />}
-            variant="light"
-            size="xs"
-          >
-            {translate("asset.objects.show")}
-          </Button>
-        </Group>
       </Card.Section>
     </Card>
   );

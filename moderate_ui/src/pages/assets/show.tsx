@@ -1,23 +1,14 @@
-import {
-  Alert,
-  Box,
-  Card,
-  Code,
-  Col,
-  Grid,
-  Stack,
-  Text,
-  Title,
-} from "@mantine/core";
+import { Alert, Box, Stack, Title } from "@mantine/core";
 import {
   IResourceComponentsProps,
   useShow,
   useTranslate,
 } from "@refinedev/core";
-import { Show, TextField } from "@refinedev/mantine";
+import { Show } from "@refinedev/mantine";
 import { IconExclamationCircle } from "@tabler/icons";
 import React from "react";
 import { AssetObjectCard } from "../../components/AssetObjectCard";
+import { KeyValuesStack } from "../../components/KeyValuesStack";
 
 export const AssetShow: React.FC<IResourceComponentsProps> = () => {
   const translate = useTranslate();
@@ -33,40 +24,9 @@ export const AssetShow: React.FC<IResourceComponentsProps> = () => {
       title={record && <Title order={3}>{record.name}</Title>}
       goBack={null}
     >
-      <Grid gutter="md">
-        <Col md={6}>
-          <Card p={0}>
-            <Title order={5} color="dimmed" fw={300}>
-              {translate("asset.fields.name")}
-            </Title>
-            <Text>
-              <TextField value={record?.name} />
-            </Text>
-          </Card>
-        </Col>
-        <Col md={6}>
-          <Card p={0}>
-            <Title order={5} color="dimmed" fw={300}>
-              {translate("asset.fields.uuid")}
-            </Title>
-            <Text>
-              <Code>{record?.uuid}</Code>
-            </Text>
-          </Card>
-        </Col>
-        <Col md={6}>
-          <Card p={0}>
-            <Title order={5} color="dimmed" fw={300}>
-              {translate("asset.fields.access_level")}
-            </Title>
-            <Text>
-              <TextField value={record?.access_level} />
-            </Text>
-          </Card>
-        </Col>
-      </Grid>
-      <Title order={5} color="dimmed" fw={300} my="md">
-        {translate("asset.fields.objects")}
+      {record && <KeyValuesStack obj={record} omitFields={["objects", "id"]} />}
+      <Title order={5} my="md">
+        {translate("asset.fields.objects", "Datasets linked to this asset")}
       </Title>
       {record?.objects?.length > 0 ? (
         <Stack spacing="md">
@@ -84,9 +44,12 @@ export const AssetShow: React.FC<IResourceComponentsProps> = () => {
           mb="sm"
           icon={<IconExclamationCircle size="1em" />}
           color="gray"
-          variant="outline"
+          variant="light"
         >
-          {translate("asset.noObjects")}
+          {translate(
+            "asset.noObjects",
+            "No objects uploaded to this asset yet"
+          )}
         </Alert>
       )}
     </Show>
