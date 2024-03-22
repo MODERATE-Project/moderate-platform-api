@@ -1,4 +1,12 @@
-import { Group, LoadingOverlay, Menu, Paper, Tabs, Title } from "@mantine/core";
+import {
+  Group,
+  LoadingOverlay,
+  Menu,
+  Paper,
+  Tabs,
+  Text,
+  Title,
+} from "@mantine/core";
 import {
   IResourceComponentsProps,
   useParsed,
@@ -50,18 +58,20 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
                   to={`/assets/${params?.id}/objects/explore/${assetObject.id}`}
                   icon={<IconReportSearch size="1em" color="blue" />}
                 >
-                  {t("assetObjects.actions.explore", "Explore")}
+                  <Text>{t("assetObjects.actions.explore", "Explore")}</Text>
                 </Menu.Item>
 
                 <Menu.Item icon={<IconDownload size="1em" color="blue" />}>
-                  {t("assetObjects.actions.download", "Download")}
+                  <Text>{t("assetObjects.actions.download", "Download")}</Text>
                 </Menu.Item>
 
                 <Menu.Item icon={<IconFileCheck size="1em" color="blue" />}>
-                  {t(
-                    "assetObjects.actions.verifyIntegrity",
-                    "Verify integrity"
-                  )}
+                  <Text>
+                    {t(
+                      "assetObjects.actions.verifyIntegrity",
+                      "Verify integrity"
+                    )}
+                  </Text>
                 </Menu.Item>
               </EllipsisButton>
             </Group>

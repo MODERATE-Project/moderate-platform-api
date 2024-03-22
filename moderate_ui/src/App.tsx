@@ -16,7 +16,7 @@ import { RefineKbar, RefineKbarProvider } from "@refinedev/kbar";
 import {
   ErrorComponent,
   RefineThemes,
-  notificationProvider,
+  useNotificationProvider,
 } from "@refinedev/mantine";
 import routerBindings, {
   DocumentTitleHandler,
@@ -83,17 +83,23 @@ function App() {
     );
   };
 
-  const HeaderContainerRouteParent: React.FC = () => {
+  const HeaderContainerRouteParent: React.FC<{
+    containerProps?: React.ComponentProps<typeof Container>;
+  }> = ({ containerProps }) => {
     return (
       <>
         <Box mb="md">
           <HeaderMegaMenu />
         </Box>
-        <Container size="xl" fluid>
+        <Container size="xl" {...containerProps}>
           <Outlet />
         </Container>
       </>
     );
+  };
+
+  const HeaderFluidContainerRouteParent: React.FC = () => {
+    return <HeaderContainerRouteParent containerProps={{ fluid: true }} />;
   };
 
   return (
@@ -113,7 +119,7 @@ function App() {
               <DevtoolsProvider>
                 <Refine
                   dataProvider={dataProvider(getBaseApiUrl())}
-                  notificationProvider={notificationProvider}
+                  notificationProvider={useNotificationProvider}
                   routerProvider={routerBindings}
                   authProvider={authProvider}
                   i18nProvider={i18nProvider}
@@ -140,12 +146,16 @@ function App() {
                   <Routes>
                     <Route element={<TokenRouteParent />}>
                       <Route element={<HeaderContainerRouteParent />}>
-                        <Route path="" element={<Homepage />} />
                         <Route path="/assets">
-                          <Route index element={<AssetList />} />
                           <Route path="create" element={<AssetCreate />} />
                           <Route path="edit/:id" element={<AssetEdit />} />
                           <Route path="show/:id" element={<AssetShow />} />
+                        </Route>
+                      </Route>
+                      <Route element={<HeaderFluidContainerRouteParent />}>
+                        <Route path="" element={<Homepage />} />
+                        <Route path="/assets">
+                          <Route index element={<AssetList />} />
                           <Route path=":id/objects">
                             <Route
                               path="show/:objectId"

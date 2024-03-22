@@ -6,7 +6,12 @@ import {
   Stack,
   Text,
 } from "@mantine/core";
-import { useParsed, useShow, useTranslate } from "@refinedev/core";
+import {
+  useNotification,
+  useParsed,
+  useShow,
+  useTranslate,
+} from "@refinedev/core";
 import { IconFlask } from "@tabler/icons";
 import { useEffect, useMemo, useState } from "react";
 import { fetchPygwalkerHtml } from "../../api/visualization";
@@ -15,6 +20,7 @@ export const AssetObjectExploratoryDashboard: React.FC = () => {
   const { params } = useParsed();
   const { queryResult } = useShow({ resource: "asset", id: params?.id });
   const { data, isLoading } = queryResult;
+  const { open } = useNotification();
   const [isDownloadingDashboard, setIsDownloadingDashboard] = useState(false);
 
   const [dashboardHtml, setDashboardHtml] = useState<string | undefined>(
@@ -47,12 +53,20 @@ export const AssetObjectExploratoryDashboard: React.FC = () => {
         setDashboardHtml(response.data);
       })
       .catch((err) => {
-        console.error(err);
+        open &&
+          open({
+            message: t(
+              "assetObjects.dashboard.error",
+              "Error loading dashboard"
+            ),
+            description: err.toString(),
+            type: "error",
+          });
       })
       .then(() => {
         setIsDownloadingDashboard(false);
       });
-  }, [assetObject, setIsDownloadingDashboard]);
+  }, [assetObject, setIsDownloadingDashboard, open, t]);
 
   return (
     <>
