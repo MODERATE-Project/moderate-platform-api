@@ -5,6 +5,7 @@ from typing import Dict, List, Optional, Union
 
 from pydantic import validator
 from sqlalchemy import Column, Text, or_, select
+from sqlalchemy.orm import validates
 from sqlmodel import JSON, Field, Relationship, SQLModel
 
 from moderate_api.db import AsyncSessionDep
@@ -42,7 +43,7 @@ class UploadedS3Object(UploadedS3ObjectBase, table=True):
     bucket: str
     etag: str
     location: str
-    asset_id: Optional[int] = Field(default=None, foreign_key="asset.id")
+    asset_id: int = Field(foreign_key="asset.id")
 
     # It is necessary to set "lazy" to "selectin"
     # for relationships to work with the async interface
