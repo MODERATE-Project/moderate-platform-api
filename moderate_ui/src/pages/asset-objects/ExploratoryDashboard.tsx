@@ -1,5 +1,13 @@
-import { Loader, LoadingOverlay, Paper, Stack, Text } from "@mantine/core";
+import {
+  Alert,
+  Loader,
+  LoadingOverlay,
+  Paper,
+  Stack,
+  Text,
+} from "@mantine/core";
 import { useParsed, useShow, useTranslate } from "@refinedev/core";
+import { IconFlask } from "@tabler/icons";
 import { useEffect, useMemo, useState } from "react";
 import { fetchPygwalkerHtml } from "../../api/visualization";
 
@@ -8,9 +16,11 @@ export const AssetObjectExploratoryDashboard: React.FC = () => {
   const { queryResult } = useShow({ resource: "asset", id: params?.id });
   const { data, isLoading } = queryResult;
   const [isDownloadingDashboard, setIsDownloadingDashboard] = useState(false);
+
   const [dashboardHtml, setDashboardHtml] = useState<string | undefined>(
     undefined
   );
+
   const t = useTranslate();
 
   const assetObject = useMemo((): { [key: string]: any } | undefined => {
@@ -34,7 +44,6 @@ export const AssetObjectExploratoryDashboard: React.FC = () => {
 
     fetchPygwalkerHtml({ objectId: assetObject.id })
       .then((response) => {
-        console.log(response);
         setDashboardHtml(response.data);
       })
       .catch((err) => {
@@ -62,9 +71,24 @@ export const AssetObjectExploratoryDashboard: React.FC = () => {
         }
       />
       {dashboardHtml && (
-        <Paper p="md">
-          <div dangerouslySetInnerHTML={{ __html: dashboardHtml }}></div>
-        </Paper>
+        <>
+          <Alert
+            icon={<IconFlask size="1rem" />}
+            title={t(
+              "assetObjects.dashboard.experimentAlertTitle",
+              "Experimental feature"
+            )}
+            color="yellow"
+          >
+            {t(
+              "assetObjects.dashboard.experimentAlertMessage",
+              "This feature is experimental. You may experience some performance issues while using it."
+            )}
+          </Alert>
+          <Paper p="md">
+            <div dangerouslySetInnerHTML={{ __html: dashboardHtml }}></div>
+          </Paper>
+        </>
       )}
     </>
   );
