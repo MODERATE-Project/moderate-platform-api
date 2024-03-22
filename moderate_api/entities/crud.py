@@ -249,7 +249,7 @@ async def create_one(
     """Reusable helper function to create a new entity."""
 
     user.enforce_raise(obj=entity.value, act=Actions.CREATE.value)
-    db_entity = sql_model.from_orm(entity_create, update=entity_create_patch)
+    db_entity = sql_model.model_validate(entity_create, update=entity_create_patch)
     _logger.debug("Creating %s: %s", sql_model, db_entity)
     session.add(db_entity)
     await session.commit()
@@ -392,7 +392,7 @@ async def update_one(
         user_selector=user_selector if not user.is_admin else None,
     )
 
-    entity_data = entity_update.dict(exclude_unset=True)
+    entity_data = entity_update.model_dump(exclude_unset=True)
 
     for key, value in entity_data.items():
         setattr(db_entity, key, value)

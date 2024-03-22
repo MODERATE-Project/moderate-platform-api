@@ -58,8 +58,11 @@ async def test_regular_users_read_limited(access_token):
                 user_meta_allowed,
             )
 
-        user_meta_read = read_user_meta(client, access_token, user_meta_allowed.dict())
+        user_meta_read = read_user_meta(
+            client, access_token, user_meta_allowed.model_dump()
+        )
+
         assert user_meta_read["username"] == _USERNAME
 
         with pytest.raises(httpx.HTTPStatusError):
-            read_user_meta(client, access_token, user_meta_denied.dict())
+            read_user_meta(client, access_token, user_meta_denied.model_dump())

@@ -60,7 +60,7 @@ async def test_crud_filters():
     )
 
     assert len(results) == 1
-    assert results[0][0] == item_1
+    assert results[0][0].model_dump() == item_1.model_dump()
 
     results = await _exec(
         async_session,
@@ -70,7 +70,7 @@ async def test_crud_filters():
     )
 
     assert len(results) == 2
-    assert all([result[0] != item_1 for result in results])
+    assert all([result[0].model_dump() != item_1.model_dump() for result in results])
 
     results = await _exec(
         async_session,
@@ -80,7 +80,7 @@ async def test_crud_filters():
     )
 
     assert len(results) == 1
-    assert results[0][0] == item_3
+    assert results[0][0].model_dump() == item_3.model_dump()
 
     results = await _exec(
         async_session,
@@ -90,7 +90,7 @@ async def test_crud_filters():
     )
 
     assert len(results) == 2
-    assert all([result[0] != item_2 for result in results])
+    assert all([result[0].model_dump() != item_2.model_dump() for result in results])
 
     results = await _exec(
         async_session,
@@ -109,7 +109,7 @@ async def test_crud_filters():
     )
 
     assert len(results) == 1
-    assert results[0][0] == item_1
+    assert results[0][0].model_dump() == item_1.model_dump()
 
     results = await _exec(
         async_session,
@@ -119,7 +119,7 @@ async def test_crud_filters():
     )
 
     assert len(results) == 2
-    assert all([result[0] != item_2 for result in results])
+    assert all([result[0].model_dump() != item_2.model_dump() for result in results])
 
     results = await _exec(
         async_session,
@@ -129,7 +129,7 @@ async def test_crud_filters():
     )
 
     assert len(results) == 1
-    assert results[0][0] == item_2
+    assert results[0][0].model_dump() == item_2.model_dump()
 
 
 @pytest.mark.asyncio
@@ -169,7 +169,10 @@ async def test_parse_values():
     )
 
     assert len(results_numbers) == 2
-    assert all([result[0] != item_2 for result in results_numbers])
+
+    assert all(
+        [result[0].model_dump() != item_2.model_dump() for result in results_numbers]
+    )
 
     with pytest.raises(sqlalchemy.exc.ProgrammingError):
         await _exec(
@@ -191,7 +194,7 @@ async def test_parse_values():
     )
 
     assert len(results_strings) == 1
-    assert results_strings[0][0] == item_2
+    assert results_strings[0][0].model_dump() == item_2.model_dump()
 
 
 @pytest.mark.asyncio
@@ -227,4 +230,4 @@ async def test_parse_datetimes():
     )
 
     assert len(results_dttm) == 1
-    assert results_dttm[0][0] == item_3
+    assert results_dttm[0][0].model_dump() == item_3.model_dump()
