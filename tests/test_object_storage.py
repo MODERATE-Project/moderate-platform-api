@@ -17,7 +17,13 @@ from fastapi.testclient import TestClient
 from sqlmodel import select
 
 from moderate_api.db import with_session
-from moderate_api.entities.asset.models import Asset, AssetCreate, UploadedS3Object
+from moderate_api.entities.asset.models import (
+    Asset,
+    AssetCreate,
+    UploadedS3Object,
+    find_s3object_pending_quality_check,
+    update_s3object_quality_check_flag,
+)
 from moderate_api.entities.asset.router import get_asset_presigned_urls
 from moderate_api.main import app
 
@@ -279,3 +285,31 @@ async def test_object_hashes(access_token):
                 assert res_json["sha256_hash"] == hashes[idx]
 
         assert the_asset
+
+
+@pytest.mark.asyncio
+async def test_s3object_quality_check(access_token):
+    asset_id = _upload_test_files(access_token, num_files=4)
+
+    async with with_session() as session:
+        stmt = select(UploadedS3Object).where(UploadedS3Object.asset_id == asset_id)
+        result = await session.execute(stmt)
+        s3objects = result.scalars().all()
+        s3obj_ids = [obj.id for obj in s3objects]
+
+        pending = await find_s3object_pending_quality_check(session=session)
+        assert not pending or len(pending) == 0
+
+        await update_s3object_quality_check_flag(
+            session=session, ids=s3obj_ids[:-1], value=True
+        )
+
+        pending = await find_s3object_pending_quality_check(session=session)
+        assert len(pending) == (len(s3objects) - 1)
+
+        await update_s3object_quality_check_flag(
+            session=session, ids=s3obj_ids[0], value=False
+        )
+
+        pending = await find_s3object_pending_quality_check(session=session)
+        assert len(pending) == (len(s3objects) - 2)
