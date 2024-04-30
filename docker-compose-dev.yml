@@ -64,7 +64,7 @@ services:
       postgres:
         condition: service_healthy
   postgres:
-    image: postgres:15
+    image: postgres:14
     restart: on-failure
     ports:
       - ${DEV_POSTGRES_PORT:-5432}:5432

@@ -1,7 +1,7 @@
 version: "3"
 services:
   postgres:
-    image: postgres:15
+    image: postgres:14
     restart: on-failure
     ports:
       - ${TESTS_POSTGRES_PUBLIC_PORT}:5432
