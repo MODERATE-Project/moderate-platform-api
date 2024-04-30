@@ -4,9 +4,9 @@ from datetime import datetime
 from typing import Dict, List, Optional, Union
 
 from pydantic import validator
-from sqlalchemy import Column, Text, or_, select
-from sqlalchemy.orm import validates
-from sqlmodel import JSON, Field, Relationship, SQLModel
+from sqlalchemy import Column, Index, Text, or_, select
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlmodel import Field, Relationship, SQLModel
 
 from moderate_api.db import AsyncSessionDep
 from moderate_api.object_storage import S3ClientDep
@@ -25,17 +25,17 @@ def _uuid_factory() -> str:
 class AssetBase(SQLModel):
     uuid: str = Field(default_factory=_uuid_factory)
     name: str
-    meta: Optional[Dict] = Field(default=None, sa_column=Column(JSON))
+    meta: Optional[Dict] = Field(default=None, sa_column=Column(JSONB))
 
 
 class UploadedS3ObjectBase(SQLModel):
     key: str = Field(unique=True)
-    tags: Optional[Dict] = Field(default=None, sa_column=Column(JSON))
+    tags: Optional[Dict] = Field(default=None, sa_column=Column(JSONB))
     created_at: datetime = Field(default_factory=datetime.utcnow)
     series_id: Optional[str]
     sha256_hash: str
     proof_id: Optional[str]
-    meta: Optional[Dict] = Field(default=None, sa_column=Column(JSON))
+    meta: Optional[Dict] = Field(default=None, sa_column=Column(JSONB))
 
 
 class UploadedS3Object(UploadedS3ObjectBase, table=True):
@@ -51,6 +51,12 @@ class UploadedS3Object(UploadedS3ObjectBase, table=True):
     asset: Optional["Asset"] = Relationship(
         back_populates="objects",
         sa_relationship_kwargs={"lazy": "selectin"},
+    )
+
+    # https://www.postgresql.org/docs/14/datatype-json.html#JSON-INDEXING
+    __table_args__ = (
+        Index("ix_s3obj_meta", "meta", postgresql_using="gin"),
+        Index("ix_s3obj_tags", "tags", postgresql_using="gin"),
     )
 
 
@@ -72,6 +78,8 @@ class Asset(AssetBase, table=True):
         if username is None and access_level != AssetAccessLevels.PUBLIC:
             raise ValueError("If username is None then access_level must be PUBLIC")
         return access_level
+
+    __table_args__ = (Index("ix_asset_meta", "meta", postgresql_using="gin"),)
 
 
 class UploadedS3ObjectRead(UploadedS3ObjectBase):

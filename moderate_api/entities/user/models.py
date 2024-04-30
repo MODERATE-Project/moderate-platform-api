@@ -2,8 +2,9 @@ import logging
 from datetime import datetime
 from typing import Dict, Optional
 
-from sqlalchemy import Column, select
-from sqlmodel import JSON, Field, SQLModel
+from sqlalchemy import Column, select, Index
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlmodel import Field, SQLModel
 
 from moderate_api.db import AsyncSessionDep
 
@@ -11,7 +12,7 @@ _logger = logging.getLogger(__name__)
 
 
 class UserMetaBase(SQLModel):
-    meta: Optional[Dict] = Field(default=None, sa_column=Column(JSON))
+    meta: Optional[Dict] = Field(default=None, sa_column=Column(JSONB))
 
 
 class UserMeta(UserMetaBase, table=True):
@@ -19,6 +20,8 @@ class UserMeta(UserMetaBase, table=True):
     username: str = Field(unique=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     trust_did: Optional[str] = Field(default=None, unique=True)
+
+    __table_args__ = (Index("ix_usermeta_meta", "meta", postgresql_using="gin"),)
 
 
 class UserMetaCreate(UserMetaBase):
