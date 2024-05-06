@@ -34,6 +34,8 @@ from moderate_api.entities.asset.models import (
     AssetUpdate,
     UploadedS3Object,
     find_s3object_by_key_or_id,
+    find_s3object_pending_quality_check,
+    update_s3object_quality_check_flag,
 )
 from moderate_api.entities.crud import (
     CrudFiltersQuery,
@@ -109,6 +111,54 @@ async def get_asset_presigned_urls(
         ret.append(AssetDownloadURL(key=s3_object.key, download_url=download_url))
 
     return ret
+
+
+class ObjectPendingQuality(BaseModel):
+    key: str
+    asset_id: int
+    id: int
+
+
+@router.get(
+    "/object/quality-check", response_model=List[ObjectPendingQuality], tags=[_TAG]
+)
+async def get_asset_objects_pending_quality(
+    *,
+    user: UserDep,
+    session: AsyncSessionDep,
+):
+    """Retrieves the list of asset objects that are pending quality check."""
+
+    if not user.is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+
+    s3objs = await find_s3object_pending_quality_check(session=session)
+
+    return [ObjectPendingQuality(**full_object.model_dump()) for full_object in s3objs]
+
+
+class AssetObjectFlagQualityRequest(BaseModel):
+    asset_object_id: Union[List[int], int]
+    pending_quality_check: bool
+
+
+@router.post("/object/quality-check", response_model=List[int], tags=[_TAG])
+async def flag_asset_objects_quality_check(
+    *,
+    user: UserDep,
+    session: AsyncSessionDep,
+    body: AssetObjectFlagQualityRequest,
+):
+    """Update the quality check flag for a list of asset objects."""
+
+    if not user.is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+
+    await update_s3object_quality_check_flag(
+        ids=body.asset_object_id, session=session, value=body.pending_quality_check
+    )
+
+    return body.asset_object_id
 
 
 async def _download_asset(

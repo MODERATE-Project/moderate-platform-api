@@ -1,13 +1,19 @@
+import csv
 import logging
+import os
 import pprint
 import random
+import tempfile
 import uuid
+from contextlib import ExitStack, contextmanager
+from io import BufferedReader
 from typing import Optional
 
 from fastapi.testclient import TestClient
 
 from moderate_api.entities.asset.models import AssetCreate
 from moderate_api.entities.user.models import UserMetaCreate
+from moderate_api.main import app
 
 _logger = logging.getLogger(__name__)
 
@@ -126,3 +132,81 @@ def delete_asset(the_client: TestClient, the_access_token: str, the_asset: dict)
     )
 
     assert response.raise_for_status()
+
+
+@contextmanager
+def temp_csv(num_cols: Optional[int] = None, num_rows: Optional[int] = None):
+    num_rows = num_rows or random.randint(200, 400)
+    num_cols = num_cols or random.randint(100, 200)
+    abs_path = os.path.join(tempfile.gettempdir(), "{}.csv".format(str(uuid.uuid4())))
+
+    _logger.info(
+        "Creating temp CSV file (rows=%s) (cols=%s): %s",
+        num_rows,
+        num_cols,
+        abs_path,
+    )
+
+    with open(abs_path, mode="w", newline="") as csv_file:
+        fieldnames = [str(uuid.uuid4()) for _ in range(num_cols)]
+        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+        writer.writeheader()
+
+        for _ in range(num_rows):
+            writer.writerow({name: str(uuid.uuid4()) for name in fieldnames})
+
+    _logger.info("Created temp CSV file: %s", abs_path)
+
+    yield abs_path
+
+    try:
+        os.remove(abs_path)
+        _logger.debug("Removed temp CSV file: %s", abs_path)
+    except Exception:
+        _logger.warning("Failed to remove temp CSV file", exc_info=True)
+
+
+def post_upload_asset_object(
+    client: TestClient,
+    the_asset: dict,
+    the_access_token: str,
+    fh: BufferedReader,
+    form: Optional[dict] = None,
+):
+    upload_name = "upload-{}.csv".format(str(uuid.uuid4()))
+
+    response = client.post(
+        "/asset/{}/object".format(the_asset["id"]),
+        headers={"Authorization": f"Bearer {the_access_token}"},
+        files={"obj": (upload_name, fh)},
+        data=form or {},
+    )
+
+    assert response.raise_for_status()
+    return response
+
+
+def upload_test_files(
+    the_access_token: str, num_files: Optional[int] = 2, form: Optional[dict] = None
+) -> str:
+    with ExitStack() as stack:
+        client = stack.enter_context(TestClient(app))
+
+        temp_csv_paths = []
+
+        for _ in range(num_files):
+            temp_csv_path = stack.enter_context(temp_csv())
+            temp_csv_paths.append(temp_csv_path)
+
+        the_asset = create_asset(client, the_access_token)
+
+        for temp_path in temp_csv_paths:
+            with open(temp_path, "rb") as fh:
+                response = post_upload_asset_object(
+                    client, the_asset, the_access_token, fh, form=form
+                )
+
+                res_json = response.json()
+                _logger.info("Response:\n%s", pprint.pformat(res_json))
+
+        return the_asset["id"]

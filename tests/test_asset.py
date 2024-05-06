@@ -5,10 +5,17 @@ import uuid
 import httpx
 import pytest
 from fastapi.testclient import TestClient
+from sqlmodel import select
 
-from moderate_api.entities.asset.models import AssetCreate
+from moderate_api.db import with_session
+from moderate_api.entities.asset.models import (
+    AssetCreate,
+    UploadedS3Object,
+    find_s3object_pending_quality_check,
+    update_s3object_quality_check_flag,
+)
 from moderate_api.main import app
-from tests.utils import create_asset
+from tests.utils import create_asset, upload_test_files
 
 _logger = logging.getLogger(__name__)
 
@@ -40,3 +47,75 @@ async def test_auto_uuid(access_token):
         _logger.debug("Response:\n%s", pprint.pformat(resp_json))
         assert response.raise_for_status()
         assert resp_json["uuid"]
+
+
+@pytest.mark.asyncio
+async def test_asset_object_quality_check(access_token):
+    asset_id = upload_test_files(access_token, num_files=4)
+
+    async with with_session() as session:
+        stmt = select(UploadedS3Object).where(UploadedS3Object.asset_id == asset_id)
+        result = await session.execute(stmt)
+        s3objects = result.scalars().all()
+        s3obj_ids = [obj.id for obj in s3objects]
+
+        pending = await find_s3object_pending_quality_check(session=session)
+        assert not pending or len(pending) == 0
+
+        await update_s3object_quality_check_flag(
+            session=session, ids=s3obj_ids[:-1], value=True
+        )
+
+        pending = await find_s3object_pending_quality_check(session=session)
+        assert len(pending) == (len(s3objects) - 1)
+
+        await update_s3object_quality_check_flag(
+            session=session, ids=s3obj_ids[0], value=False
+        )
+
+        pending = await find_s3object_pending_quality_check(session=session)
+        assert len(pending) == (len(s3objects) - 2)
+
+
+@pytest.mark.parametrize(
+    "access_token",
+    [{"is_admin": True}],
+    indirect=True,
+)
+@pytest.mark.asyncio
+async def test_asset_object_quality_check_endpoints(access_token):
+    asset_id = upload_test_files(access_token, num_files=4)
+
+    async with with_session() as session:
+        stmt = select(UploadedS3Object).where(UploadedS3Object.asset_id == asset_id)
+        result = await session.execute(stmt)
+        s3objects = result.scalars().all()
+        s3obj_ids = [obj.id for obj in s3objects]
+
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    with TestClient(app) as client:
+        resp_get_before = client.get("/asset/object/quality-check", headers=headers)
+        assert resp_get_before.raise_for_status()
+        resp_json = resp_get_before.json()
+        _logger.info("Response:\n%s", pprint.pformat(resp_json))
+        assert len(resp_json) == 0
+
+        num_flagged = 2
+
+        resp_post = client.post(
+            "/asset/object/quality-check",
+            headers=headers,
+            json={
+                "asset_object_id": s3obj_ids[:num_flagged],
+                "pending_quality_check": True,
+            },
+        )
+
+        assert resp_post.raise_for_status()
+
+        resp_get_after = client.get("/asset/object/quality-check", headers=headers)
+        assert resp_get_after.raise_for_status()
+        resp_json = resp_get_after.json()
+        _logger.info("Response:\n%s", pprint.pformat(resp_json))
+        assert len(resp_json) == num_flagged

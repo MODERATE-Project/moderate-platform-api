@@ -9,11 +9,13 @@ import arrow
 from fastapi import HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy import Text, asc, cast, desc, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 from sqlalchemy.sql.elements import BinaryExpression, UnaryExpression
 from sqlmodel import SQLModel, select
+from sqlalchemy.orm.attributes import flag_modified
 
 from moderate_api.authz import User
 from moderate_api.enums import Actions, Entities
@@ -429,6 +431,44 @@ async def delete_one(
     await session.commit()
 
     return {"ok": True, "id": entity_id}
+
+
+async def find_by_json_key(
+    sql_model: Type[SQLModel],
+    session: AsyncSession,
+    json_column: str,
+    json_key: str,
+    json_value: Any,
+) -> List[SQLModel]:
+    stmt = select(sql_model).filter(
+        getattr(sql_model, json_column)[json_key] == cast(json_value, JSONB)
+    )
+
+    result = await session.execute(stmt)
+    return result.scalars().all()
+
+
+async def update_json_key(
+    sql_model: Type[SQLModel],
+    session: AsyncSession,
+    primary_keys: Union[List[int], int],
+    json_column: str,
+    json_key: str,
+    json_value: Any,
+):
+    ids = primary_keys if isinstance(primary_keys, list) else [primary_keys]
+    stmt = select(sql_model).where(sql_model.id.in_(ids))
+    result = await session.execute(stmt)
+    rows = result.scalars().all()
+
+    for row in rows:
+        jsonobj = getattr(row, json_column) or {}
+        jsonobj.update({json_key: json_value})
+        setattr(row, json_column, jsonobj)
+        flag_modified(row, json_column)
+        session.add(row)
+
+    await session.commit()
 
 
 _example_crud_filters = json.dumps(

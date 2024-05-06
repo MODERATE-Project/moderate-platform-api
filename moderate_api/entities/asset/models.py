@@ -5,12 +5,12 @@ from datetime import datetime
 from typing import Dict, List, Optional, Union
 
 from pydantic import validator
-from sqlalchemy import Column, Index, Text, cast, or_, select
+from sqlalchemy import Column, Index, Text, or_, select
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm.attributes import flag_modified
 from sqlmodel import Field, Relationship, SQLModel
 
 from moderate_api.db import AsyncSessionDep
+from moderate_api.entities.crud import find_by_json_key, update_json_key
 from moderate_api.object_storage import S3ClientDep
 
 
@@ -133,30 +133,23 @@ async def get_s3object_size_mib(s3_object: UploadedS3Object, s3: S3ClientDep) ->
 async def find_s3object_pending_quality_check(
     session: AsyncSessionDep,
 ) -> List[UploadedS3Object]:
-    stmt = select(UploadedS3Object).filter(
-        UploadedS3Object.meta[S3ObjectWellKnownMetaKeys.PENDING_QUALITY_CHECK.value]
-        == cast(True, JSONB)
+    return await find_by_json_key(
+        sql_model=UploadedS3Object,
+        session=session,
+        json_column="meta",
+        json_key=S3ObjectWellKnownMetaKeys.PENDING_QUALITY_CHECK.value,
+        json_value=True,
     )
-
-    result = await session.execute(stmt)
-    s3objects: List[UploadedS3Object] = result.scalars().all()
-
-    return s3objects
 
 
 async def update_s3object_quality_check_flag(
     ids: List[int], session: AsyncSessionDep, value: bool
 ):
-    ids = ids if isinstance(ids, list) else [ids]
-    stmt = select(UploadedS3Object).where(UploadedS3Object.id.in_(ids))
-    result = await session.execute(stmt)
-    s3objects = result.scalars().all()
-
-    for s3object in s3objects:
-        meta = s3object.meta or {}
-        meta.update({S3ObjectWellKnownMetaKeys.PENDING_QUALITY_CHECK.value: value})
-        s3object.meta = meta
-        flag_modified(s3object, "meta")
-        session.add(s3object)
-
-    await session.commit()
+    return await update_json_key(
+        sql_model=UploadedS3Object,
+        session=session,
+        primary_keys=ids,
+        json_column="meta",
+        json_key=S3ObjectWellKnownMetaKeys.PENDING_QUALITY_CHECK.value,
+        json_value=value,
+    )
