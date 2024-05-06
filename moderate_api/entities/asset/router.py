@@ -180,7 +180,9 @@ async def _download_asset(
         if user:
             or_constraints.append(Asset.username == user.username)
 
-    stmt = stmt.where(or_(*or_constraints))
+    if len(or_constraints) > 0:
+        stmt = stmt.where(or_(*or_constraints))
+
     result = await session.execute(stmt)
     asset = result.one_or_none()
 
