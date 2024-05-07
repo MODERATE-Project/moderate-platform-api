@@ -1,6 +1,7 @@
 import logging
 import sys
 from contextlib import asynccontextmanager
+from typing import AsyncGenerator
 
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
@@ -52,7 +53,7 @@ class DBEngine:
 
 
 @asynccontextmanager
-async def with_session() -> AsyncSession:
+async def with_session() -> AsyncGenerator[AsyncSession, None]:
     engine = DBEngine.instance()
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     _logger.debug("Initialized session factory: %s", async_session)
@@ -61,7 +62,7 @@ async def with_session() -> AsyncSession:
         yield session
 
 
-async def get_session() -> AsyncSession:
+async def get_session() -> AsyncGenerator[AsyncSession, None]:
     async with with_session() as session:
         yield session
 
