@@ -12,10 +12,9 @@ from sqlalchemy import Text, asc, cast, desc, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from sqlalchemy.orm.attributes import InstrumentedAttribute
+from sqlalchemy.orm.attributes import InstrumentedAttribute, flag_modified
 from sqlalchemy.sql.elements import BinaryExpression, UnaryExpression
 from sqlmodel import SQLModel, select
-from sqlalchemy.orm.attributes import flag_modified
 
 from moderate_api.authz import User
 from moderate_api.enums import Actions, Entities
@@ -439,10 +438,14 @@ async def find_by_json_key(
     json_column: str,
     json_key: str,
     json_value: Any,
+    selector: Optional[List[BinaryExpression]] = None,
 ) -> List[SQLModel]:
     stmt = select(sql_model).filter(
         getattr(sql_model, json_column)[json_key] == cast(json_value, JSONB)
     )
+
+    if selector and len(selector) > 0:
+        stmt = stmt.where(*selector)
 
     result = await session.execute(stmt)
     return result.scalars().all()

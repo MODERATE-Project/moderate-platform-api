@@ -131,14 +131,23 @@ async def get_s3object_size_mib(s3_object: UploadedS3Object, s3: S3ClientDep) ->
 
 
 async def find_s3object_pending_quality_check(
-    session: AsyncSessionDep,
+    session: AsyncSessionDep, username_filter: str = None
 ) -> List[UploadedS3Object]:
+    if username_filter:
+        stmt = select(Asset.id).where(Asset.username == username_filter)
+        result = await session.execute(stmt)
+        asset_ids = result.scalars().all()
+        selector = [UploadedS3Object.asset_id.in_(asset_ids)]
+    else:
+        selector = None
+
     return await find_by_json_key(
         sql_model=UploadedS3Object,
         session=session,
         json_column="meta",
         json_key=S3ObjectWellKnownMetaKeys.PENDING_QUALITY_CHECK.value,
         json_value=True,
+        selector=selector,
     )
 
 
@@ -153,3 +162,38 @@ async def update_s3object_quality_check_flag(
         json_key=S3ObjectWellKnownMetaKeys.PENDING_QUALITY_CHECK.value,
         json_value=value,
     )
+
+
+async def find_assets_for_objects(
+    object_ids: List[int], session: AsyncSessionDep, username_filter: str = None
+) -> List[Asset]:
+    stmt = (
+        select(Asset).join(UploadedS3Object).where(UploadedS3Object.id.in_(object_ids))
+    )
+
+    if username_filter:
+        stmt = stmt.where(Asset.username == username_filter)
+
+    result = await session.execute(stmt)
+    assets = result.scalars().all()
+    return assets
+
+
+async def filter_object_ids_by_username(
+    object_ids: List[int], session: AsyncSessionDep, username: str
+) -> List[int]:
+    allowed_assets = await find_assets_for_objects(
+        object_ids=object_ids,
+        session=session,
+        username_filter=username,
+    )
+
+    allowed_asset_object_ids = set(
+        [obj.id for asset in allowed_assets for obj in asset.objects]
+    )
+
+    filtered_asset_object_ids = [
+        obj_id for obj_id in object_ids if obj_id in allowed_asset_object_ids
+    ]
+
+    return filtered_asset_object_ids

@@ -33,6 +33,7 @@ from moderate_api.entities.asset.models import (
     AssetRead,
     AssetUpdate,
     UploadedS3Object,
+    filter_object_ids_by_username,
     find_s3object_by_key_or_id,
     find_s3object_pending_quality_check,
     update_s3object_quality_check_flag,
@@ -129,10 +130,14 @@ async def get_asset_objects_pending_quality(
 ):
     """Retrieves the list of asset objects that are pending quality check."""
 
-    if not user.is_admin:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+    if user.is_admin:
+        username_filter = None
+    else:
+        username_filter = user.username
 
-    s3objs = await find_s3object_pending_quality_check(session=session)
+    s3objs = await find_s3object_pending_quality_check(
+        session=session, username_filter=username_filter
+    )
 
     return [ObjectPendingQuality(**full_object.model_dump()) for full_object in s3objs]
 
@@ -142,7 +147,13 @@ class AssetObjectFlagQualityRequest(BaseModel):
     pending_quality_check: bool
 
 
-@router.post("/object/quality-check", response_model=List[int], tags=[_TAG])
+class AssetObjectFlagQualityResponse(BaseModel):
+    asset_object_id: List[int]
+
+
+@router.post(
+    "/object/quality-check", response_model=AssetObjectFlagQualityResponse, tags=[_TAG]
+)
 async def flag_asset_objects_quality_check(
     *,
     user: UserDep,
@@ -151,14 +162,20 @@ async def flag_asset_objects_quality_check(
 ):
     """Update the quality check flag for a list of asset objects."""
 
-    if not user.is_admin:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+    if user.is_admin:
+        asset_object_ids = body.asset_object_id
+    else:
+        asset_object_ids = await filter_object_ids_by_username(
+            object_ids=body.asset_object_id,
+            session=session,
+            username=user.username,
+        )
 
     await update_s3object_quality_check_flag(
-        ids=body.asset_object_id, session=session, value=body.pending_quality_check
+        ids=asset_object_ids, session=session, value=body.pending_quality_check
     )
 
-    return body.asset_object_id
+    return AssetObjectFlagQualityResponse(asset_object_id=asset_object_ids)
 
 
 async def _download_asset(

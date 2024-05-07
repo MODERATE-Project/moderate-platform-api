@@ -9,6 +9,7 @@ from sqlmodel import select
 
 from moderate_api.db import with_session
 from moderate_api.entities.asset.models import (
+    Asset,
     AssetCreate,
     UploadedS3Object,
     find_s3object_pending_quality_check,
@@ -79,18 +80,30 @@ async def test_asset_object_quality_check(access_token):
 
 @pytest.mark.parametrize(
     "access_token",
-    [{"is_admin": True}],
+    [{"is_admin": False}],
     indirect=True,
 )
 @pytest.mark.asyncio
 async def test_asset_object_quality_check_endpoints(access_token):
-    asset_id = upload_test_files(access_token, num_files=4)
+    num_files = 4
+    asset_id = upload_test_files(access_token, num_files=num_files)
 
     async with with_session() as session:
         stmt = select(UploadedS3Object).where(UploadedS3Object.asset_id == asset_id)
         result = await session.execute(stmt)
         s3objects = result.scalars().all()
         s3obj_ids = [obj.id for obj in s3objects]
+
+    forbidden_asset_id = upload_test_files(access_token, num_files=2)
+
+    async with with_session() as session:
+        stmt = select(Asset).where(Asset.id == forbidden_asset_id)
+        result = await session.execute(stmt)
+        asset = result.scalars().one()
+        asset.username = uuid.uuid4().hex
+        session.add(asset)
+        await session.commit()
+        forbidden_s3obj_ids = [obj.id for obj in asset.objects]
 
     headers = {"Authorization": f"Bearer {access_token}"}
 
@@ -103,13 +116,13 @@ async def test_asset_object_quality_check_endpoints(access_token):
 
         num_flagged = 2
 
+        post_body = {
+            "asset_object_id": [*s3obj_ids[:num_flagged], *forbidden_s3obj_ids],
+            "pending_quality_check": True,
+        }
+
         resp_post = client.post(
-            "/asset/object/quality-check",
-            headers=headers,
-            json={
-                "asset_object_id": s3obj_ids[:num_flagged],
-                "pending_quality_check": True,
-            },
+            "/asset/object/quality-check", headers=headers, json=post_body
         )
 
         assert resp_post.raise_for_status()
@@ -119,3 +132,5 @@ async def test_asset_object_quality_check_endpoints(access_token):
         resp_json = resp_get_after.json()
         _logger.info("Response:\n%s", pprint.pformat(resp_json))
         assert len(resp_json) == num_flagged
+        assert len(post_body["asset_object_id"]) > num_flagged
+        assert all(item["asset_id"] != forbidden_asset_id for item in resp_json)
