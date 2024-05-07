@@ -1,15 +1,14 @@
-import copy
 import enum
 import uuid
 from datetime import datetime
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import validator
 from sqlalchemy import Column, Index, Text, or_, select
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlmodel import Field, Relationship, SQLModel
 
-from moderate_api.db import AsyncSessionDep
+from moderate_api.db import AsyncSessionDep, build_tsvector_computed
 from moderate_api.entities.crud import find_by_json_key, update_json_key
 from moderate_api.object_storage import S3ClientDep
 
@@ -31,6 +30,7 @@ def _uuid_factory() -> str:
 class AssetBase(SQLModel):
     uuid: str = Field(default_factory=_uuid_factory)
     name: str
+    description: Optional[str] = Field(default=None, sa_column=Column(Text))
     meta: Optional[Dict] = Field(default=None, sa_column=Column(JSONB))
 
 
@@ -71,11 +71,18 @@ class Asset(AssetBase, table=True):
     uuid: str = Field(default_factory=_uuid_factory, unique=True)
     username: Optional[str]
     access_level: AssetAccessLevels = Field(default=AssetAccessLevels.PRIVATE)
-    description: Optional[str] = Field(default=None, sa_column=Column(Text))
 
     objects: List[UploadedS3Object] = Relationship(
         back_populates="asset",
         sa_relationship_kwargs={"lazy": "selectin", "cascade": "delete"},
+    )
+
+    search_vector: Any = Field(
+        default=None,
+        sa_column=Column(
+            TSVECTOR,
+            build_tsvector_computed(columns=("name", "description")),
+        ),
     )
 
     @validator("access_level", always=True)
@@ -85,7 +92,13 @@ class Asset(AssetBase, table=True):
             raise ValueError("If username is None then access_level must be PUBLIC")
         return access_level
 
-    __table_args__ = (Index("ix_asset_meta", "meta", postgresql_using="gin"),)
+    __table_args__ = (
+        Index("ix_asset_meta", "meta", postgresql_using="gin"),
+        Index("ix_asset_search_vector", "search_vector", postgresql_using="gin"),
+    )
+
+    class Config:
+        arbitrary_types_allowed = True
 
 
 class UploadedS3ObjectRead(UploadedS3ObjectBase):

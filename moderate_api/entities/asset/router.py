@@ -114,6 +114,53 @@ async def get_asset_presigned_urls(
     return ret
 
 
+async def _search_assets(
+    *,
+    user: OptionalUserDep,
+    session: AsyncSessionDep,
+    query: str,
+    limit: int = Query(default=20, le=100),
+):
+    allowed_levels = [AssetAccessLevels.VISIBLE, AssetAccessLevels.PUBLIC]
+
+    if user and not user.is_admin:
+        selector = or_(
+            Asset.access_level.in_(allowed_levels),
+            Asset.username == user.username,
+        )
+    elif user and user.is_admin:
+        selector = None
+    else:
+        selector = Asset.access_level.in_(allowed_levels)
+
+    stmt = select(Asset).where(Asset.search_vector.match(query)).limit(limit)
+
+    if selector is not None:
+        stmt = stmt.where(selector)
+
+    result = await session.execute(stmt)
+    assets = result.scalars().all()
+
+    return assets
+
+
+router.add_api_route(
+    "/search",
+    _search_assets,
+    methods=["GET"],
+    response_model=List[AssetRead],
+    tags=[_TAG],
+)
+
+router.add_api_route(
+    "/public/search",
+    _search_assets,
+    methods=["GET"],
+    response_model=List[AssetRead],
+    tags=[_TAG, Tags.PUBLIC.value],
+)
+
+
 class ObjectPendingQuality(BaseModel):
     key: str
     asset_id: int

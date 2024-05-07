@@ -59,10 +59,15 @@ def read_user_meta(
 
 
 def create_asset(
-    the_client: TestClient, the_access_token: str, the_uuid: Optional[str] = None
+    the_client: TestClient,
+    the_access_token: str,
+    the_uuid: Optional[str] = None,
+    asset_kwargs: Optional[dict] = None,
 ) -> dict:
     the_uuid = the_uuid or str(uuid.uuid4())
-    asset = AssetCreate(uuid=the_uuid, name=str(uuid.uuid4()))
+    kwargs = {"name": str(uuid.uuid4()), "uuid": the_uuid}
+    kwargs.update(asset_kwargs or {})
+    asset = AssetCreate(**kwargs)
 
     response = the_client.post(
         "/asset",

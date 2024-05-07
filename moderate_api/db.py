@@ -1,9 +1,12 @@
 import logging
 import sys
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+from typing import AsyncGenerator, List
 
+import sqlalchemy.types as types
 from fastapi import Depends
+from sqlalchemy import Computed
+from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
@@ -68,3 +71,8 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
 
 
 AsyncSessionDep = Annotated[AsyncSession, Depends(get_session)]
+
+
+def build_tsvector_computed(columns: List[str], language: str = "english") -> Computed:
+    columns_part = " || ' ' || ".join(columns)
+    return Computed(f"to_tsvector('{language}', {columns_part})", persisted=True)
