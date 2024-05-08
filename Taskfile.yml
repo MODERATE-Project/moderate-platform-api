@@ -162,3 +162,27 @@ tasks:
     cmds:
       - echo "📣 Ensure that the API is listening on {{.VITE_API_URL}} and Keycloak is on {{.VITE_KEYCLOAK_URL}}"
       - npm run dev
+
+  alembic-revision:
+    desc: Create a new Alembic revision
+    vars:
+      GIT_REV_PARSE:
+        sh: git rev-parse HEAD
+      DEFAULT_MSG: "Revision based on commit {{.GIT_REV_PARSE}}"
+      MSG: "{{default .DEFAULT_MSG .MSG}}"
+    cmds:
+      - poetry run alembic revision --autogenerate -m "{{.MSG}}"
+
+  alembic-upgrade:
+    desc: Upgrade the database to the head revision
+    requires:
+      vars: [MIGRATIONS_SQLALCHEMY_URL]
+    cmds:
+      - poetry run alembic upgrade head
+
+  run-cloud-sql-proxy:
+    desc: Run Cloud SQL Proxy to enable connections to the cloud database
+    requires:
+      vars: [INSTANCE_CONNECTION_NAME]
+    cmds:
+      - cloud-sql-proxy {{.INSTANCE_CONNECTION_NAME}}
