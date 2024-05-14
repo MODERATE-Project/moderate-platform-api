@@ -1,5 +1,5 @@
 import { Box, Button, Text, Title, createStyles } from "@mantine/core";
-import { IconExternalLink } from "@tabler/icons";
+import { IconExternalLink } from "@tabler/icons-react";
 import React from "react";
 import { useTranslation } from "react-i18next";
 

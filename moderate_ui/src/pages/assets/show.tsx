@@ -5,7 +5,7 @@ import {
   useTranslate,
 } from "@refinedev/core";
 import { Show } from "@refinedev/mantine";
-import { IconExclamationCircle } from "@tabler/icons";
+import { IconExclamationCircle } from "@tabler/icons-react";
 import React from "react";
 import { AssetObjectCard } from "../../components/AssetObjectCard";
 import { KeyValuesStack } from "../../components/KeyValuesStack";

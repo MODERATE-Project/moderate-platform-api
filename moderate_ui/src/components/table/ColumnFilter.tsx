@@ -1,5 +1,5 @@
 import { ActionIcon, Group, Menu, Stack, TextInput } from "@mantine/core";
-import { IconCheck, IconFilter, IconX } from "@tabler/icons";
+import { IconCheck, IconFilter, IconX } from "@tabler/icons-react";
 import type { Column } from "@tanstack/react-table";
 import React, { useState } from "react";
 

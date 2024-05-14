@@ -23,7 +23,7 @@ import routerBindings, {
   NavigateToResource,
   UnsavedChangesNotifier,
 } from "@refinedev/react-router-v6";
-import { IconBox } from "@tabler/icons";
+import { IconBox } from "@tabler/icons-react";
 import axios from "axios";
 import { useTranslation } from "react-i18next";
 import { BrowserRouter, Outlet, Route, Routes } from "react-router-dom";

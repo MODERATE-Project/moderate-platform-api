@@ -20,7 +20,7 @@ import {
   IconFileText,
   IconReportSearch,
   IconTable,
-} from "@tabler/icons";
+} from "@tabler/icons-react";
 import React, { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { EllipsisButton } from "../../components/EllipsisButton";

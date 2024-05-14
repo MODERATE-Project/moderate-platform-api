@@ -12,7 +12,7 @@ import {
   useShow,
   useTranslate,
 } from "@refinedev/core";
-import { IconFlask } from "@tabler/icons";
+import { IconFlask } from "@tabler/icons-react";
 import { useEffect, useMemo, useState } from "react";
 import { fetchPygwalkerHtml } from "../../api/visualization";
 

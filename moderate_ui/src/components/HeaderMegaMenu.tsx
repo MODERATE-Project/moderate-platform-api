@@ -24,7 +24,7 @@ import {
   useLogin,
   useLogout,
 } from "@refinedev/core";
-import { IconBox, IconChevronDown, IconUser } from "@tabler/icons";
+import { IconBox, IconChevronDown, IconUser } from "@tabler/icons-react";
 import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";

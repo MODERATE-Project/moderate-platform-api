@@ -1,5 +1,5 @@
 import { ActionIcon, Group, Menu } from "@mantine/core";
-import { IconDotsVertical } from "@tabler/icons";
+import { IconDotsVertical } from "@tabler/icons-react";
 
 export function EllipsisButton({
   children,

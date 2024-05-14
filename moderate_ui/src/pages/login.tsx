@@ -1,6 +1,6 @@
 import { Box, Button, Space } from "@mantine/core";
 import { useLogin, useTranslate } from "@refinedev/core";
-import { IconLogin } from "@tabler/icons";
+import { IconLogin } from "@tabler/icons-react";
 
 export const Login: React.FC = () => {
   const { mutate: login } = useLogin();
