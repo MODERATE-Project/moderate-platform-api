@@ -1,16 +1,7 @@
-import {
-  Alert,
-  Box,
-  Group,
-  Pagination,
-  ScrollArea,
-  Space,
-  Table,
-} from "@mantine/core";
+import { Group, Pagination, ScrollArea, Space, Table } from "@mantine/core";
 import { IResourceComponentsProps, useTranslate } from "@refinedev/core";
 import { DeleteButton, EditButton, List, ShowButton } from "@refinedev/mantine";
 import { useTable } from "@refinedev/react-table";
-import { IconBulb } from "@tabler/icons-react";
 import { ColumnDef, flexRender } from "@tanstack/react-table";
 import React from "react";
 import { ColumnFilter } from "../../components/table/ColumnFilter";

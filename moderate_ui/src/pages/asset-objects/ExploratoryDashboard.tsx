@@ -14,7 +14,7 @@ import {
 } from "@refinedev/core";
 import { IconFlask } from "@tabler/icons-react";
 import { useEffect, useMemo, useState } from "react";
-import { fetchPygwalkerHtml } from "../../api/visualization";
+import { fetchPygwalkerHtml } from "../../api/assets";
 
 export const AssetObjectExploratoryDashboard: React.FC = () => {
   const { params } = useParsed();
