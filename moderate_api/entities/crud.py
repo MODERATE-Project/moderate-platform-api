@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional, Type, Union
 
 import arrow
-from fastapi import HTTPException, Query, status
+from fastapi import HTTPException, Query, Response, status
 from pydantic import BaseModel
 from sqlalchemy import Text, asc, cast, desc, func
 from sqlalchemy.dialects.postgresql import JSONB
@@ -17,6 +17,7 @@ from sqlalchemy.sql.elements import BinaryExpression, UnaryExpression
 from sqlmodel import SQLModel, select
 
 from moderate_api.authz import User
+from moderate_api.config import get_settings
 from moderate_api.enums import Actions, Entities
 
 _logger = logging.getLogger(__name__)
@@ -238,6 +239,16 @@ def _primary_key(sql_model: Type[SQLModel]) -> str:
         return column.name
 
 
+async def set_response_count_header(
+    response: Response, sql_model: Type[SQLModel], session: AsyncSession
+) -> None:
+    stmt = select(func.count()).select_from(sql_model)
+    result = await session.execute(stmt)
+    count = result.scalar_one()
+    settings = get_settings()
+    response.headers[settings.response_total_count_header] = str(count)
+
+
 async def create_one(
     *,
     user: User,
@@ -307,15 +318,7 @@ async def read_many(
     )
 
     result = await session.execute(statement)
-    entities = result.all()
-
-    # Note that all() returns a list of tuples:
-    # [
-    # (Asset(username='andres.garcia', id=74, uuid='bc3048cf5ba0489e9781c1762e2c6b64'),),
-    # (Asset(username='andres.garcia', id=75, uuid='ae0d444b3c3045f4a32f20dd7be450e1'),),
-    # ...
-    # ]
-    return [item[0] for item in entities]
+    return result.scalars().all()
 
 
 async def select_one(

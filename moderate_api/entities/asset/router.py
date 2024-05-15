@@ -13,6 +13,7 @@ from fastapi import (
     Form,
     HTTPException,
     Query,
+    Response,
     UploadFile,
     status,
 )
@@ -46,6 +47,7 @@ from moderate_api.entities.crud import (
     read_many,
     read_one,
     select_one,
+    set_response_count_header,
     update_one,
 )
 from moderate_api.enums import Actions, Entities, Tags
@@ -280,6 +282,7 @@ router.add_api_route(
 @router.get("/object", response_model=List[UploadedS3Object], tags=[_TAG])
 async def query_asset_objects(
     *,
+    response: Response,
     user: UserDep,
     session: AsyncSessionDep,
     offset: int = 0,
@@ -288,6 +291,12 @@ async def query_asset_objects(
     sorts: Optional[str] = CrudSortsQuery,
 ):
     user_selector = await build_selector(user=user, session=session)
+
+    await set_response_count_header(
+        response=response,
+        sql_model=UploadedS3Object,
+        session=session,
+    )
 
     return await read_many(
         user=user,
@@ -435,6 +444,7 @@ async def create_asset(*, user: UserDep, session: AsyncSessionDep, entity: Asset
 
 async def _read_assets(
     *,
+    response: Response,
     user: OptionalUserDep,
     session: AsyncSessionDep,
     offset: int = 0,
@@ -450,6 +460,12 @@ async def _read_assets(
         user_selector: List[BinaryExpression] = [
             Asset.access_level == AssetAccessLevels.PUBLIC
         ]
+
+    await set_response_count_header(
+        response=response,
+        sql_model=Asset,
+        session=session,
+    )
 
     return await read_many(
         user=user,

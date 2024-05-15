@@ -59,6 +59,7 @@ class Settings(BaseSettings):
     trust_service: Optional[TrustService] = None
     visualization_max_size_mib: float = 15.0
     visualization_expires_in_seconds: int = 1800
+    response_total_count_header = "X-Total-Count"
 
     postgres_url: str = (
         "postgresql+asyncpg://postgres:postgres@localhost:5432/moderateapi/"

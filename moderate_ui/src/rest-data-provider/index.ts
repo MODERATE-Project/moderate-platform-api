@@ -44,7 +44,7 @@ export const dataProvider = (
       query.filters = JSON.stringify(filters);
     }
 
-    const urlWithQuery = !!Object.keys(query).length
+    const urlWithQuery = Object.keys(query).length
       ? `${url}?${stringify(query)}`
       : url;
 

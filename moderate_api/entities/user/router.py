@@ -1,7 +1,7 @@
 import logging
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Response, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import BinaryExpression
@@ -18,6 +18,7 @@ from moderate_api.entities.crud import (
     delete_one,
     read_many,
     read_one,
+    set_response_count_header,
     update_one,
 )
 from moderate_api.entities.user.models import (
@@ -73,6 +74,7 @@ async def create_user_meta(
 @router.get("", response_model=List[UserMetaRead], tags=[_TAG])
 async def query_user_meta(
     *,
+    response: Response,
     user: UserDep,
     session: AsyncSessionDep,
     offset: int = 0,
@@ -81,6 +83,12 @@ async def query_user_meta(
     sorts: Optional[str] = CrudSortsQuery,
 ):
     user_selector = await build_selector(user=user, session=session)
+
+    await set_response_count_header(
+        response=response,
+        sql_model=UserMeta,
+        session=session,
+    )
 
     return await read_many(
         user=user,
