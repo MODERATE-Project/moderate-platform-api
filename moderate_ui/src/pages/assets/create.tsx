@@ -16,6 +16,7 @@ import _ from "lodash";
 import { useState } from "react";
 import { uploadObject } from "../../api/assets";
 import { AssetAccessLevel } from "../../api/types";
+import { ResourceNames } from "../../types";
 
 export const AssetCreate = () => {
   const t = useTranslate();
@@ -72,7 +73,7 @@ export const AssetCreate = () => {
 
         go({
           to: {
-            resource: "asset",
+            resource: ResourceNames.ASSET,
             action: "show",
             id: assetId,
           },

@@ -25,10 +25,16 @@ import React, { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { EllipsisButton } from "../../components/EllipsisButton";
 import { KeyValuesStack } from "../../components/KeyValuesStack";
+import { ResourceNames } from "../../types";
 
 export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
   const { params } = useParsed();
-  const { queryResult } = useShow({ resource: "asset", id: params?.id });
+
+  const { queryResult } = useShow({
+    resource: ResourceNames.ASSET,
+    id: params?.id,
+  });
+
   const { data, isLoading } = queryResult;
   const t = useTranslate();
 

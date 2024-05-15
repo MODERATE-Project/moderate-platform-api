@@ -36,6 +36,7 @@ import { AssetObjectShow } from "./pages/asset-objects/Show";
 import { AssetCreate, AssetEdit, AssetList, AssetShow } from "./pages/assets";
 import { Login } from "./pages/login";
 import { dataProvider } from "./rest-data-provider";
+import { ResourceNames } from "./types";
 
 function App() {
   const [colorScheme, setColorScheme] = useLocalStorage<ColorScheme>({
@@ -125,7 +126,7 @@ function App() {
                   i18nProvider={i18nProvider}
                   resources={[
                     {
-                      name: "asset",
+                      name: ResourceNames.ASSET,
                       list: "/assets",
                       create: "/assets/create",
                       edit: "/assets/edit/:id",
