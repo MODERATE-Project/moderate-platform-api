@@ -1,6 +1,6 @@
 import enum
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Union
 
 from pydantic import validator
@@ -27,17 +27,22 @@ def _uuid_factory() -> str:
     return str(uuid.uuid4())
 
 
+def _now_factory() -> datetime:
+    return datetime.now(tz=timezone.utc).replace(tzinfo=None)
+
+
 class AssetBase(SQLModel):
     uuid: str = Field(default_factory=_uuid_factory)
     name: str
     description: Optional[str] = Field(default=None, sa_column=Column(Text))
     meta: Optional[Dict] = Field(default=None, sa_column=Column(JSONB))
+    created_at: datetime = Field(default_factory=_now_factory, index=True)
 
 
 class UploadedS3ObjectBase(SQLModel):
     key: str = Field(unique=True)
     tags: Optional[Dict] = Field(default=None, sa_column=Column(JSONB))
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=_now_factory, index=True)
     series_id: Optional[str]
     sha256_hash: str
     proof_id: Optional[str]
@@ -114,6 +119,7 @@ class AssetRead(AssetBase):
     id: int
     objects: List[UploadedS3ObjectRead]
     access_level: AssetAccessLevels
+    username: str
 
 
 class AssetUpdate(SQLModel):

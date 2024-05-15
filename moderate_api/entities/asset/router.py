@@ -120,25 +120,34 @@ async def _search_assets(
     *,
     user: OptionalUserDep,
     session: AsyncSessionDep,
-    query: str,
+    query: str = Query(default=None),
     limit: int = Query(default=20, le=100),
+    exclude_mine: bool = Query(default=False),
 ):
     allowed_levels = [AssetAccessLevels.VISIBLE, AssetAccessLevels.PUBLIC]
 
     if user and not user.is_admin:
-        selector = or_(
+        user_selector = or_(
             Asset.access_level.in_(allowed_levels),
             Asset.username == user.username,
         )
     elif user and user.is_admin:
-        selector = None
+        user_selector = None
     else:
-        selector = Asset.access_level.in_(allowed_levels)
+        user_selector = Asset.access_level.in_(allowed_levels)
 
-    stmt = select(Asset).where(Asset.search_vector.match(query)).limit(limit)
+    stmt = select(Asset).limit(limit)
 
-    if selector is not None:
-        stmt = stmt.where(selector)
+    if query and len(query) > 0:
+        stmt = stmt.where(Asset.search_vector.match(query))
+    else:
+        stmt = stmt.order_by(Asset.created_at.desc())
+
+    if user_selector is not None:
+        stmt = stmt.where(user_selector)
+
+    if exclude_mine and user:
+        stmt = stmt.where(Asset.username != user.username)
 
     result = await session.execute(stmt)
     assets = result.scalars().all()
