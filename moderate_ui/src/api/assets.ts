@@ -37,3 +37,27 @@ export async function uploadObject({
     config
   );
 }
+
+export async function searchAssets({
+  searchQuery,
+  excludeMine,
+}: {
+  searchQuery: string;
+  excludeMine?: boolean;
+}): Promise<{ [k: string]: any }[]> {
+  const url = buildApiUrl("asset", "search");
+
+  const params = {};
+
+  if (searchQuery) {
+    Object.assign(params, { query: searchQuery });
+  }
+
+  if (excludeMine) {
+    Object.assign(params, { exclude_mine: excludeMine });
+  }
+
+  const response = await axios.get(url, { params });
+
+  return response.data;
+}

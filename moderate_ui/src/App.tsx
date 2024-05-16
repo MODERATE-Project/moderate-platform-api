@@ -30,6 +30,7 @@ import { BrowserRouter, Outlet, Route, Routes } from "react-router-dom";
 import { getBaseApiUrl } from "./api/utils";
 import { buildKeycloakAuthProvider } from "./auth-provider/keycloak";
 import { HeaderMegaMenu } from "./components/HeaderMegaMenu";
+import { Catalogue } from "./pages/Catalogue";
 import { Homepage } from "./pages/Homepage";
 import { AssetObjectExploratoryDashboard } from "./pages/asset-objects/ExploratoryDashboard";
 import { AssetObjectShow } from "./pages/asset-objects/Show";
@@ -152,6 +153,7 @@ function App() {
                           <Route path="edit/:id" element={<AssetEdit />} />
                           <Route path="show/:id" element={<AssetShow />} />
                         </Route>
+                        <Route path="/catalogue" element={<Catalogue />} />
                       </Route>
                       <Route element={<HeaderFluidContainerRouteParent />}>
                         <Route path="" element={<Homepage />} />
