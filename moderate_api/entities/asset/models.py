@@ -47,6 +47,8 @@ class UploadedS3ObjectBase(SQLModel):
     sha256_hash: str
     proof_id: Optional[str]
     meta: Optional[Dict] = Field(default=None, sa_column=Column(JSONB))
+    name: Optional[str] = Field(default=None, sa_column=Column(Text))
+    description: Optional[str] = Field(default=None, sa_column=Column(Text))
 
 
 class UploadedS3Object(UploadedS3ObjectBase, table=True):
