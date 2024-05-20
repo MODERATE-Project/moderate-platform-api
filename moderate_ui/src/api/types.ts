@@ -1,3 +1,5 @@
+import _ from "lodash";
+
 export enum AssetAccessLevel {
   PRIVATE = "private",
   PUBLIC = "public",
@@ -93,7 +95,7 @@ export class AssetModel {
 
   getObject(assetObjectId: number): AssetObjectModel | undefined {
     const theObject = this.data.objects.find(
-      (assetObject) => assetObject.id === assetObjectId
+      (assetObject) => assetObject.id === _.toNumber(assetObjectId)
     );
 
     if (theObject === undefined) {

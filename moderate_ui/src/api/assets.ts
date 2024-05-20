@@ -41,11 +41,20 @@ export async function uploadObject({
 export async function searchAssets({
   searchQuery,
   excludeMine,
+  usePublicEndpoint,
 }: {
   searchQuery: string;
   excludeMine?: boolean;
+  usePublicEndpoint?: boolean;
 }): Promise<{ [k: string]: any }[]> {
-  const url = buildApiUrl("asset", "search");
+  const urlParts = ["asset"];
+
+  if (usePublicEndpoint) {
+    urlParts.push("public");
+  }
+
+  urlParts.push("search");
+  const url = buildApiUrl(...urlParts);
 
   const params = {};
 
@@ -56,6 +65,54 @@ export async function searchAssets({
   if (excludeMine) {
     Object.assign(params, { exclude_mine: excludeMine });
   }
+
+  const response = await axios.get(url, { params });
+
+  return response.data;
+}
+
+export interface DownloadAssetObjectItem {
+  key: string;
+  download_url: string;
+}
+
+export async function downloadAssetObjects({
+  assetId,
+  usePublicEndpoint,
+}: {
+  assetId: string | number;
+  usePublicEndpoint?: boolean;
+}): Promise<DownloadAssetObjectItem[]> {
+  const urlParts = ["asset"];
+
+  if (usePublicEndpoint) {
+    urlParts.push("public");
+  }
+
+  urlParts.push(assetId.toString());
+  urlParts.push("download-urls");
+  const url = buildApiUrl(...urlParts);
+
+  const response = await axios.get(url);
+
+  return response.data;
+}
+
+export interface AssetObjectIntegrityResponse {
+  valid: boolean;
+  reason: string;
+}
+
+export async function checkAssetObjectIntegrity({
+  objectKeyOrId,
+}: {
+  objectKeyOrId: string | number;
+}): Promise<AssetObjectIntegrityResponse> {
+  const url = buildApiUrl("asset", "proof", "integrity");
+
+  const params = {
+    object_key_or_id: objectKeyOrId,
+  };
 
   const response = await axios.get(url, { params });
 

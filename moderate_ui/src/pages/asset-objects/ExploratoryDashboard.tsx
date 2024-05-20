@@ -13,9 +13,11 @@ import {
   useTranslate,
 } from "@refinedev/core";
 import { IconFlask } from "@tabler/icons-react";
+import _ from "lodash";
 import { useEffect, useMemo, useState } from "react";
 import { fetchPygwalkerHtml } from "../../api/assets";
 import { ResourceNames } from "../../types";
+import { catchErrorAndShow } from "../../utils";
 
 export const AssetObjectExploratoryDashboard: React.FC = () => {
   const { params } = useParsed();
@@ -58,17 +60,13 @@ export const AssetObjectExploratoryDashboard: React.FC = () => {
       .then((response) => {
         setDashboardHtml(response.data);
       })
-      .catch((err) => {
-        open &&
-          open({
-            message: t(
-              "assetObjects.dashboard.error",
-              "Error loading dashboard"
-            ),
-            description: err.toString(),
-            type: "error",
-          });
-      })
+      .catch(
+        _.partial(
+          catchErrorAndShow,
+          open,
+          t("assetObjects.dashboard.error", "Error loading dashboard")
+        )
+      )
       .then(() => {
         setIsDownloadingDashboard(false);
       });
