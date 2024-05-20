@@ -121,7 +121,7 @@ class AssetRead(AssetBase):
     id: int
     objects: List[UploadedS3ObjectRead]
     access_level: AssetAccessLevels
-    username: str
+    username: Optional[str]
 
 
 class AssetUpdate(SQLModel):
