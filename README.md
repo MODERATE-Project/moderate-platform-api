@@ -37,3 +37,9 @@ ACCESS_KEY="TheAccessKey" SECRET_KEY="TheSecretKey" task dev-up-gcs
 You need to create an admin user in Keycloak to be able to log in to the API. Moreover, this user needs to be assigned a specific role. Check the Compose file and `.env.dev.default` for the URLs and default credentials.
 
 The role name is defined in the `moderate_api/config.py` file. Please note that this role is a _client-level_ role, and not a _realm-level_ role—the role should be created in the `apisix` client.
+
+### Trust Services
+
+The [MODERATE Trust Services](https://github.com/MODERATE-Project/trust-service) are an _optional_ dependency of the platform API. When this dependency is available, the API can use it to check the integrity of datasets via cryptographic proofs stored in the IOTA DLT.
+
+To deploy a development instance of the Trust Services along with the API you need to create a `.env.trust.local` file that defines the `L2_PRIVATE_KEY` environment variable. Please check the Trust Services repository for further information.

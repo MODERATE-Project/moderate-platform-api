@@ -24,7 +24,11 @@ services:
         condition: service_healthy
     env_file:
       - .env.trust
+      # This file is not checked in, but it is expected to be present and to contain L2_PRIVATE_KEY
+      - .env.trust.local
     environment:
+      # Original reference for MongoDB configuration:
+      # https://github.com/MODERATE-Project/trust-service/blob/main/actix-server/.mongo.env
       MONGO_INITDB_ROOT_USERNAME: ${TRUST_MONGO_ROOT_USER}
       MONGO_INITDB_ROOT_PASSWORD: ${TRUST_MONGO_ROOT_PASS}
       MONGO_ENDPOINT: mongodb:27017

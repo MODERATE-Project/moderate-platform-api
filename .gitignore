@@ -1,3 +1,11 @@
+## Misc
+#######
+
+.env.trust.local
+
+## Python
+#########
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
