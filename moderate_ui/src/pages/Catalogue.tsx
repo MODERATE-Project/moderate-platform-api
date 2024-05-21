@@ -13,6 +13,7 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
+import { useNotification } from "@refinedev/core";
 import {
   IconBox,
   IconClock,
@@ -28,6 +29,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { searchAssets } from "../api/assets";
 import { Asset, AssetModel, AssetObject } from "../api/types";
+import { catchErrorAndShow } from "../utils";
 
 const AssetObjectCard: React.FC<{
   asset: Asset;
@@ -137,33 +139,53 @@ export const Catalogue: React.FC = () => {
     undefined
   );
 
+  const { open } = useNotification();
+
   const onSearch = useCallback(() => {
+    if (!open) {
+      return;
+    }
+
     setIsLoading(true);
     setTouched(true);
 
     searchAssets({
       searchQuery,
       excludeMine: !includeMine,
-    }).then((res) => {
-      console.debug(res);
-      setAssets(res);
-      setIsLoading(false);
-    });
-  }, [searchQuery, includeMine]);
+    })
+      .then((res) => {
+        console.debug(res);
+        setAssets(res);
+        setIsLoading(false);
+      })
+      .catch(_.partial(catchErrorAndShow, open, undefined))
+      .then(() => {
+        setIsLoading(false);
+      });
+  }, [searchQuery, includeMine, open]);
 
   useEffect(() => {
+    if (!open) {
+      return;
+    }
+
     setIsLoading(true);
     setIncludeMine(false);
 
     searchAssets({
       searchQuery: "",
       excludeMine: true,
-    }).then((res) => {
-      console.debug(res);
-      setAssets(res);
-      setIsLoading(false);
-    });
-  }, []);
+    })
+      .then((res) => {
+        console.debug(res);
+        setAssets(res);
+        setIsLoading(false);
+      })
+      .catch(_.partial(catchErrorAndShow, open, undefined))
+      .then(() => {
+        setIsLoading(false);
+      });
+  }, [open]);
 
   const numResults = useMemo(() => {
     if (!assets) {

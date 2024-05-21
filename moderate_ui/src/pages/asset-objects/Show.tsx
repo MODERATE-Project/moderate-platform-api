@@ -266,7 +266,7 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
             {assetObjectModel.humanName}
           </Title>
           <Text color="dimmed">
-            {t("assetObjects.partOfAsset", "This dataset object is part of")}{" "}
+            {t("assetObjects.partOfAsset", "This dataset is part of")}{" "}
             <Text component="span" fw={800}>
               {assetModel.data.name}
             </Text>
