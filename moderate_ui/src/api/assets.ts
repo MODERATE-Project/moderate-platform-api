@@ -118,3 +118,27 @@ export async function checkAssetObjectIntegrity({
 
   return response.data;
 }
+
+export interface AssetObjectProfile {
+  name: string;
+  fullyQualifiedName: string;
+  updatedAt: string;
+  columns: { [k: string]: any }[];
+  profile: { [k: string]: any };
+  fileFormat: string;
+}
+
+export interface AssetObjectProfileResult {
+  profile?: AssetObjectProfile;
+  reason?: string;
+}
+
+export async function getAssetObjectProfile({
+  objectId,
+}: {
+  objectId: number | string;
+}): Promise<AssetObjectProfileResult> {
+  const url = buildApiUrl("asset", "object", objectId.toString(), "profile");
+  const response = await axios.get(url);
+  return response.data;
+}

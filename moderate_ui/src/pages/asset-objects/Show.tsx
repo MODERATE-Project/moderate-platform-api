@@ -7,10 +7,14 @@ import {
   LoadingOverlay,
   Modal,
   Paper,
+  Progress,
+  Skeleton,
   Stack,
+  Table,
   Tabs,
   Text,
   Title,
+  createStyles,
 } from "@mantine/core";
 import {
   IResourceComponentsProps,
@@ -31,19 +35,29 @@ import {
   IconReportSearch,
   IconTable,
   IconTableFilled,
+  IconZoomQuestion,
 } from "@tabler/icons-react";
 import _ from "lodash";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   AssetObjectIntegrityResponse,
+  AssetObjectProfileResult,
   checkAssetObjectIntegrity,
   downloadAssetObjects,
+  getAssetObjectProfile,
 } from "../../api/assets";
 import { Asset, AssetModel } from "../../api/types";
 import { KeyValuesStack } from "../../components/KeyValuesStack";
 import { ResourceNames } from "../../types";
 import { catchErrorAndShow } from "../../utils";
+
+const useStyles = createStyles(() => ({
+  percentColumn: {
+    minWidth: "70px",
+    width: "260px",
+  },
+}));
 
 interface IntegrityModalProps {
   opened: boolean;
@@ -108,6 +122,84 @@ const IntegrityModal: React.FC<IntegrityModalProps> = ({
         </Alert>
       )}
     </Modal>
+  );
+};
+
+interface AssetObjectProfileProps {
+  profile: AssetObjectProfileResult;
+}
+
+const AssetObjectProfile: React.FC<AssetObjectProfileProps> = ({ profile }) => {
+  const t = useTranslate();
+  const { classes } = useStyles();
+
+  const getPercent = useCallback(
+    (column: { [key: string]: any }, proportionKey: string): number => {
+      const proportionVal = _.get(
+        column,
+        `profile.${proportionKey}`,
+        undefined
+      );
+
+      return proportionVal !== undefined ? Math.round(proportionVal * 100) : 0;
+    },
+    []
+  );
+
+  // ToDo: Improve this table
+
+  return (
+    <Table highlightOnHover>
+      <thead>
+        <tr>
+          <th>{t("assetObjects.profileColumn.name", "Name")}</th>
+          <th>{t("assetObjects.profileColumn.dataType", "Data type")}</th>
+          <th className={classes.percentColumn}>
+            {t("assetObjects.profileColumn.null", "Null")}
+          </th>
+          <th className={classes.percentColumn}>
+            {t("assetObjects.profileColumn.unique", "Unique")}
+          </th>
+          <th className={classes.percentColumn}>
+            {t("assetObjects.profileColumn.distinct", "Distinct")}
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {profile.profile?.columns.map((column) => (
+          <tr key={column.fullyQualifiedName}>
+            <td>{column.displayName}</td>
+            <td>
+              <code>{column.dataTypeDisplay}</code>
+            </td>
+            <td>
+              {getPercent(column, "nullProportion")}%
+              <Progress
+                size="lg"
+                striped
+                value={getPercent(column, "nullProportion")}
+              />
+            </td>
+            <td>
+              {getPercent(column, "uniqueProportion")}%
+              <Progress
+                size="lg"
+                striped
+                value={getPercent(column, "uniqueProportion")}
+              />
+            </td>
+            <td>
+              {getPercent(column, "distinctProportion")}%
+              <Progress
+                size="lg"
+                striped
+                value={getPercent(column, "distinctProportion")}
+              />
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </Table>
   );
 };
 
@@ -220,6 +312,27 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
         setIsCheckingIntegrity(false);
       });
   }, [assetObjectModel, open, t, showModal]);
+
+  const [isProfileLoading, setIsProfileLoading] = useState<boolean>(false);
+
+  const [profile, setProfile] = useState<AssetObjectProfileResult | undefined>(
+    undefined
+  );
+
+  useEffect(() => {
+    if (!assetObjectModel) {
+      return;
+    }
+
+    setIsProfileLoading(true);
+
+    getAssetObjectProfile({ objectId: assetObjectModel.data.id })
+      .then(setProfile)
+      .catch(_.partial(catchErrorAndShow, open, undefined))
+      .then(() => {
+        setIsProfileLoading(false);
+      });
+  }, [assetObjectModel, open]);
 
   return (
     <>
@@ -359,7 +472,34 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
                 </Tabs.Panel>
 
                 <Tabs.Panel value="profile" pt="md">
-                  {t("assetObjects.profile", "Profile")}
+                  {isProfileLoading && (
+                    <>
+                      <Skeleton height={20} mb="md" />
+                      <Skeleton height={20} mb="md" />
+                      <Skeleton height={20} />
+                    </>
+                  )}
+                  {profile && profile.profile ? (
+                    <AssetObjectProfile profile={profile} />
+                  ) : (
+                    <Alert
+                      icon={<IconZoomQuestion size={32} />}
+                      title={
+                        <Title order={3}>
+                          {t(
+                            "assetObjects.profileEmptyTitle",
+                            "No profile found"
+                          )}
+                        </Title>
+                      }
+                      color="gray"
+                    >
+                      {t(
+                        "assetObjects.profileEmptyMessage",
+                        "We have not yet profiled this dataset. Please check back again in a few hours."
+                      )}
+                    </Alert>
+                  )}
                 </Tabs.Panel>
               </Tabs>
             </Stack>
