@@ -2,6 +2,7 @@
 #######
 
 .env.trust.local
+.env.dev
 
 ## Python
 #########

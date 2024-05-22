@@ -19,6 +19,7 @@ from fastapi import (
 )
 from pydantic import BaseModel
 from slugify import slugify
+from sqlalchemy import and_, true
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import BinaryExpression
 from sqlmodel import or_, select
@@ -53,6 +54,11 @@ from moderate_api.entities.crud import (
 from moderate_api.enums import Actions, Entities, Tags
 from moderate_api.long_running import LongRunningTask, get_task, init_task
 from moderate_api.object_storage import S3ClientDep, ensure_bucket
+from moderate_api.open_metadata import (
+    OMProfile,
+    get_asset_object_profile,
+    search_asset_object,
+)
 from moderate_api.trust import (
     ProofVerificationResult,
     create_proof_task,
@@ -116,6 +122,26 @@ async def get_asset_presigned_urls(
     return ret
 
 
+def _user_asset_visibility_selector(
+    user: Union[User, None]
+) -> Union[BinaryExpression, None]:
+    public_visibility_levels = [
+        AssetAccessLevels.VISIBLE,
+        AssetAccessLevels.PUBLIC,
+    ]
+
+    if not user:
+        return Asset.access_level.in_(public_visibility_levels)
+
+    if user.is_admin:
+        return None
+
+    return or_(
+        Asset.access_level.in_(public_visibility_levels),
+        Asset.username == user.username,
+    )
+
+
 async def _search_assets(
     *,
     user: OptionalUserDep,
@@ -124,17 +150,7 @@ async def _search_assets(
     limit: int = Query(default=20, le=100),
     exclude_mine: bool = Query(default=False),
 ):
-    allowed_levels = [AssetAccessLevels.VISIBLE, AssetAccessLevels.PUBLIC]
-
-    if user and not user.is_admin:
-        user_selector = or_(
-            Asset.access_level.in_(allowed_levels),
-            Asset.username == user.username,
-        )
-    elif user and user.is_admin:
-        user_selector = None
-    else:
-        user_selector = Asset.access_level.in_(allowed_levels)
+    user_selector = _user_asset_visibility_selector(user=user)
 
     stmt = select(Asset).limit(limit)
 
@@ -168,6 +184,85 @@ router.add_api_route(
     _search_assets,
     methods=["GET"],
     response_model=List[AssetRead],
+    tags=[_TAG, Tags.PUBLIC.value],
+)
+
+
+class AssetObjectProfileResponse(BaseModel):
+    profile: Optional[OMProfile]
+    reason: Optional[str]
+
+
+async def _get_asset_object_profile(
+    *,
+    user: OptionalUserDep,
+    session: AsyncSessionDep,
+    settings: SettingsDep,
+    object_id: int,
+):
+    """Retrieves the table profile of an asset object."""
+
+    if (
+        settings.open_metadata_service is None
+        or not settings.open_metadata_service.endpoint_url
+        or not settings.open_metadata_service.bearer_token
+    ):
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+    user_selector = _user_asset_visibility_selector(user=user)
+    user_selector = user_selector if user_selector is not None else true()
+
+    stmt = (
+        select(UploadedS3Object, Asset)
+        .join(Asset, and_(Asset.id == UploadedS3Object.asset_id, user_selector))
+        .where(UploadedS3Object.id == object_id)
+    )
+
+    result = await session.execute(stmt)
+    s3obj = result.scalars().one_or_none()
+
+    if not s3obj:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    try:
+        search_result = await search_asset_object(
+            asset_object_key=s3obj.key, settings=settings
+        )
+    except Exception as exc:
+        return AssetObjectProfileResponse(
+            reason=f"The request to the metadata service failed: {exc}"
+        )
+
+    if not search_result:
+        return AssetObjectProfileResponse(
+            reason="No matching record found in the metadata service"
+        )
+
+    try:
+        profile = await get_asset_object_profile(
+            asset_object_fqn=search_result.fqn, settings=settings
+        )
+    except Exception as exc:
+        return AssetObjectProfileResponse(
+            reason=f"The request to the metadata service failed: {exc}"
+        )
+
+    return AssetObjectProfileResponse(profile=profile)
+
+
+router.add_api_route(
+    "/object/{object_id}/profile",
+    _get_asset_object_profile,
+    methods=["GET"],
+    response_model=AssetObjectProfileResponse,
+    tags=[_TAG],
+)
+
+router.add_api_route(
+    "/public/object/{object_id}/profile",
+    _get_asset_object_profile,
+    methods=["GET"],
+    response_model=AssetObjectProfileResponse,
     tags=[_TAG, Tags.PUBLIC.value],
 )
 

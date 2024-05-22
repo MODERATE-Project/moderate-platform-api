@@ -1,5 +1,4 @@
 import logging
-from functools import lru_cache
 from typing import List, Optional
 
 from fastapi import Depends
@@ -43,6 +42,20 @@ class TrustService(BaseModel):
         return self.url_create_proof()
 
 
+class OpenMetadataService(BaseModel):
+    endpoint_url: str  # Scheme, host and port without paths
+    bearer_token: str
+
+    def build_url(self, *parts: List[str]) -> str:
+        return self.endpoint_url.strip("/") + "/" + "/".join(parts)
+
+    def url_search_query(self) -> str:
+        return self.build_url("api", "v1", "search", "query")
+
+    def url_get_table_profile(self, fqn: str) -> str:
+        return self.build_url("api", "v1", "tables", fqn, "tableProfile", "latest")
+
+
 class Settings(BaseSettings):
     class Config:
         env_prefix = _ENV_PREFIX
@@ -50,9 +63,11 @@ class Settings(BaseSettings):
 
     s3: Optional[S3Model] = None
     oauth_names: OAuthNamesModel = OAuthNamesModel()
+
     openid_config_url: str = (
         "https://keycloak.moderate.cloud/realms/moderate/.well-known/openid-configuration"
     )
+
     disable_token_verification: bool = False
     verbose_errors: bool = False
     max_objects_per_asset: int = 100
@@ -64,6 +79,8 @@ class Settings(BaseSettings):
     postgres_url: str = (
         "postgresql+asyncpg://postgres:postgres@localhost:5432/moderateapi/"
     )
+
+    open_metadata_service: Optional[OpenMetadataService] = None
 
     @property
     def role_admin(self) -> str:
