@@ -207,7 +207,9 @@ async def _get_asset_object_profile(
         or not settings.open_metadata_service.endpoint_url
         or not settings.open_metadata_service.bearer_token
     ):
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
+        return AssetObjectProfileResponse(
+            reason="Metadata platform service not configured"
+        )
 
     user_selector = _user_asset_visibility_selector(user=user)
     user_selector = user_selector if user_selector is not None else true()
