@@ -210,7 +210,7 @@ export const Catalogue: React.FC = () => {
           <Text color="dimmed">
             {t(
               "catalogue.description",
-              "Browse datasets uploaded to the MODERATE platform. Note that private datasets won't appear in search results."
+              "Browse datasets uploaded to the MODERATE platform"
             )}
           </Text>
         </Stack>

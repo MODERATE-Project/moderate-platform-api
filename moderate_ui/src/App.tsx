@@ -32,6 +32,7 @@ import { buildKeycloakAuthProvider } from "./auth-provider/keycloak";
 import { HeaderMegaMenu } from "./components/HeaderMegaMenu";
 import { Catalogue } from "./pages/Catalogue";
 import { Homepage } from "./pages/Homepage";
+import { ToolsCatalogue } from "./pages/ToolsCatalogue";
 import { AssetObjectExploratoryDashboard } from "./pages/asset-objects/ExploratoryDashboard";
 import { AssetObjectShow } from "./pages/asset-objects/Show";
 import { AssetCreate, AssetEdit, AssetList, AssetShow } from "./pages/assets";
@@ -154,6 +155,7 @@ function App() {
                           <Route path="show/:id" element={<AssetShow />} />
                         </Route>
                         <Route path="/catalogue" element={<Catalogue />} />
+                        <Route path="/tools" element={<ToolsCatalogue />} />
                       </Route>
                       <Route element={<HeaderFluidContainerRouteParent />}>
                         <Route path="" element={<Homepage />} />
