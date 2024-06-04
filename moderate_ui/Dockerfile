@@ -1,4 +1,6 @@
-FROM refinedev/node:18 AS base
+FROM node:20 AS base
+WORKDIR /app/refine
+
 FROM base as deps
 COPY package.json package-lock.json* .npmrc* ./
 RUN npm ci
@@ -13,5 +15,5 @@ FROM base as runner
 ENV NODE_ENV production
 RUN npm install -g serve
 COPY --from=builder /app/refine/dist ./
-USER refine
-CMD ["serve"]
+EXPOSE 3000
+CMD ["serve", "-s"]
