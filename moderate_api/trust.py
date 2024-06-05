@@ -128,8 +128,9 @@ async def create_proof_task(
 
         async with httpx.AsyncClient(timeout=timeout_seconds) as client:
             json_payload = {
-                "asset_hash": s3obj.key,
-                "metadata_hash": s3obj.sha256_hash,
+                "assetId": s3obj.key,
+                "assetHash": s3obj.sha256_hash,
+                "metadataHash": s3obj.sha256_hash,
                 "did": user_did,
             }
 
