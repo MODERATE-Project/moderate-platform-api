@@ -102,12 +102,20 @@ export const AssetCreate = () => {
       <Create isLoading={formLoading} saveButtonProps={saveButtonProps}>
         <TextInput
           mt="sm"
-          label={t("asset.fields.name")}
+          description={t(
+            "asset.fields.nameDescription",
+            "A descriptive name for this asset"
+          )}
+          label={t("asset.fields.name", "Asset name")}
           {...getInputProps("name")}
         />
         <Select
           mt="sm"
-          label={t("asset.fields.access_level")}
+          description={t(
+            "asset.fields.accessLevelDescription",
+            "Public assets are downloadable by anyone, private assets only by you, and visible assets are searchable but not downloadable by others"
+          )}
+          label={t("asset.fields.accessLevel", "Access level")}
           {...getInputProps("access_level")}
           data={Object.values(AssetAccessLevel).map((val) => ({
             value: val,
@@ -116,14 +124,22 @@ export const AssetCreate = () => {
         />
         <Textarea
           mt="sm"
-          label={t("asset.fields.description")}
+          description={t(
+            "asset.fields.descriptionDescription",
+            "A longer description of what this asset is and what it contains"
+          )}
+          label={t("asset.fields.description", "Description")}
           {...getInputProps("description")}
           autosize
           minRows={3}
         />
         <FileInput
           mt="sm"
-          label={t("asset.fields.files")}
+          description={t(
+            "asset.fields.filesDescription",
+            'These files will be attached to this asset as individual datasets or "asset objects"'
+          )}
+          label={t("asset.fields.files", "Attached files")}
           {...getInputProps("files")}
           icon={<IconUpload size={14} />}
           multiple

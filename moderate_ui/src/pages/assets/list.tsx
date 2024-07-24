@@ -15,15 +15,7 @@ export const AssetList: React.FC<IResourceComponentsProps> = () => {
       {
         id: "name",
         accessorKey: "name",
-        header: translate("asset.fields.name"),
-        meta: {
-          filterOperator: "contains",
-        },
-      },
-      {
-        id: "uuid",
-        accessorKey: "uuid",
-        header: translate("asset.fields.uuid"),
+        header: translate("asset.fields.name", "Name"),
         meta: {
           filterOperator: "contains",
         },
@@ -31,9 +23,31 @@ export const AssetList: React.FC<IResourceComponentsProps> = () => {
       {
         id: "access_level",
         accessorKey: "access_level",
-        header: translate("asset.fields.access_level"),
+        header: translate("asset.fields.access_level", "Access Level"),
         meta: {
           filterOperator: "contains",
+        },
+      },
+      {
+        id: "numObjects",
+        accessorKey: "objects",
+        header: translate("asset.fields.num_objects", "Number of Datasets"),
+        enableSorting: false,
+        enableColumnFilter: false,
+        cell: function render({ getValue }) {
+          return getValue() ? (getValue() as unknown as any).length : 0;
+        },
+      },
+      {
+        id: "created_at",
+        accessorKey: "created_at",
+        enableColumnFilter: false,
+        header: translate("asset.fields.created_at", "Date of Creation"),
+        meta: {
+          filterOperator: "contains",
+        },
+        cell: function render({ getValue }) {
+          return new Date(getValue() as string).toLocaleString();
         },
       },
       {
