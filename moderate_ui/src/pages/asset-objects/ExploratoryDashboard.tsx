@@ -1,10 +1,13 @@
 import {
   Alert,
+  Box,
+  Code,
   Loader,
   LoadingOverlay,
   Paper,
   Stack,
   Text,
+  Title,
 } from "@mantine/core";
 import {
   useNotification,
@@ -12,12 +15,10 @@ import {
   useShow,
   useTranslate,
 } from "@refinedev/core";
-import { IconFlask } from "@tabler/icons-react";
-import _ from "lodash";
+import { IconFlask, IconGraphOff } from "@tabler/icons-react";
 import { useEffect, useMemo, useState } from "react";
 import { fetchPygwalkerHtml } from "../../api/assets";
 import { ResourceNames } from "../../types";
-import { catchErrorAndShow } from "../../utils";
 
 export const AssetObjectExploratoryDashboard: React.FC = () => {
   const { params } = useParsed();
@@ -30,6 +31,11 @@ export const AssetObjectExploratoryDashboard: React.FC = () => {
   const { data, isLoading } = queryResult;
   const { open } = useNotification();
   const [isDownloadingDashboard, setIsDownloadingDashboard] = useState(false);
+  const [alertClosed, setAlertClosed] = useState(false);
+
+  const [error, setError] = useState<{ [k: string]: any } | undefined>(
+    undefined
+  );
 
   const [dashboardHtml, setDashboardHtml] = useState<string | undefined>(
     undefined
@@ -60,13 +66,9 @@ export const AssetObjectExploratoryDashboard: React.FC = () => {
       .then((response) => {
         setDashboardHtml(response.data);
       })
-      .catch(
-        _.partial(
-          catchErrorAndShow,
-          open,
-          t("assetObjects.dashboard.error", "Error loading dashboard")
-        )
-      )
+      .catch((err) => {
+        setError(err);
+      })
       .then(() => {
         setIsDownloadingDashboard(false);
       });
@@ -88,21 +90,47 @@ export const AssetObjectExploratoryDashboard: React.FC = () => {
           </Stack>
         }
       />
+      {error && (
+        <Alert
+          mt="xl"
+          icon={<IconGraphOff size={32} />}
+          title={
+            <Title order={3}>
+              {t("assetObjects.dashboard.error", "Unable to display dashboard")}
+            </Title>
+          }
+          color="red"
+        >
+          {t(
+            "assetObjects.dashboard.noResultsDescription",
+            "It is likely that the dataset is too large to be displayed in the exploratory dashboard. Please check the error message below."
+          )}
+          {error?.response?.data?.detail && (
+            <Box mt="sm" mb={0}>
+              <Code>{error.response.data.detail}</Code>
+            </Box>
+          )}
+        </Alert>
+      )}
       {dashboardHtml && (
         <>
-          <Alert
-            icon={<IconFlask size="1rem" />}
-            title={t(
-              "assetObjects.dashboard.experimentAlertTitle",
-              "Experimental feature"
-            )}
-            color="yellow"
-          >
-            {t(
-              "assetObjects.dashboard.experimentAlertMessage",
-              "This feature is experimental. You may experience some performance issues while using it."
-            )}
-          </Alert>
+          {!alertClosed && (
+            <Alert
+              icon={<IconFlask size="1rem" />}
+              title={t(
+                "assetObjects.dashboard.experimentAlertTitle",
+                "Experimental feature"
+              )}
+              color="yellow"
+              withCloseButton
+              onClose={() => setAlertClosed(true)}
+            >
+              {t(
+                "assetObjects.dashboard.experimentAlertMessage",
+                "This feature is experimental. You may experience some performance issues while using it."
+              )}
+            </Alert>
+          )}
           <Paper p="md">
             <div dangerouslySetInnerHTML={{ __html: dashboardHtml }}></div>
           </Paper>
