@@ -1,5 +1,6 @@
 import {
   Alert,
+  Box,
   Button,
   Code,
   Group,
@@ -18,6 +19,7 @@ import {
 } from "@mantine/core";
 import {
   IResourceComponentsProps,
+  useGetIdentity,
   useModal,
   useNotification,
   useParsed,
@@ -28,7 +30,9 @@ import {
   IconAlertCircle,
   IconChartAreaLine,
   IconCheck,
+  IconDeviceFloppy,
   IconDownload,
+  IconEyeEdit,
   IconFileCheck,
   IconFileText,
   IconMessageQuestion,
@@ -37,6 +41,8 @@ import {
   IconTableFilled,
   IconZoomQuestion,
 } from "@tabler/icons-react";
+import { EditorOptions } from "@tiptap/react";
+import DOMPurify from "dompurify";
 import _ from "lodash";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -46,9 +52,12 @@ import {
   checkAssetObjectIntegrity,
   downloadAssetObjects,
   getAssetObjectProfile,
+  updateAssetObject,
 } from "../../api/assets";
 import { Asset, AssetModel } from "../../api/types";
+import { IIdentity } from "../../auth-provider/keycloak";
 import { KeyValuesStack } from "../../components/KeyValuesStack";
+import { RichEditor } from "../../components/RichEditor";
 import { ResourceNames } from "../../types";
 import { catchErrorAndShow } from "../../utils";
 
@@ -215,6 +224,16 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
   const t = useTranslate();
   const { open } = useNotification();
 
+  const { data: identity } = useGetIdentity<IIdentity>();
+
+  const isOwner = useMemo(() => {
+    return data?.data?.username === identity?.username;
+  }, [identity, data]);
+
+  const [editableDescription, setEditableDescription] = useState<
+    string | undefined
+  >(undefined);
+
   const [assetModel, assetObjectModel] = useMemo(() => {
     const asset = data?.data;
 
@@ -231,6 +250,55 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
 
     return [assetModel, assetObjectModel];
   }, [data, params]);
+
+  const onDescriptionUpdate: EditorOptions["onUpdate"] = useCallback(
+    ({ editor }) => {
+      setEditableDescription(editor.getHTML());
+    },
+    []
+  );
+
+  const [isLoadingDescription, setIsLoadingDescription] =
+    useState<boolean>(false);
+
+  const onDescriptionSave = useCallback(() => {
+    if (!assetModel || !assetObjectModel || !editableDescription) {
+      return;
+    }
+
+    setIsLoadingDescription(true);
+
+    updateAssetObject({
+      assetId: assetModel.data.id,
+      objectId: assetObjectModel.data.id,
+      updateBody: {
+        description: editableDescription,
+      },
+    })
+      .then(() => {
+        open &&
+          open({
+            message: t(
+              "assetObjects.descriptionUpdateSuccess",
+              "Updated description"
+            ),
+            type: "success",
+          });
+      })
+      .catch(
+        _.partial(
+          catchErrorAndShow,
+          open,
+          t(
+            "assetObjects.errorUpdatingDescription",
+            "Error updating description"
+          )
+        )
+      )
+      .then(() => {
+        setIsLoadingDescription(false);
+      });
+  }, [editableDescription, assetModel, assetObjectModel, open, t]);
 
   const [isPreparingDownload, setIsPreparingDownload] =
     useState<boolean>(false);
@@ -420,17 +488,17 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
                   </Button>
                 </Group>
               </Group>
-              <Tabs defaultValue="metadata">
+              <Tabs defaultValue="description">
                 <Tabs.List>
-                  <Tabs.Tab value="metadata" icon={<IconTable size={14} />}>
-                    {t("assetObjects.metadata", "Metadata")}
-                  </Tabs.Tab>
-
                   <Tabs.Tab
                     value="description"
                     icon={<IconFileText size={14} />}
                   >
                     {t("assetObjects.description", "Description")}
+                  </Tabs.Tab>
+
+                  <Tabs.Tab value="metadata" icon={<IconTable size={14} />}>
+                    {t("assetObjects.metadata", "Metadata")}
                   </Tabs.Tab>
 
                   <Tabs.Tab
@@ -441,15 +509,44 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
                   </Tabs.Tab>
                 </Tabs.List>
 
-                <Tabs.Panel value="metadata" pt="md">
-                  {assetObjectModel && (
-                    <KeyValuesStack obj={assetObjectModel.data} />
-                  )}
-                </Tabs.Panel>
-
                 <Tabs.Panel value="description" pt="md">
-                  {assetObjectModel.description ? (
-                    assetObjectModel.description
+                  {isOwner ? (
+                    <Box style={{ position: "relative" }}>
+                      <LoadingOverlay
+                        visible={isLoadingDescription}
+                        overlayBlur={2}
+                      />
+                      <Group position="apart" mb="xs">
+                        <Text fz="sm" color="dimmed">
+                          <IconEyeEdit size="1em" />{" "}
+                          {t(
+                            "assetObjects.description.editableReason",
+                            "You can edit this description because you are the owner of this dataset"
+                          )}
+                        </Text>
+                        <Button
+                          compact
+                          variant="subtle"
+                          leftIcon={<IconDeviceFloppy size="1em" />}
+                          onClick={onDescriptionSave}
+                          disabled={isLoadingDescription}
+                        >
+                          {t("assetObjects.actions.descriptionSave", "Save")}
+                        </Button>
+                      </Group>
+                      <RichEditor
+                        content={assetObjectModel.description}
+                        onUpdate={onDescriptionUpdate}
+                      />
+                    </Box>
+                  ) : assetObjectModel.description ? (
+                    <div
+                      dangerouslySetInnerHTML={{
+                        __html: DOMPurify.sanitize(
+                          assetObjectModel.description
+                        ),
+                      }}
+                    />
                   ) : (
                     <Alert
                       icon={<IconMessageQuestion size={32} />}
@@ -468,6 +565,15 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
                         "The owner of this dataset has not provided a description yet."
                       )}
                     </Alert>
+                  )}
+                </Tabs.Panel>
+
+                <Tabs.Panel value="metadata" pt="md">
+                  {assetObjectModel && (
+                    <KeyValuesStack
+                      obj={assetObjectModel.data}
+                      omitFields={["description", "id"]}
+                    />
                   )}
                 </Tabs.Panel>
 

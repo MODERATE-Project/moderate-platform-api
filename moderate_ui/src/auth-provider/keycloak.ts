@@ -2,6 +2,15 @@ import { AuthBindings } from "@refinedev/core";
 import axios from "axios";
 import Keycloak from "keycloak-js";
 
+export interface IIdentity {
+  username: string;
+  email: string;
+  emailVerified?: boolean;
+  name?: string;
+  familyName?: string;
+  givenName?: string;
+}
+
 export function buildKeycloakAuthProvider({
   keycloak,
 }: {
@@ -72,13 +81,21 @@ export function buildKeycloakAuthProvider({
       }
     },
     getPermissions: async () => null,
-    getIdentity: async () => {
-      if (keycloak?.tokenParsed) {
-        return {
-          name: keycloak.tokenParsed.preferred_username,
-        };
+    getIdentity: async (): Promise<IIdentity | null> => {
+      if (!keycloak?.tokenParsed) {
+        return null;
       }
-      return null;
+
+      const identity: IIdentity = {
+        username: keycloak.tokenParsed.preferred_username,
+        name: keycloak.tokenParsed.name,
+        email: keycloak.tokenParsed.email,
+        emailVerified: keycloak.tokenParsed.email_verified,
+        familyName: keycloak.tokenParsed.family_name,
+        givenName: keycloak.tokenParsed.given_name,
+      };
+
+      return identity;
     },
   };
 

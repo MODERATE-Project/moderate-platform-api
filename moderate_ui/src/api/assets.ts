@@ -142,3 +142,23 @@ export async function getAssetObjectProfile({
   const response = await axios.get(url);
   return response.data;
 }
+
+export async function updateAssetObject({
+  assetId,
+  objectId,
+  updateBody,
+}: {
+  assetId: string | number;
+  objectId: string | number;
+  updateBody: { [k: string]: string | { [k: string]: any } };
+}): Promise<{ [k: string]: any }> {
+  const url = buildApiUrl(
+    "asset",
+    assetId.toString(),
+    "object",
+    objectId.toString()
+  );
+
+  const response = await axios.patch(url, updateBody);
+  return response.data;
+}

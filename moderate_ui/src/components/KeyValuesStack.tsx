@@ -3,7 +3,7 @@ import { useTranslate } from "@refinedev/core";
 import _ from "lodash";
 import React from "react";
 
-const RenderedValue: React.FC<{ value: any; }> = ({ value }) => {
+const RenderedValue: React.FC<{ value: any }> = ({ value }) => {
   const translate = useTranslate();
 
   if (value === null || value === undefined) {
@@ -16,6 +16,7 @@ const RenderedValue: React.FC<{ value: any; }> = ({ value }) => {
 
   return <span>{value.toString()}</span>;
 };
+
 const KeyValuePair: React.FC<{
   theKey: string;
   value: any;
@@ -31,16 +32,19 @@ const KeyValuePair: React.FC<{
     </Box>
   );
 };
+
 export const KeyValuesStack: React.FC<{
-  obj: { [key: string]: any; };
+  obj: { [key: string]: any };
   fields?: string[];
   omitFields?: string[];
 }> = ({ obj, fields, omitFields = ["id"] }) => {
   return (
     <Stack>
       {Object.entries(obj).map(([key, value]) => {
-        if ((fields && !fields.includes(key)) ||
-          (omitFields && omitFields.includes(key))) {
+        if (
+          (fields && !fields.includes(key)) ||
+          (omitFields && omitFields.includes(key))
+        ) {
           return null;
         }
 
