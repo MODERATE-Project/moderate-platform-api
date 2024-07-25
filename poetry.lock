@@ -2602,18 +2602,18 @@ rs = ["sqlglotrs (==0.2.8)"]
 
 [[package]]
 name = "sqlmodel"
-version = "0.0.16"
+version = "0.0.21"
 description = "SQLModel, SQL databases in Python, designed for simplicity, compatibility, and robustness."
 optional = false
-python-versions = ">=3.7,<4.0"
+python-versions = ">=3.7"
 files = [
-    {file = "sqlmodel-0.0.16-py3-none-any.whl", hash = "sha256:b972f5d319580d6c37ecc417881f6ec4d1ad3ed3583d0ac0ed43234a28bf605a"},
-    {file = "sqlmodel-0.0.16.tar.gz", hash = "sha256:966656f18a8e9a2d159eb215b07fb0cf5222acfae3362707ca611848a8a06bd1"},
+    {file = "sqlmodel-0.0.21-py3-none-any.whl", hash = "sha256:eca104afe8a643f0764076b29f02e51d19d6b35c458f4c119942960362a4b52a"},
+    {file = "sqlmodel-0.0.21.tar.gz", hash = "sha256:b2034c23d930f66d2091b17a4280a9c23a7ea540a71e7fcf9c746d262f06f74a"},
 ]
 
 [package.dependencies]
 pydantic = ">=1.10.13,<3.0.0"
-SQLAlchemy = ">=2.0.0,<2.1.0"
+SQLAlchemy = ">=2.0.14,<2.1.0"
 
 [[package]]
 name = "stack-data"
@@ -3274,4 +3274,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "6d277db94e51058dde2ad77b04117dbdf6af21f20dc3060014f35d513ee59a2e"
+content-hash = "bd94772160e2eef7cf75e7606097d9caf447500b0c1df42bcd8f1d782201e8fb"
