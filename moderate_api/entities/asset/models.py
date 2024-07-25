@@ -112,6 +112,13 @@ class UploadedS3ObjectRead(UploadedS3ObjectBase):
     id: int
 
 
+class UploadedS3ObjectUpdate(SQLModel):
+    tags: Optional[Dict]
+    meta: Optional[Dict]
+    name: Optional[str]
+    description: Optional[str]
+
+
 class AssetCreate(AssetBase):
     access_level: AssetAccessLevels = AssetAccessLevels.PRIVATE
     is_public_ownerless: bool = False

@@ -35,6 +35,8 @@ from moderate_api.entities.asset.models import (
     AssetRead,
     AssetUpdate,
     UploadedS3Object,
+    UploadedS3ObjectRead,
+    UploadedS3ObjectUpdate,
     filter_object_ids_by_username,
     find_s3object_by_key_or_id,
     find_s3object_pending_quality_check,
@@ -688,6 +690,53 @@ async def delete_asset_object(
     await session.commit()
 
     return {"ok": True, "asset_id": id, "object_id": object_id}
+
+
+@router.patch(
+    "/{id}/object/{object_id}", response_model=UploadedS3ObjectRead, tags=[_TAG]
+)
+async def update_asset_object(
+    *,
+    user: UserDep,
+    session: AsyncSessionDep,
+    id: int,
+    object_id: int,
+    entity_update: UploadedS3ObjectUpdate,
+):
+    """Update an object from a given data asset."""
+
+    user.enforce_raise(obj=Entities.ASSET.value, act=Actions.UPDATE.value)
+    user_selector = await build_selector(user=user, session=session)
+
+    the_asset = await read_one(
+        user=user,
+        entity=_ENTITY,
+        sql_model=Asset,
+        session=session,
+        entity_id=id,
+        user_selector=user_selector,
+    )
+
+    if not the_asset:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    select_object = select(UploadedS3Object).where(UploadedS3Object.id == object_id)
+    result_object = await session.execute(select_object)
+    the_asset_object = result_object.scalar_one_or_none()
+
+    if not the_asset_object:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    entity_data = entity_update.model_dump(exclude_unset=True)
+
+    for key, value in entity_data.items():
+        setattr(the_asset_object, key, value)
+
+    session.add(the_asset_object)
+    await session.commit()
+    await session.refresh(the_asset_object)
+
+    return the_asset_object
 
 
 class AssetObjectProofCreationRequest(BaseModel):
