@@ -32,3 +32,10 @@ class Prefixes(enum.Enum):
     ASSET = "/asset"
     USER = "/user"
     VISUALIZATION = "/visualization"
+    NOTEBOOK = "/notebook"
+
+
+class Notebooks(enum.Enum):
+    """Enumeration of types of notebooks in the API."""
+
+    EXPLORATION = "exploration"
