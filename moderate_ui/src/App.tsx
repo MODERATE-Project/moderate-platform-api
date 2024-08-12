@@ -29,6 +29,7 @@ import { useTranslation } from "react-i18next";
 import { BrowserRouter, Outlet, Route, Routes } from "react-router-dom";
 import { getBaseApiUrl } from "./api/utils";
 import { buildKeycloakAuthProvider } from "./auth-provider/keycloak";
+import { FooterLinks } from "./components/FooterLinks";
 import { HeaderMegaMenu } from "./components/HeaderMegaMenu";
 import { Catalogue } from "./pages/Catalogue";
 import { Homepage } from "./pages/Homepage";
@@ -94,9 +95,38 @@ function App() {
         <Box mb="md">
           <HeaderMegaMenu />
         </Box>
-        <Container size="xl" {...containerProps}>
+        <Container
+          size="xl"
+          {...containerProps}
+          style={{
+            minHeight: "54vh",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
           <Outlet />
         </Container>
+        <FooterLinks
+          data={[
+            {
+              title: "About MODERATE",
+              links: [
+                {
+                  label: "In a nutshell",
+                  link: "https://moderate-project.eu/in-a-nutshell/",
+                },
+                {
+                  label: "News",
+                  link: "https://moderate-project.eu/news/",
+                },
+                {
+                  label: "Contact",
+                  link: "https://moderate-project.eu/contact/",
+                },
+              ],
+            },
+          ]}
+        />
       </>
     );
   };
