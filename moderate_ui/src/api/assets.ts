@@ -162,3 +162,21 @@ export async function updateAssetObject({
   const response = await axios.patch(url, updateBody);
   return response.data;
 }
+
+export async function deleteAssetObject({
+  assetId,
+  objectId,
+}: {
+  assetId: string | number;
+  objectId: string | number;
+}): Promise<{ [k: string]: any }> {
+  const url = buildApiUrl(
+    "asset",
+    assetId.toString(),
+    "object",
+    objectId.toString()
+  );
+
+  const response = await axios.delete(url);
+  return response.data;
+}

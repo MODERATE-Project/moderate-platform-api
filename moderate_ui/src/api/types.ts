@@ -93,6 +93,12 @@ export class AssetModel {
     this.data = data;
   }
 
+  getObjects(): AssetObjectModel[] {
+    return this.data.objects.map(
+      (assetObject) => new AssetObjectModel(assetObject)
+    );
+  }
+
   getObject(assetObjectId: number): AssetObjectModel | undefined {
     const theObject = this.data.objects.find(
       (assetObject) => assetObject.id === _.toNumber(assetObjectId)

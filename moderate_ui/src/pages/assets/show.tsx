@@ -1,19 +1,36 @@
-import { Alert, Box, Stack, Title } from "@mantine/core";
+import { Alert, ThemeIcon, Title } from "@mantine/core";
 import {
   IResourceComponentsProps,
   useShow,
   useTranslate,
 } from "@refinedev/core";
 import { Show } from "@refinedev/mantine";
-import { IconExclamationCircle } from "@tabler/icons-react";
-import React from "react";
-import { AssetObjectCard } from "../../components/AssetObjectCard";
+import { IconExclamationCircle, IconFileUpload } from "@tabler/icons-react";
+import React, { useCallback, useMemo } from "react";
+import { Asset, AssetModel } from "../../api/types";
+import { AssetObjectsTable } from "../../components/AssetObjectsTable";
 import { KeyValuesStack } from "../../components/KeyValuesStack";
 
 export const AssetShow: React.FC<IResourceComponentsProps> = () => {
-  const translate = useTranslate();
-  const { queryResult } = useShow();
-  const { data, isLoading } = queryResult;
+  const t = useTranslate();
+  const { query } = useShow();
+  const { data, isLoading, refetch } = query;
+
+  const asset = useMemo(() => {
+    const theRecord = data?.data;
+
+    if (!theRecord) {
+      return;
+    }
+
+    const asset = new AssetModel(theRecord as Asset);
+
+    return asset;
+  }, [data?.data]);
+
+  const onDeleted = useCallback(() => {
+    refetch();
+  }, [refetch]);
 
   const record = data?.data;
 
@@ -26,18 +43,13 @@ export const AssetShow: React.FC<IResourceComponentsProps> = () => {
     >
       {record && <KeyValuesStack obj={record} omitFields={["objects", "id"]} />}
       <Title order={5} my="md">
-        {translate("asset.fields.objects", "Datasets linked to this asset")}
+        <ThemeIcon size="md" variant="light" color="gray" mr="xs">
+          <IconFileUpload size="1em" />
+        </ThemeIcon>
+        {t("asset.fields.objects", "Dataset files uploaded to this asset")}
       </Title>
-      {record?.objects?.length > 0 ? (
-        <Stack spacing="md">
-          {record?.objects?.map(
-            (object: { [key: string]: any }, index: number) => (
-              <Box key={index}>
-                <AssetObjectCard asset={record} assetObject={object} />
-              </Box>
-            )
-          )}
-        </Stack>
+      {asset && asset?.getObjects().length > 0 ? (
+        <AssetObjectsTable asset={asset} onDeleted={onDeleted} />
       ) : (
         <Alert
           p="xs"
@@ -46,10 +58,7 @@ export const AssetShow: React.FC<IResourceComponentsProps> = () => {
           color="gray"
           variant="light"
         >
-          {translate(
-            "asset.noObjects",
-            "No objects uploaded to this asset yet"
-          )}
+          {t("asset.noObjects", "No objects uploaded to this asset yet")}
         </Alert>
       )}
     </Show>
