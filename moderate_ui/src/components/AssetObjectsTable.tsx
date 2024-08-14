@@ -1,9 +1,12 @@
 import {
   ActionIcon,
   Badge,
+  Code,
   Group,
+  HoverCard,
   LoadingOverlay,
   Table,
+  Text,
   Tooltip,
 } from "@mantine/core";
 import { useTranslate } from "@refinedev/core";
@@ -48,53 +51,71 @@ export const AssetObjectsTable: React.FC<{
       <Table>
         <thead>{ths}</thead>
         <tbody>
-          {asset.getObjects().map((assetObject) => (
-            <tr key={assetObject.data.id}>
-              <td>{assetObject.humanName}</td>
-              <td>{assetObject.createdAt.toLocaleString()}</td>
-              <td>
-                <Badge>{assetObject.parsedKey?.ext}</Badge>
-              </td>
-              <td>
-                <Group spacing="xs">
-                  <Tooltip
-                    openDelay={500}
-                    label={t(
-                      "assetObject.table.tooltip.view",
-                      "Go to details page"
-                    )}
-                  >
-                    <ActionIcon
-                      component={Link}
-                      to={`/assets/${asset.data.id}/objects/show/${assetObject.data.id}`}
-                      variant="light"
-                      color="blue"
+          {asset
+            .getObjects()
+            .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+            .map((assetObject) => (
+              <tr key={assetObject.data.id}>
+                <td>
+                  <HoverCard width={280} shadow="md">
+                    <HoverCard.Target>
+                      <span>{assetObject.humanName}</span>
+                    </HoverCard.Target>
+                    <HoverCard.Dropdown>
+                      <Text size="sm" color="dimmed">
+                        {t("assetObject.table.key", "Dataset key")}
+                      </Text>
+                      <Code>{assetObject.data.key}</Code>
+                    </HoverCard.Dropdown>
+                  </HoverCard>
+                </td>
+                <td>{assetObject.createdAt.toLocaleString()}</td>
+                <td>
+                  <Badge>{assetObject.parsedKey?.ext}</Badge>
+                </td>
+                <td>
+                  <Group spacing="xs">
+                    <Tooltip
+                      openDelay={500}
+                      label={t(
+                        "assetObject.table.tooltip.view",
+                        "Go to details page"
+                      )}
                     >
-                      <IconEye size="1em" />
-                    </ActionIcon>
-                  </Tooltip>
-                  <Tooltip
-                    openDelay={500}
-                    label={t("assetObject.table.tooltip.delete", "Delete file")}
-                  >
-                    <ActionIcon
-                      variant="light"
-                      color="red"
-                      onClick={() => {
-                        onDeleteClick({ objectId: assetObject.data.id }).then(
-                          () => {
-                            onDeleted && onDeleted();
-                          }
-                        );
-                      }}
+                      <ActionIcon
+                        component={Link}
+                        to={`/assets/${asset.data.id}/objects/show/${assetObject.data.id}`}
+                        variant="light"
+                        color="blue"
+                      >
+                        <IconEye size="1em" />
+                      </ActionIcon>
+                    </Tooltip>
+                    <Tooltip
+                      openDelay={500}
+                      label={t(
+                        "assetObject.table.tooltip.delete",
+                        "Delete file"
+                      )}
                     >
-                      <IconTrash size="1em" />
-                    </ActionIcon>
-                  </Tooltip>
-                </Group>
-              </td>
-            </tr>
-          ))}
+                      <ActionIcon
+                        variant="light"
+                        color="red"
+                        onClick={() => {
+                          onDeleteClick({ objectId: assetObject.data.id }).then(
+                            () => {
+                              onDeleted && onDeleted();
+                            }
+                          );
+                        }}
+                      >
+                        <IconTrash size="1em" />
+                      </ActionIcon>
+                    </Tooltip>
+                  </Group>
+                </td>
+              </tr>
+            ))}
         </tbody>
       </Table>
     </>

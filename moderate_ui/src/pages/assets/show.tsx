@@ -1,4 +1,4 @@
-import { Alert, ThemeIcon, Title } from "@mantine/core";
+import { Alert, Box, ThemeIcon, Title } from "@mantine/core";
 import {
   IResourceComponentsProps,
   useShow,
@@ -8,6 +8,7 @@ import { Show } from "@refinedev/mantine";
 import { IconExclamationCircle, IconFileUpload } from "@tabler/icons-react";
 import React, { useCallback, useMemo } from "react";
 import { Asset, AssetModel } from "../../api/types";
+import { AssetObjectDropzone } from "../../components/AssetObjectDropzone";
 import { AssetObjectsTable } from "../../components/AssetObjectsTable";
 import { KeyValuesStack } from "../../components/KeyValuesStack";
 
@@ -28,7 +29,7 @@ export const AssetShow: React.FC<IResourceComponentsProps> = () => {
     return asset;
   }, [data?.data]);
 
-  const onDeleted = useCallback(() => {
+  const onRecordChanged = useCallback(() => {
     refetch();
   }, [refetch]);
 
@@ -48,8 +49,13 @@ export const AssetShow: React.FC<IResourceComponentsProps> = () => {
         </ThemeIcon>
         {t("asset.fields.objects", "Dataset files uploaded to this asset")}
       </Title>
+      {asset && (
+        <Box mb="md">
+          <AssetObjectDropzone asset={asset} onUploaded={onRecordChanged} />
+        </Box>
+      )}
       {asset && asset?.getObjects().length > 0 ? (
-        <AssetObjectsTable asset={asset} onDeleted={onDeleted} />
+        <AssetObjectsTable asset={asset} onDeleted={onRecordChanged} />
       ) : (
         <Alert
           p="xs"
