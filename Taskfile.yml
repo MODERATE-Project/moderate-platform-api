@@ -154,13 +154,11 @@ tasks:
     desc: Run the UI in development mode
     dir: "{{.ROOT_DIR}}/moderate_ui"
     vars:
-      VITE_API_URL: http://localhost:9080
       VITE_KEYCLOAK_URL: "{{.KC_HOSTNAME_URL}}"
     env:
-      VITE_API_URL: "{{.VITE_API_URL}}"
       VITE_KEYCLOAK_URL: "{{.VITE_KEYCLOAK_URL}}"
     cmds:
-      - echo "📣 Ensure that the API is listening on {{.VITE_API_URL}} and Keycloak is on {{.VITE_KEYCLOAK_URL}}"
+      - echo "📣 Ensure that Keycloak is on {{.VITE_KEYCLOAK_URL}}"
       - npm run dev
 
   alembic-revision:

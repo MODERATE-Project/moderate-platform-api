@@ -10,8 +10,10 @@ routes:
   - uri: /*
     vars: [[uri, ~~, public(\/|$)]]
     service_id: 1002
+    enable_websocket: true
   - uri: /*
     service_id: 1002
+    enable_websocket: true
     plugins:
       authz-keycloak:
         token_endpoint: http://keycloak:8080/realms/moderate/protocol/openid-connect/token

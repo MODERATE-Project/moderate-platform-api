@@ -1,0 +1,53 @@
+server {
+    listen 80;
+    server_name localhost;
+    root /usr/share/nginx/html;
+    index index.html index.htm;
+
+    location ~ ^/api/ {
+        rewrite ^/api/(.*)$ /$1 break;
+        proxy_pass ${MODERATE_API_URL};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_redirect default;
+    }
+
+    # Notebooks are a special case to allow for embedding in iframes
+    location ~ ^/notebook/ {
+        proxy_pass ${MODERATE_API_URL};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_redirect default;
+    }
+
+    location ~* \.(?:manifest|appcache|html?|xml|json)$ {
+        expires off;
+        etag off;
+        access_log off;
+        add_header Cache-Control "max-age=86400, public, must-revalidate";
+    }
+
+    location ~* \.(?:css|js)$ {
+        try_files $uri =404;
+        expires off;
+        etag off;
+        access_log off;
+        add_header Cache-Control "max-age=86400, public, must-revalidate";
+    }
+
+    location ~ ^.+\..+$ {
+        try_files $uri =404;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

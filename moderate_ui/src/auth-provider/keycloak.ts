@@ -54,6 +54,9 @@ export function buildKeycloakAuthProvider({
           axios.defaults.headers.common = {
             Authorization: `Bearer ${token}`,
           };
+
+          axios.defaults.withCredentials = true;
+
           return {
             authenticated: true,
           };

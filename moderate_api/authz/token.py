@@ -38,14 +38,8 @@ async def _get_signing_key(alg: str, jwks: Dict, kid: str):
             return get_default_algorithms()[alg].from_jwk(jwk)
 
 
-async def get_request_token(request: Request, settings: Settings) -> Dict:
-    auth_token = request.headers.get("Authorization")
-
-    if not auth_token:
-        raise ValueError("Missing Authorization header")
-
-    auth_token = auth_token.replace("Bearer ", "")
-    header = jwt.get_unverified_header(auth_token)
+async def decode_token(token: str, settings: Settings) -> Dict:
+    header = jwt.get_unverified_header(token)
     alg = header["alg"]
 
     if settings.disable_token_verification:
@@ -62,10 +56,21 @@ async def get_request_token(request: Request, settings: Settings) -> Dict:
     _logger.debug("Decoding token with alg=%s, kid=%s, options=%s", alg, kid, options)
 
     token_decoded = jwt.decode(
-        auth_token,
+        token,
         algorithms=[alg],
         key=signing_key,
         options=options,
     )
 
     return token_decoded
+
+
+async def get_request_token(request: Request, settings: Settings) -> Dict:
+    auth_token = request.headers.get("Authorization")
+
+    if not auth_token:
+        raise ValueError("Missing Authorization header")
+
+    auth_token = auth_token.replace("Bearer ", "")
+
+    return await decode_token(token=auth_token, settings=settings)

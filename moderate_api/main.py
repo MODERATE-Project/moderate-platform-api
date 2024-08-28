@@ -15,7 +15,8 @@ import moderate_api.entities.user.router
 import moderate_api.entities.visualization.router
 import moderate_api.long_running
 import moderate_api.ping.router
-from moderate_api.authz.user import get_user
+from moderate_api.authz.token import decode_token
+from moderate_api.authz.user import get_user_optional
 from moderate_api.config import get_settings
 from moderate_api.db import DBEngine
 from moderate_api.enums import Prefixes
@@ -106,31 +107,49 @@ app.include_router(
 raise_if_trailing_slashes(the_app=app)
 
 
+_COOKIE_TOKEN = "access_token"
+
+
 @app.middleware("http")
-async def notebook_middleware(request: Request, call_next):
+async def notebook_auth_middleware(request: Request, call_next):
     """Middleware to check if the request is for a notebook and if the user is authorized to access it."""
 
     is_notebook_request = re.match(
         f"^{Prefixes.NOTEBOOK.value}(/.*)?$", request.url.path
     )
 
-    if not is_notebook_request:
-        return await call_next(request)
+    settings = get_settings()
 
-    try:
-        user = await get_user(request=request, settings=get_settings())
+    if is_notebook_request:
+        token = request.cookies.get(_COOKIE_TOKEN)
 
-        if not user or not user.is_enabled:
-            raise
-    except Exception as ex:
-        _logger.debug("Unauthorized access to notebook", exc_info=ex)
+        try:
+            if not token:
+                raise
 
-        return JSONResponse(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            content={"message": "Unauthorized access to notebook"},
+            decode_token(token=token, settings=settings)
+        except:
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"message": "Unauthorized access to notebook"},
+            )
+
+    user = await get_user_optional(request=request, settings=settings)
+    auth_header = request.headers.get("Authorization")
+    response = await call_next(request)
+
+    if user and user.is_enabled and auth_header:
+        token_value = auth_header.split("Bearer")[1].strip()
+
+        response.set_cookie(
+            key=_COOKIE_TOKEN,
+            value=token_value,
+            httponly=True,
+            secure=True,
+            samesite="strict",
         )
 
-    return await call_next(request)
+    return response
 
 
 def build_marimo_server(include_code: bool = True):
@@ -139,7 +158,7 @@ def build_marimo_server(include_code: bool = True):
     marimo_server = marimo.create_asgi_app(include_code=include_code)
 
     for nb_enum_item, nb_module in ALL_NOTEBOOKS.items():
-        nb_path = f"{Prefixes.NOTEBOOK.value}/{nb_enum_item.value}"
+        nb_path = f"{Prefixes.NOTEBOOK.value}/public/{nb_enum_item.value}"
         nb_root = os.path.abspath(nb_module.__file__)
         marimo_server = marimo_server.with_app(path=nb_path, root=nb_root)
         _logger.info("Mounted notebook %s at %s", nb_root, nb_path)
