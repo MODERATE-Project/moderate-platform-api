@@ -112,38 +112,53 @@ _COOKIE_TOKEN = "access_token"
 
 @app.middleware("http")
 async def notebook_auth_middleware(request: Request, call_next):
-    """Middleware to check if the request is for a notebook and if the user is authorized to access it."""
+    """Middleware to check if the user is authenticated to access the notebooks."""
 
     is_notebook_request = re.match(
         f"^{Prefixes.NOTEBOOK.value}(/.*)?$", request.url.path
     )
 
-    settings = get_settings()
-
     if is_notebook_request:
-        token = request.cookies.get(_COOKIE_TOKEN)
-
         try:
-            if not token:
+            token_cookie = request.cookies.get(_COOKIE_TOKEN)
+
+            if not token_cookie:
                 raise
 
-            decode_token(token=token, settings=settings)
-        except:
+            settings = get_settings()
+            token_decoded = await decode_token(token=token_cookie, settings=settings)
+
+            if not token_decoded:
+                raise
+        except Exception as ex:
+            _logger.debug("Unauthorized access to notebook", exc_info=ex)
+
             return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 content={"message": "Unauthorized access to notebook"},
             )
 
-    user = await get_user_optional(request=request, settings=settings)
-    auth_header = request.headers.get("Authorization")
+    return await call_next(request)
+
+
+@app.middleware("http")
+async def token_cookie_middleware(request: Request, call_next):
+    """Middleware to set the token cookie if the user is authenticated and the token is present in the request."""
+
     response = await call_next(request)
 
-    if user and user.is_enabled and auth_header:
-        token_value = auth_header.split("Bearer")[1].strip()
+    settings = get_settings()
+    user = await get_user_optional(request=request, settings=settings)
 
+    try:
+        token = request.headers.get("Authorization").split("Bearer")[1].strip()
+    except:
+        token = None
+
+    if user and user.is_enabled and token:
         response.set_cookie(
             key=_COOKIE_TOKEN,
-            value=token_value,
+            value=token,
             httponly=True,
             secure=True,
             samesite="strict",

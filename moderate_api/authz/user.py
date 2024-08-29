@@ -130,10 +130,6 @@ async def get_user_optional(
     try:
         return await _get_user(request=request, settings=settings)
     except Exception:
-        _logger.debug(
-            "User is missing or unauthorized:\n%s", pprint.pformat(dict(request))
-        )
-
         return None
 
 

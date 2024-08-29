@@ -38,29 +38,40 @@ async def _get_signing_key(alg: str, jwks: Dict, kid: str):
             return get_default_algorithms()[alg].from_jwk(jwk)
 
 
-async def decode_token(token: str, settings: Settings) -> Dict:
+async def decode_token(token: str, settings: Settings, leeway: int = 30) -> Dict:
     header = jwt.get_unverified_header(token)
     alg = header["alg"]
+
+    options = {
+        "verify_signature": True,
+        "require": ["exp", "iat"],
+        "verify_exp": True,
+        "verify_iat": True,
+        "verify_nbf": True,
+        "verify_aud": False,
+        "leeway": leeway,
+    }
 
     if settings.disable_token_verification:
         _logger.warning("Token verification is disabled")
         signing_key = None
         kid = None
-        options = {"verify_signature": False}
+        options["verify_signature"] = False
     else:
         kid = header["kid"]
         jwks = await _fetch_jwks(settings.openid_config_url)
         signing_key = await _get_signing_key(alg, jwks, kid)
-        options = {"verify_aud": False}
 
-    _logger.debug("Decoding token with alg=%s, kid=%s, options=%s", alg, kid, options)
-
-    token_decoded = jwt.decode(
-        token,
-        algorithms=[alg],
-        key=signing_key,
-        options=options,
-    )
+    try:
+        token_decoded = jwt.decode(
+            token,
+            algorithms=[alg],
+            key=signing_key,
+            options=options,
+        )
+    except Exception as ex:
+        _logger.warning("Token verification failed: %s", ex)
+        raise
 
     return token_decoded
 
