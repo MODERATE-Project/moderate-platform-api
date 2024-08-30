@@ -17,6 +17,7 @@ import {
   Title,
   createStyles,
 } from "@mantine/core";
+import { useClipboard } from "@mantine/hooks";
 import {
   IResourceComponentsProps,
   useGetIdentity,
@@ -30,6 +31,7 @@ import {
   IconAlertCircle,
   IconChartAreaLine,
   IconCheck,
+  IconClipboard,
   IconDeviceFloppy,
   IconDownload,
   IconEyeEdit,
@@ -303,6 +305,26 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
   const [isPreparingDownload, setIsPreparingDownload] =
     useState<boolean>(false);
 
+  const fetchPresignedDownloadUrl = useCallback(async () => {
+    if (!assetModel) {
+      return;
+    }
+
+    const downloadItems = await downloadAssetObjects({
+      assetId: assetModel.data.id,
+    });
+
+    const theItem = downloadItems.find((item) => {
+      return item.key === assetObjectModel.data.key;
+    });
+
+    if (!theItem) {
+      throw new Error("Dataset not found");
+    }
+
+    return theItem.download_url;
+  }, [assetModel, assetObjectModel?.data.key]);
+
   const downloadObject = useCallback(() => {
     if (!assetModel) {
       return;
@@ -310,25 +332,15 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
 
     setIsPreparingDownload(true);
 
-    downloadAssetObjects({
-      assetId: assetModel.data.id,
-    })
-      .then((downloadItems) => {
-        const theItem = downloadItems.find((item) => {
-          return item.key === assetObjectModel.data.key;
-        });
-
-        if (!theItem) {
-          throw new Error("Dataset not found");
-        }
-
+    fetchPresignedDownloadUrl()
+      .then((downloadUrl) => {
         open &&
           open({
             message: t("assetObjects.downloadStarted", "Download started"),
             type: "success",
           });
 
-        window.open(theItem.download_url, "_blank");
+        window.open(downloadUrl, "_blank");
       })
       .catch(
         _.partial(
@@ -340,7 +352,17 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
       .then(() => {
         setIsPreparingDownload(false);
       });
-  }, [assetModel, assetObjectModel, open, t]);
+  }, [assetModel, open, t, fetchPresignedDownloadUrl]);
+
+  const [isCopyUrlLoading, setIsCopyUrlLoading] = useState<boolean>(false);
+  const clipboard = useClipboard({ timeout: 500 });
+
+  const copyDownloadUrl = useCallback(async () => {
+    setIsCopyUrlLoading(true);
+    const downloadUrl = await fetchPresignedDownloadUrl();
+    clipboard.copy(downloadUrl);
+    setIsCopyUrlLoading(false);
+  }, [fetchPresignedDownloadUrl, clipboard]);
 
   const [isCheckingIntegrity, setIsCheckingIntegrity] =
     useState<boolean>(false);
@@ -464,21 +486,37 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
                     to={`/assets/${assetModel.data.id}/objects/explore/${assetObjectModel.data.id}`}
                     target="_blank"
                     variant="light"
-                    leftIcon={<IconReportSearch size="1em" />}
+                    leftIcon={<IconReportSearch size="1.3em" />}
                   >
                     {t("assetObjects.actions.explore", "Explore")}
                   </Button>
                   <Button
                     variant="light"
-                    leftIcon={<IconDownload size="1em" />}
+                    leftIcon={<IconDownload size="1.3em" />}
                     onClick={downloadObject}
                   >
                     {t("assetObjects.actions.download", "Download")}
                   </Button>
                   <Button
                     variant="light"
+                    color={clipboard.copied ? "green" : "teal"}
+                    leftIcon={
+                      clipboard.copied ? (
+                        <IconCheck size="1.3em" />
+                      ) : (
+                        <IconClipboard size="1.3em" />
+                      )
+                    }
+                    onClick={copyDownloadUrl}
+                    loading={isCopyUrlLoading}
+                    loaderProps={{ size: "xs" }}
+                  >
+                    {t("assetObjects.actions.copyDownloadUrl", "Copy URL")}
+                  </Button>
+                  <Button
+                    variant="light"
                     color="green"
-                    leftIcon={<IconFileCheck size="1em" />}
+                    leftIcon={<IconFileCheck size="1.3em" />}
                     onClick={checkIntegrity}
                   >
                     {t(

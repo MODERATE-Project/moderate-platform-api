@@ -1,6 +1,6 @@
 import { Box, Button, Text, Title, createStyles } from "@mantine/core";
 import { IconExternalLink } from "@tabler/icons-react";
-import React, { useEffect } from "react";
+import React from "react";
 import { useTranslation } from "react-i18next";
 import { usePing } from "../api/ping";
 
@@ -95,13 +95,7 @@ const useStyles = createStyles((theme) => ({
 export const Homepage: React.FC = () => {
   const { t } = useTranslation();
   const { classes } = useStyles();
-  const { pingResult } = usePing();
-
-  useEffect(() => {
-    if (pingResult) {
-      console.debug("Ping", pingResult);
-    }
-  }, [pingResult]);
+  usePing();
 
   return (
     <>

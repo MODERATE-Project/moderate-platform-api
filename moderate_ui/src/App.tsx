@@ -38,6 +38,7 @@ import { AssetObjectExploratoryDashboard } from "./pages/asset-objects/Explorato
 import { AssetObjectShow } from "./pages/asset-objects/Show";
 import { AssetCreate, AssetEdit, AssetList, AssetShow } from "./pages/assets";
 import { Login } from "./pages/login";
+import { NotebookExploratory } from "./pages/notebooks/Exploratory";
 import { dataProvider } from "./rest-data-provider";
 import { ResourceNames } from "./types";
 
@@ -183,6 +184,12 @@ function App() {
                           <Route path="create" element={<AssetCreate />} />
                           <Route path="edit/:id" element={<AssetEdit />} />
                           <Route path="show/:id" element={<AssetShow />} />
+                        </Route>
+                        <Route path="/workflows">
+                          <Route
+                            path="exploratory"
+                            element={<NotebookExploratory />}
+                          />
                         </Route>
                         <Route path="/catalogue" element={<Catalogue />} />
                         <Route path="/tools" element={<ToolsCatalogue />} />
