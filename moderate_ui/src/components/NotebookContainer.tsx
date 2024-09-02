@@ -1,4 +1,4 @@
-import { Card, Group, Text } from "@mantine/core";
+import { Card } from "@mantine/core";
 import axios from "axios";
 import React, { ReactElement, useCallback, useEffect, useRef } from "react";
 import { buildApiUrl } from "../api/utils";
@@ -51,9 +51,7 @@ export const NotebookContainer: React.FC<{
   return (
     <Card withBorder shadow="sm" radius="md">
       <Card.Section withBorder inheritPadding py="xs">
-        <Group position="apart">
-          <Text weight={500}>{title}</Text>
-        </Group>
+        {title}
       </Card.Section>
 
       {description}

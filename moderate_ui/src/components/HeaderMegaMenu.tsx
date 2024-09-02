@@ -24,7 +24,12 @@ import {
   useLogin,
   useLogout,
 } from "@refinedev/core";
-import { IconBox, IconChevronDown, IconUser } from "@tabler/icons-react";
+import {
+  IconBox,
+  IconChevronDown,
+  IconFileSearch,
+  IconUser,
+} from "@tabler/icons-react";
 import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
@@ -145,6 +150,15 @@ export function HeaderMegaMenu() {
         description: t(
           "nav.megaMenu.assets",
           "Datasets published to the MODERATE platform"
+        ),
+      },
+      {
+        to: "/workflows/exploratory",
+        icon: IconFileSearch,
+        title: t("nav.dataExploration", "Data exploration"),
+        description: t(
+          "nav.megaMenu.dataExploration",
+          "Download and visualize datasets"
         ),
       },
     ];
