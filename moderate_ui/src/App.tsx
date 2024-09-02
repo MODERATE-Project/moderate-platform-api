@@ -10,7 +10,7 @@ import {
 import { useLocalStorage } from "@mantine/hooks";
 import { NotificationsProvider } from "@mantine/notifications";
 import { useKeycloak } from "@react-keycloak/web";
-import { AuthBindings, Authenticated, Refine } from "@refinedev/core";
+import { Authenticated, Refine } from "@refinedev/core";
 import { DevtoolsPanel, DevtoolsProvider } from "@refinedev/devtools";
 import { RefineKbar, RefineKbarProvider } from "@refinedev/kbar";
 import {
@@ -59,7 +59,7 @@ function App() {
     return <div>Loading...</div>;
   }
 
-  const authProvider: AuthBindings = buildKeycloakAuthProvider({ keycloak });
+  const authProvider = buildKeycloakAuthProvider({ keycloak });
 
   const i18nProvider = {
     translate: (key: string, params: object) => t(key, params),

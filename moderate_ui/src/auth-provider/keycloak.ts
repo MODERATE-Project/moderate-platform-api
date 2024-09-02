@@ -1,4 +1,4 @@
-import { AuthBindings } from "@refinedev/core";
+import { AuthProvider } from "@refinedev/core";
 import axios from "axios";
 import Keycloak from "keycloak-js";
 
@@ -11,18 +11,47 @@ export interface IIdentity {
   givenName?: string;
 }
 
+export type ExtendedAuthProvider = AuthProvider & {
+  refreshToken: () => Promise<void>;
+};
+
 export function buildKeycloakAuthProvider({
   keycloak,
+  refreshMinValidity = 30,
 }: {
   keycloak: Keycloak;
-}): AuthBindings {
-  const authProvider: AuthBindings = {
+  refreshMinValidity?: number;
+}): ExtendedAuthProvider {
+  const refreshToken = async () => {
+    if (!keycloak.authenticated || !keycloak.token) {
+      return;
+    }
+
+    try {
+      const refreshed = await keycloak.updateToken(refreshMinValidity);
+
+      if (refreshed) {
+        console.debug("Updated default headers with new token");
+
+        axios.defaults.headers.common = {
+          Authorization: `Bearer ${keycloak.token}`,
+        };
+      }
+    } catch (error) {
+      console.error("Failed to refresh token", error);
+    }
+  };
+
+  const authProvider: ExtendedAuthProvider = {
+    refreshToken,
     login: async () => {
       const urlSearchParams = new URLSearchParams(window.location.search);
       const { to } = Object.fromEntries(urlSearchParams.entries());
+
       await keycloak.login({
         redirectUri: to ? `${window.location.origin}${to}` : undefined,
       });
+
       return {
         success: true,
       };
@@ -32,6 +61,7 @@ export function buildKeycloakAuthProvider({
         await keycloak.logout({
           redirectUri: window.location.origin,
         });
+
         return {
           success: true,
           redirectTo: "/login",
@@ -49,7 +79,10 @@ export function buildKeycloakAuthProvider({
     },
     check: async () => {
       try {
+        await refreshToken();
+
         const { token } = keycloak;
+
         if (token) {
           axios.defaults.headers.common = {
             Authorization: `Bearer ${token}`,
