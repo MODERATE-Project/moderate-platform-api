@@ -6,4 +6,8 @@ p, apisix:api_basic_access, user, create, deny
 p, apisix:api_basic_access, user, read, allow
 p, apisix:api_basic_access, user, update, allow
 p, apisix:api_basic_access, user, delete, deny
+p, apisix:api_basic_access, access_request, create, allow
+p, apisix:api_basic_access, access_request, read, allow
+p, apisix:api_basic_access, access_request, update, allow
+p, apisix:api_basic_access, access_request, delete, allow
 g, apisix:api_admin, apisix:api_basic_access

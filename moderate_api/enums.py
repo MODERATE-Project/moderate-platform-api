@@ -14,6 +14,7 @@ class Entities(enum.Enum):
     UPLOADED_OBJECT = "uploaded_object"
     USER = "user"
     VISUALIZATION = "visualization"
+    ACCESS_REQUEST = "access_request"
 
 
 class Actions(enum.Enum):
@@ -33,6 +34,7 @@ class Prefixes(enum.Enum):
     USER = "/user"
     VISUALIZATION = "/visualization"
     NOTEBOOK = "/notebook"
+    ACCESS_REQUEST = "/request"
 
 
 class Notebooks(enum.Enum):

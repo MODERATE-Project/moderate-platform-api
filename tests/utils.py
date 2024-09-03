@@ -11,6 +11,9 @@ from typing import Optional
 
 from fastapi.testclient import TestClient
 
+from moderate_api.authz.token import decode_token
+from moderate_api.config import get_settings
+from moderate_api.entities.access_request.models import AccessRequestCreate
 from moderate_api.entities.asset.models import AssetCreate
 from moderate_api.entities.user.models import UserMetaCreate
 from moderate_api.main import app
@@ -215,3 +218,53 @@ def upload_test_files(
                 _logger.info("Response:\n%s", pprint.pformat(res_json))
 
         return the_asset["id"]
+
+
+async def create_access_request(
+    the_client: TestClient,
+    the_access_token: str,
+    access_request_kwargs: Optional[dict] = None,
+    asset_id: Optional[int] = None,
+) -> dict:
+    asset_id = asset_id or create_asset(the_client, the_access_token)["id"]
+    random_requester_username = str(uuid.uuid4())
+
+    kwargs = {
+        "requester_username": random_requester_username,
+        "asset_id": asset_id,
+    }
+
+    kwargs.update(access_request_kwargs or {})
+    asset = AccessRequestCreate(**kwargs)
+
+    response = the_client.post(
+        "/request",
+        headers={"Authorization": f"Bearer {the_access_token}"},
+        data=asset.json(),
+    )
+
+    decoded_token = await decode_token(the_access_token, settings=get_settings())
+    expected_username = decoded_token["preferred_username"]
+
+    resp_json = response.json()
+    _logger.debug("Response:\n%s", pprint.pformat(resp_json))
+    assert response.raise_for_status()
+    assert resp_json["allowed"] is None
+    assert resp_json["asset_id"] == asset_id
+    assert expected_username != random_requester_username
+    assert resp_json["requester_username"] == expected_username
+    return resp_json
+
+
+def read_access_request(
+    the_client: TestClient, the_access_token: str, access_request_id: int
+) -> dict:
+    response = the_client.get(
+        f"/request/{access_request_id}",
+        headers={"Authorization": f"Bearer {the_access_token}"},
+    )
+
+    assert response.raise_for_status()
+    resp_json = response.json()
+    _logger.debug("Response:\n%s", pprint.pformat(resp_json))
+    return resp_json

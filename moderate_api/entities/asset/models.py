@@ -92,6 +92,11 @@ class Asset(AssetBase, table=True):
         ),
     )
 
+    access_requests: List["AccessRequest"] = Relationship(  # type: ignore
+        back_populates="asset",
+        sa_relationship_kwargs={"lazy": "selectin"},
+    )
+
     @validator("access_level", always=True)
     def username_and_access_level_check(cls, access_level, values):
         username = values.get("username")

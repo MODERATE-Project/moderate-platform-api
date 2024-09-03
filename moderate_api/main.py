@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlmodel import SQLModel
 
+import moderate_api.entities.access_request.router
 import moderate_api.entities.asset.router
 import moderate_api.entities.user.router
 import moderate_api.entities.visualization.router
@@ -102,6 +103,11 @@ app.include_router(
 app.include_router(
     moderate_api.entities.visualization.router.router,
     prefix=Prefixes.VISUALIZATION.value,
+)
+
+app.include_router(
+    moderate_api.entities.access_request.router.router,
+    prefix=Prefixes.ACCESS_REQUEST.value,
 )
 
 raise_if_trailing_slashes(the_app=app)
