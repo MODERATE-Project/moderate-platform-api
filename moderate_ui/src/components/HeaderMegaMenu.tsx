@@ -244,48 +244,50 @@ export function HeaderMegaMenu() {
             spacing={0}
             className={classes.hiddenMobile}
           >
-            {mainLinks}
-
             {isAuthenticated === true && (
-              <HoverCard
-                width={600}
-                position="bottom"
-                radius="md"
-                shadow="md"
-                withinPortal
-              >
-                <HoverCard.Target>
-                  <a href="#" className={classes.link}>
-                    <Center inline>
-                      <Box component="span" mr={5}>
-                        {t("nav.platformFeatures", "Platform Features")}
-                      </Box>
-                      <IconChevronDown
-                        size={16}
-                        color={theme.fn.primaryColor()}
-                      />
-                    </Center>
-                  </a>
-                </HoverCard.Target>
+              <>
+                {mainLinks}
 
-                <HoverCard.Dropdown sx={{ overflow: "hidden" }}>
-                  <Group position="apart" px="md">
-                    <Text weight={500}>
-                      {t("nav.platformFeatures", "Platform Features")}
-                    </Text>
-                  </Group>
+                <HoverCard
+                  width={600}
+                  position="bottom"
+                  radius="md"
+                  shadow="md"
+                  withinPortal
+                >
+                  <HoverCard.Target>
+                    <a href="#" className={classes.link}>
+                      <Center inline>
+                        <Box component="span" mr={5}>
+                          {t("nav.platformFeatures", "Features & Workflows")}
+                        </Box>
+                        <IconChevronDown
+                          size={16}
+                          color={theme.fn.primaryColor()}
+                        />
+                      </Center>
+                    </a>
+                  </HoverCard.Target>
 
-                  <Divider
-                    my="sm"
-                    mx="-md"
-                    color={theme.colorScheme === "dark" ? "dark.5" : "gray.1"}
-                  />
+                  <HoverCard.Dropdown sx={{ overflow: "hidden" }}>
+                    <Group position="apart" px="md">
+                      <Text weight={500}>
+                        {t("nav.platformFeatures", "Features & Workflows")}
+                      </Text>
+                    </Group>
 
-                  <SimpleGrid cols={2} spacing={0}>
-                    {megaMenuLinks}
-                  </SimpleGrid>
-                </HoverCard.Dropdown>
-              </HoverCard>
+                    <Divider
+                      my="sm"
+                      mx="-md"
+                      color={theme.colorScheme === "dark" ? "dark.5" : "gray.1"}
+                    />
+
+                    <SimpleGrid cols={2} spacing={0}>
+                      {megaMenuLinks}
+                    </SimpleGrid>
+                  </HoverCard.Dropdown>
+                </HoverCard>
+              </>
             )}
           </Group>
 
@@ -314,10 +316,9 @@ export function HeaderMegaMenu() {
             color={theme.colorScheme === "dark" ? "dark.5" : "gray.1"}
           />
 
-          {mainLinks}
-
           {isAuthenticated === true && (
             <>
+              {mainLinks}
               <UnstyledButton className={classes.link} onClick={toggleLinks}>
                 <Center inline>
                   <Box component="span" mr={5}>
