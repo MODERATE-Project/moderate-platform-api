@@ -3,6 +3,7 @@
 
 .env.trust.local
 .env.dev
+openapi.json
 
 ## Python
 #########
