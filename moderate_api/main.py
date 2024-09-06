@@ -71,6 +71,7 @@ app = FastAPI(
     contact={
         "name": "The MODERATE Platform development team",
         "url": "https://github.com/MODERATE-Project",
+        "email": "andres.garcia@fundacionctic.org",
     },
     lifespan=lifespan,
 )

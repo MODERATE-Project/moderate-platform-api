@@ -4,6 +4,7 @@
 .env.trust.local
 .env.dev
 openapi.json
+api-docs-dist
 
 ## Python
 #########

@@ -184,3 +184,15 @@ tasks:
       vars: [INSTANCE_CONNECTION_NAME]
     cmds:
       - cloud-sql-proxy {{.INSTANCE_CONNECTION_NAME}}
+
+  swagger-codegen-docs:
+    desc: Generate the API documentation static site
+    vars:
+      OPENAPI_PATH: "{{.ROOT_DIR}}/openapi.json"
+      OPENAPI_VERSION: 3.0.3
+      GENERATED_OPENAPI_DOCS_PATH: "{{.ROOT_DIR}}/api-docs-dist"
+    cmds:
+      - poetry run write-openapi --openapi-version {{.OPENAPI_VERSION}} --path {{.OPENAPI_PATH}}
+      - echo "📣 Note that you need to install swagger-codegen version 3 (https://github.com/swagger-api/swagger-codegen)"
+      - mkdir -p {{.GENERATED_OPENAPI_DOCS_PATH}}
+      - swagger-codegen generate -i {{.OPENAPI_PATH}} -l html -o {{.GENERATED_OPENAPI_DOCS_PATH}}
