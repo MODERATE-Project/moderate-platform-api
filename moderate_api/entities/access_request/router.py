@@ -16,6 +16,7 @@ from moderate_api.entities.access_request.models import (
     AccessRequestCreate,
     AccessRequestRead,
     AccessRequestUpdate,
+    can_approve_access_request,
 )
 from moderate_api.entities.crud import (
     CrudFiltersQuery,
@@ -78,6 +79,9 @@ async def update_permission(
 
     if not access_request:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    if not can_approve_access_request(user=user, access_request=access_request):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
 
     access_request.validated_at = datetime.now(tz=timezone.utc).replace(tzinfo=None)
     access_request.validator_username = user.username

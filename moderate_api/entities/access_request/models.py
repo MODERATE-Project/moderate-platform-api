@@ -4,6 +4,7 @@ from typing import Optional
 
 from sqlmodel import Field, Relationship, SQLModel
 
+from moderate_api.authz.user import User
 from moderate_api.entities.asset.models import Asset
 
 _logger = logging.getLogger(__name__)
@@ -48,3 +49,13 @@ class AccessRequestRead(AccessRequestBase):
 
 class AccessRequestUpdate(AccessRequestBase):
     pass
+
+
+def can_approve_access_request(user: User, access_request: AccessRequest) -> bool:
+    if user.is_admin:
+        return True
+
+    if access_request.asset.username == user.username:
+        return True
+
+    return False
