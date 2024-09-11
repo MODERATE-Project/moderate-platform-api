@@ -196,3 +196,61 @@ tasks:
       - echo "📣 Note that you need to install swagger-codegen version 3 (https://github.com/swagger-api/swagger-codegen)"
       - mkdir -p {{.GENERATED_OPENAPI_DOCS_PATH}}
       - swagger-codegen generate -i {{.OPENAPI_PATH}} -l html -o {{.GENERATED_OPENAPI_DOCS_PATH}}
+
+  bump-api:
+    desc: Bump the API version
+    requires:
+      vars: [VERSION]
+    cmds:
+      - poetry version {{.VERSION}}
+
+  bump-ui:
+    desc: Bump the UI version
+    requires:
+      vars: [VERSION]
+    cmds:
+      - cd {{.ROOT_DIR}}/moderate_ui && npm version {{.VERSION}}
+
+  bump:
+    desc: Bump the API and UI versions
+    requires:
+      vars: [VERSION_API]
+    vars:
+      VERSION_UI: "{{default .VERSION_API .VERSION_UI}}"
+    cmds:
+      - task: bump-api
+        vars:
+          VERSION: "{{.VERSION_API}}"
+      - task: bump-ui
+        vars:
+          VERSION: "{{.VERSION_UI}}"
+    preconditions:
+      - sh: '[ -z "$(git status --porcelain)" ]'
+        msg: "Output of git status --porcelain is not clean"
+
+  commit-tag:
+    desc: Commit the version changes and tag the current commit
+    cmds:
+      - git add .
+      - >
+        VERSION_API=$(poetry version --short) &&
+        VERSION_UI=$(cd {{.ROOT_DIR}}/moderate_ui && grep '"version"' package.json | awk -F '"' '{print $4}') &&
+        TAG_NAME="v$VERSION_API-api-v$VERSION_UI-ui" &&
+        git commit -m "Bump versions to ${TAG_NAME}" &&
+        git tag -a ${TAG_NAME} -m "Release ${TAG_NAME} for API version ${VERSION_API} and UI version ${VERSION_UI}"
+    preconditions:
+      - sh: '[ -n "$(git diff --name-only HEAD | grep -E "pyproject.toml|moderate_ui/package.json")" ]'
+        msg: "The version files do not seem to have been updated"
+
+  bump-commit-tag:
+    desc: Bump the API and UI versions, commit and tag the current commit
+    requires:
+      vars: [VERSION_API]
+    vars:
+      VERSION_UI: "{{default .VERSION_API .VERSION_UI}}"
+    cmds:
+      - task: bump
+        vars:
+          VERSION_API: "{{.VERSION_API}}"
+          VERSION_UI: "{{.VERSION_UI}}"
+      - task: commit-tag
