@@ -254,3 +254,4 @@ tasks:
           VERSION_API: "{{.VERSION_API}}"
           VERSION_UI: "{{.VERSION_UI}}"
       - task: commit-tag
+      - echo "📣 Remember to push the changes and tags to the repository"
