@@ -26,6 +26,7 @@ server {
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_redirect default;
+        proxy_intercept_errors on;
     }
 
     # Notebooks are a special case to allow for embedding in iframes
