@@ -1,10 +1,22 @@
+# Enable debug logging for the entire NGINX process
+error_log /var/log/nginx/error.log debug;
+
+# Enable rewrite logging
+rewrite_log on;
+
 server {
     listen 80 default_server;
     server_name _;
     root /usr/share/nginx/html;
     index index.html index.htm;
 
+    # Server-level access log
+    access_log /var/log/nginx/access.log combined;
+
     location ~ ^/api/ {
+        # Location-specific debug log
+        error_log /var/log/nginx/api_debug.log debug;
+
         rewrite ^/api/(.*)$ /$1 break;
         proxy_pass ${MODERATE_API_URL};
         proxy_set_header Host $host;
