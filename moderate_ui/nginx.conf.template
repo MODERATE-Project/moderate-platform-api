@@ -14,23 +14,9 @@ server {
     access_log /var/log/nginx/access.log combined;
 
     location ~ ^/api/ {
-        # Location-specific debug log
         error_log /var/log/nginx/api_debug.log debug;
 
         rewrite ^/api/(.*)$ /$1 break;
-        proxy_pass ${MODERATE_API_URL};
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto https;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_redirect off;
-        proxy_intercept_errors on;
-    }
-
-    # Notebooks are a special case to allow for embedding in iframes
-    location ~ ^/notebook/ {
         proxy_pass ${MODERATE_API_URL};
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -39,6 +25,22 @@ server {
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_redirect default;
+        proxy_intercept_errors on;
+    }
+
+    # Notebooks are a special case to allow for embedding in iframes
+    location ~ ^/notebook/ {
+        error_log /var/log/nginx/notebook_debug.log debug;
+
+        proxy_pass ${MODERATE_API_URL};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_redirect default;
+        proxy_intercept_errors on;
     }
 
     location ~* \.(?:manifest|appcache|html?|xml|json)$ {
@@ -61,6 +63,8 @@ server {
     }
 
     location / {
+        error_log /var/log/nginx/default_debug.log debug;
+
         try_files $uri $uri/ /index.html;
     }
 }
