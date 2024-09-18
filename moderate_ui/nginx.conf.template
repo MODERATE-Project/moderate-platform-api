@@ -13,8 +13,8 @@ server {
     # Server-level access log
     access_log /var/log/nginx/access.log combined;
 
-    # Set maximum allowed size of the client request body
-    client_max_body_size 256M;
+    # Disables checking of client request body size
+    client_max_body_size 0;
 
     location ~ ^/api/ {
         error_log /var/log/nginx/api_debug.log debug;
