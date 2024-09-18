@@ -6,7 +6,7 @@ rewrite_log on;
 
 server {
     listen 80 default_server;
-    server_name www.moderate.cloud;
+    server_name _;
     root /usr/share/nginx/html;
     index index.html index.htm;
 
@@ -30,8 +30,6 @@ server {
 
     # Notebooks are a special case to allow for embedding in iframes
     location ~ ^/notebook/ {
-        error_log /var/log/nginx/notebook_debug.log debug;
-
         proxy_pass ${MODERATE_API_URL};
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -63,8 +61,6 @@ server {
     }
 
     location / {
-        error_log /var/log/nginx/default_debug.log debug;
-
         try_files $uri $uri/ /index.html;
     }
 }
