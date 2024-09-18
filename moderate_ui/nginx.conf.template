@@ -6,7 +6,7 @@ rewrite_log on;
 
 server {
     listen 80 default_server;
-    server_name _;
+    server_name www.moderate.cloud;
     root /usr/share/nginx/html;
     index index.html index.htm;
 
