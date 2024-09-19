@@ -1,0 +1,26 @@
+:80 {
+	handle /api/* {
+		uri strip_prefix /api
+		reverse_proxy {$MODERATE_API_URL}
+	}
+
+	# Notebooks are a special case to allow for embedding in iframes
+	handle /notebook/* {
+		reverse_proxy {$MODERATE_API_URL}
+	}
+
+	handle {
+		root * /usr/share/caddy
+		try_files {path} /index.html
+		file_server
+	}
+
+	log {
+		output stdout
+		level INFO
+	}
+
+	request_body {
+		max_size 0
+	}
+}
