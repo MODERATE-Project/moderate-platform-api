@@ -301,7 +301,9 @@ async def read_many(
         _logger.debug("Applying selectinload: %s", item)
         statement = statement.options(selectinload(item))
 
-    if user and not user.is_admin and user_selector:
+    must_apply_user_selector = (user and not user.is_admin) or not user
+
+    if must_apply_user_selector and user_selector:
         _logger.debug("Applying user selector as WHERE: %s", user_selector)
         statement = statement.where(*user_selector)
 
@@ -318,7 +320,9 @@ async def read_many(
     )
 
     result = await session.execute(statement)
-    return result.scalars().all()
+    result_items = result.scalars().all()
+
+    return result_items
 
 
 async def select_one(

@@ -575,7 +575,7 @@ async def _read_assets(
         session=session,
     )
 
-    return await read_many(
+    results = await read_many(
         user=user,
         entity=_ENTITY,
         sql_model=Asset,
@@ -586,6 +586,10 @@ async def _read_assets(
         json_filters=filters,
         json_sorts=sorts,
     )
+
+    _logger.debug("Read assets: %s", results)
+
+    return results
 
 
 router.add_api_route(

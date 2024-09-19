@@ -1,5 +1,6 @@
 import logging
 import pprint
+import random
 import uuid
 
 import httpx
@@ -10,6 +11,7 @@ from sqlmodel import select
 from moderate_api.db import with_session
 from moderate_api.entities.asset.models import (
     Asset,
+    AssetAccessLevels,
     AssetCreate,
     UploadedS3Object,
     find_s3object_pending_quality_check,
@@ -134,3 +136,30 @@ async def test_asset_object_quality_check_endpoints(access_token):
         assert len(resp_json) == num_flagged
         assert len(post_body["asset_object_id"]) > num_flagged
         assert all(item["asset_id"] != forbidden_asset_id for item in resp_json)
+
+
+@pytest.mark.asyncio
+async def test_public_read_private_asset(access_token):
+    """Public anonymous users should not be able to read private assets."""
+
+    asset_id = upload_test_files(access_token, num_files=random.randint(1, 4))
+
+    async with with_session() as session:
+        stmt = select(Asset).where(Asset.id == asset_id)
+        result = await session.execute(stmt)
+        asset = result.scalars().one()
+        assert asset.access_level == AssetAccessLevels.PRIVATE
+
+    with TestClient(app) as client:
+        resp_auth = client.get(
+            "/asset/public", headers={"Authorization": f"Bearer {access_token}"}
+        )
+
+        assert resp_auth.raise_for_status()
+        data_auth = resp_auth.json()
+        assert len(data_auth) == 1
+
+        resp_public = client.get("/asset/public")
+        assert resp_public.raise_for_status()
+        data_public = resp_public.json()
+        assert len(data_public) == 0

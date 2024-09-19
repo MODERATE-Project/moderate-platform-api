@@ -126,7 +126,7 @@ async def test_delete_object_from_asset(access_token):
 async def test_upload_object_with_metadata(access_token):
     tags_dict = {
         "uid": str(uuid.uuid4()),
-        "dtime": datetime.datetime.utcnow().isoformat(),
+        "dtime": datetime.datetime.now(datetime.UTC).isoformat(),
     }
 
     series_id = str(uuid.uuid4())

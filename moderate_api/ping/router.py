@@ -1,6 +1,5 @@
 import datetime
 import platform
-from typing import Union
 
 from fastapi import APIRouter, Request
 
@@ -18,7 +17,7 @@ async def _respond_to_ping(request: Request, user: OptionalUserDep):
 
     return {
         "python_version": platform.python_version(),
-        "datetime": datetime.datetime.utcnow(),
+        "datetime": datetime.datetime.now(datetime.UTC),
         "request_headers": dict(request.headers),
         "user": user.to_dict() if user else None,
     }
