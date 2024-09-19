@@ -587,8 +587,6 @@ async def _read_assets(
         json_sorts=sorts,
     )
 
-    _logger.debug("Read assets: %s", results)
-
     return results
 
 
