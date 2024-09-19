@@ -17,7 +17,7 @@ async def _respond_to_ping(request: Request, user: OptionalUserDep):
 
     return {
         "python_version": platform.python_version(),
-        "datetime": datetime.datetime.now(datetime.UTC),
+        "datetime": datetime.datetime.now(datetime.timezone.utc),
         "request_headers": dict(request.headers),
         "user": user.to_dict() if user else None,
     }
