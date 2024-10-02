@@ -16,6 +16,7 @@ services:
       MODERATE_API_TRUST_SERVICE__ENDPOINT_URL: ${MODERATE_API_TRUST_SERVICE__ENDPOINT_URL}
       MODERATE_API_OPEN_METADATA_SERVICE__ENDPOINT_URL: ${MODERATE_API_OPEN_METADATA_SERVICE__ENDPOINT_URL:-}
       MODERATE_API_OPEN_METADATA_SERVICE__BEARER_TOKEN: ${MODERATE_API_OPEN_METADATA_SERVICE__BEARER_TOKEN:-}
+      MODERATE_API_RABBIT_ROUTER_URL: amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbit:${DEV_RABBIT_PORT:-5672}/
   apisix:
     image: apache/apisix:3.5.0-debian
     restart: on-failure
@@ -141,6 +142,20 @@ services:
     depends_on:
       minio:
         condition: service_healthy
+  rabbit:
+    image: rabbitmq:4-management
+    restart: on-failure
+    ports:
+      - ${DEV_RABBIT_PORT:-5672}:5672
+      - ${DEV_RABBIT_MANAGEMENT_PORT:-15672}:15672
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 10s
+      timeout: 10s
+      retries: 3
 volumes:
   postgres_data: {}
   minio_data: {}

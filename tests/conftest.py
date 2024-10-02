@@ -27,6 +27,7 @@ _ENV_S3_ENDPOINT_URL = "MODERATE_API_S3__ENDPOINT_URL"
 _ENV_S3_USE_SSL = "MODERATE_API_S3__USE_SSL"
 _ENV_S3_REGION = "MODERATE_API_S3__REGION"
 _ENV_S3_BUCKET = "MODERATE_API_S3__BUCKET"
+_ENV_RABBIT_ROUTER_URL = "MODERATE_API_RABBIT_ROUTER_URL"
 
 _ENV_KEYS = [
     _ENV_DISABLE_AUTH_VERIFICATION,
@@ -41,6 +42,7 @@ _ENV_KEYS = [
     _ENV_S3_USE_SSL,
     _ENV_S3_REGION,
     _ENV_S3_BUCKET,
+    _ENV_RABBIT_ROUTER_URL,
 ]
 
 
@@ -64,6 +66,7 @@ _test_env = {
     _ENV_S3_USE_SSL: os.getenv("TESTS_MINIO_USE_SSL", "false"),
     _ENV_S3_REGION: os.getenv("TESTS_MINIO_REGION", "eu-central-1"),
     _ENV_S3_BUCKET: os.getenv("TESTS_MINIO_BUCKET", "moderatetests"),
+    _ENV_RABBIT_ROUTER_URL: os.getenv("TESTS_RABBIT_URL", None),
 }
 
 _logger = logging.getLogger(__name__)
@@ -78,7 +81,10 @@ def pytest_configure():
         _original_env[key] = os.environ.get(key, None)
 
     for key in _ENV_KEYS:
-        os.environ[key] = _test_env.get(key)
+        val = _test_env.get(key)
+
+        if val is not None:
+            os.environ[key] = val
 
 
 def pytest_unconfigure():
@@ -88,7 +94,7 @@ def pytest_unconfigure():
 
     for key in _ENV_KEYS:
         if _original_env.get(key) is None:
-            os.environ.pop(key)
+            os.environ.pop(key, None)
         else:
             os.environ[key] = _original_env.get(key)
 

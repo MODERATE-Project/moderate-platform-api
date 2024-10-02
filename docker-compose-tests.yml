@@ -29,3 +29,17 @@ services:
       interval: 10s
       timeout: 10s
       retries: 3
+  rabbit:
+    image: rabbitmq:4-management
+    restart: on-failure
+    ports:
+      - ${TESTS_RABBIT_PUBLIC_PORT}:5672
+      - ${TESTS_RABBIT_PUBLIC_PORT_MANAGEMENT}:15672
+    environment:
+      RABBITMQ_DEFAULT_USER: ${TESTS_RABBIT_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${TESTS_RABBIT_DEFAULT_PASS}
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 10s
+      timeout: 10s
+      retries: 3

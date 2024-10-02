@@ -9,3 +9,4 @@ class PingResponse(BaseModel):
     datetime: datetime.datetime
     request_headers: dict
     user: Optional[dict]
+    broker_connection: Optional[bool]

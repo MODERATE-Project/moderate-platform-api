@@ -21,6 +21,7 @@ from moderate_api.authz.user import get_user_optional
 from moderate_api.config import get_settings
 from moderate_api.db import DBEngine
 from moderate_api.enums import Prefixes
+from moderate_api.message_queue import declare_rabbit_entities, with_rabbit
 from moderate_api.notebooks import ALL_NOTEBOOKS
 
 _logger = logging.getLogger(__name__)
@@ -53,6 +54,10 @@ async def lifespan(app: FastAPI):
         _logger.debug("Creating database tables...")
         await conn.run_sync(SQLModel.metadata.create_all)
         _logger.debug("Created database tables")
+
+    async with with_rabbit() as rabbit:
+        if rabbit is not None:
+            await declare_rabbit_entities(rabbit=rabbit)
 
     yield
 

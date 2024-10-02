@@ -81,6 +81,7 @@ class Settings(BaseSettings):
     )
 
     open_metadata_service: Optional[OpenMetadataService] = None
+    rabbit_router_url: Optional[str] = None
 
     @property
     def role_admin(self) -> str:

@@ -41,3 +41,9 @@ class Notebooks(enum.Enum):
     """Enumeration of types of notebooks in the API."""
 
     EXPLORATION = "exploration"
+
+
+class MessageQueues(enum.Enum):
+    """Enumeration of message queues in the API."""
+
+    MATRIX_PROFILE = "matrix_profile_jobs_queue"
