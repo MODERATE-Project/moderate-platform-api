@@ -14,6 +14,7 @@ jobs:
       gar_repo: ${{ vars.DEFAULT_GAR_REPOSITORY }}
       image_name: moderate-ui
       working_dir: moderate_ui
+      file: moderate_ui/Dockerfile
     secrets:
       wif_provider: ${{ secrets.WIF_PROVIDER }}
       wif_service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
