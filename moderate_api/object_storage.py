@@ -1,5 +1,6 @@
 import logging
 from contextlib import asynccontextmanager
+from typing import AsyncGenerator
 
 from aiobotocore.client import AioBaseClient
 from aiobotocore.session import get_session
@@ -23,7 +24,7 @@ async def ensure_bucket(s3: AioBaseClient, bucket: str):
 
 
 @asynccontextmanager
-async def with_s3(settings: Settings) -> AioBaseClient:
+async def with_s3(settings: Settings) -> AsyncGenerator[AioBaseClient, None]:
     if settings.s3 is None:
         raise Exception("Undefined object storage (S3) settings")
 
@@ -41,7 +42,7 @@ async def with_s3(settings: Settings) -> AioBaseClient:
         yield s3
 
 
-async def get_s3(settings: SettingsDep) -> AioBaseClient:
+async def get_s3(settings: SettingsDep) -> AsyncGenerator[AioBaseClient, None]:
     async with with_s3(settings=settings) as s3:
         yield s3
 
