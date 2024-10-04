@@ -15,6 +15,7 @@ class Entities(enum.Enum):
     USER = "user"
     VISUALIZATION = "visualization"
     ACCESS_REQUEST = "access_request"
+    WORKFLOW_JOB = "workflow_job"
 
 
 class Actions(enum.Enum):
@@ -35,6 +36,7 @@ class Prefixes(enum.Enum):
     VISUALIZATION = "/visualization"
     NOTEBOOK = "/notebook"
     ACCESS_REQUEST = "/request"
+    WORKFLOW_JOB = "/job"
 
 
 class Notebooks(enum.Enum):
@@ -43,7 +45,8 @@ class Notebooks(enum.Enum):
     EXPLORATION = "exploration"
 
 
-class MessageQueues(enum.Enum):
-    """Enumeration of message queues in the API."""
+class WorkflowJobTypes(enum.Enum):
+    """Enumeration of types of workflow jobs in the API,
+    which also determine the name of the message broker queues."""
 
-    MATRIX_PROFILE = "matrix_profile_jobs_queue"
+    MATRIX_PROFILE = "matrix_profile"

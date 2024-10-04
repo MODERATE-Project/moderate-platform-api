@@ -12,6 +12,7 @@ from sqlmodel import SQLModel
 
 import moderate_api.entities.access_request.router
 import moderate_api.entities.asset.router
+import moderate_api.entities.job.router
 import moderate_api.entities.user.router
 import moderate_api.entities.visualization.router
 import moderate_api.long_running
@@ -114,6 +115,11 @@ app.include_router(
 app.include_router(
     moderate_api.entities.access_request.router.router,
     prefix=Prefixes.ACCESS_REQUEST.value,
+)
+
+app.include_router(
+    moderate_api.entities.job.router.router,
+    prefix=Prefixes.WORKFLOW_JOB.value,
 )
 
 raise_if_trailing_slashes(the_app=app)

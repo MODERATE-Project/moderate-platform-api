@@ -4,7 +4,7 @@ import pprint
 import aio_pika
 import pytest
 
-from moderate_api.enums import MessageQueues
+from moderate_api.enums import WorkflowJobTypes
 from moderate_api.message_queue import declare_rabbit_entities, with_rabbit
 
 _SKIP_REASON = "Missing RabbitMQ service"
@@ -22,7 +22,7 @@ async def test_broker_publish():
 
         await rabbit.channel.default_exchange.publish(
             message=aio_pika.Message(body="Hello Rabbit".encode()),
-            routing_key=MessageQueues.MATRIX_PROFILE.value,
+            routing_key=WorkflowJobTypes.MATRIX_PROFILE.value,
         )
 
 

@@ -1,7 +1,7 @@
 import logging
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from typing import AsyncGenerator, AsyncIterator, Optional, Union
+from typing import AsyncGenerator, Optional
 
 from aio_pika import connect_robust
 from aio_pika.abc import AbstractRobustChannel, AbstractRobustConnection
@@ -9,7 +9,7 @@ from fastapi import Depends
 from typing_extensions import Annotated
 
 from moderate_api.config import get_settings
-from moderate_api.enums import MessageQueues
+from moderate_api.enums import WorkflowJobTypes
 
 _logger = logging.getLogger(__name__)
 
@@ -44,8 +44,9 @@ RabbitDep = Annotated[Optional[Rabbit], Depends(get_rabbit)]
 
 
 async def declare_rabbit_entities(rabbit: Rabbit) -> None:
-    _logger.info("Declaring RabbitMQ entities queues and exchanges")
+    for queue_type in WorkflowJobTypes:
+        _logger.info("Declaring queue %s", queue_type.value)
 
-    await rabbit.channel.declare_queue(
-        MessageQueues.MATRIX_PROFILE.value, durable=True, auto_delete=False
-    )
+        await rabbit.channel.declare_queue(
+            name=queue_type.value, durable=True, auto_delete=False
+        )

@@ -2,9 +2,10 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Field, Relationship, SQLModel, select
 
 from moderate_api.authz.user import User
+from moderate_api.db import AsyncSessionDep
 from moderate_api.entities.asset.models import Asset
 
 _logger = logging.getLogger(__name__)
@@ -59,3 +60,20 @@ def can_approve_access_request(user: User, access_request: AccessRequest) -> boo
         return True
 
     return False
+
+
+async def valid_access_request_exists(
+    requester_username: str, asset: Asset, session: AsyncSessionDep
+) -> bool:
+    result = await session.execute(
+        select(AccessRequest)
+        .where(AccessRequest.requester_username == requester_username)
+        .where(AccessRequest.asset_id == asset.id)
+        .where(AccessRequest.allowed == True)
+        .order_by(AccessRequest.validated_at.desc())
+        .limit(1)
+    )
+
+    access_request: AccessRequest = result.scalars().first()
+
+    return access_request is not None
