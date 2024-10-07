@@ -56,7 +56,7 @@ _test_env = {
     _ENV_LOG_LEVEL: "DEBUG",
     _ENV_POSTGRES_URL: os.getenv(
         ENV_TESTS_POSTGRES_URL,
-        "postgresql://postgres:postgres@localhost:5432/testsmoderateapi",
+        "postgresql+asyncpg://postgres:postgres@localhost:5432/testsmoderateapi",
     ),
     _ENV_S3_ACCESS_KEY: os.getenv("TESTS_MINIO_ROOT_USER", "minio"),
     _ENV_S3_SECRET_KEY: os.getenv("TESTS_MINIO_ROOT_PASSWORD", "minio123"),

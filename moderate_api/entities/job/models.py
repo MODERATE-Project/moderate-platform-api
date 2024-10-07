@@ -47,7 +47,7 @@ class WorkflowJobCreate(SQLModel):
 
 
 class WorkflowJobUpdate(SQLModel):
-    results: Optional[Dict]
+    results: Dict
     finalised_at: Optional[datetime]
 
 

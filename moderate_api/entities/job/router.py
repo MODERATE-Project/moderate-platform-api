@@ -181,7 +181,7 @@ async def create_workflow_job(
     if not await can_user_create_job(user=user, job_create=entity, session=session):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="A job was created too recently. Please wait before creating another job.",
+            detail="Not allowed to create job. Please try again later.",
         )
 
     args_model = ARGUMENTS_TYPE_MAP.get(entity.job_type.value)
@@ -210,7 +210,7 @@ async def create_workflow_job(
 
     entity_create_patch = await build_create_patch(user=user, session=session)
 
-    workflow_job = await create_one(
+    workflow_job: WorkflowJob = await create_one(
         user=user,
         entity=_ENTITY,
         sql_model=WorkflowJob,

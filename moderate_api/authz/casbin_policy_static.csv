@@ -12,6 +12,6 @@ p, apisix:api_basic_access, access_request, update, allow
 p, apisix:api_basic_access, access_request, delete, allow
 p, apisix:api_basic_access, workflow_job, create, allow
 p, apisix:api_basic_access, workflow_job, read, allow
-p, apisix:api_basic_access, workflow_job, update, allow
-p, apisix:api_basic_access, workflow_job, delete, allow
+p, apisix:api_basic_access, workflow_job, update, deny
+p, apisix:api_basic_access, workflow_job, delete, deny
 g, apisix:api_admin, apisix:api_basic_access

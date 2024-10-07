@@ -45,6 +45,11 @@ async def _wait_for_matrix_profile_message(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "access_token",
+    [{"is_admin": True}],
+    indirect=True,
+)
 async def test_matrix_profile_workflow_job(access_token):
     async with with_rabbit() as rabbit:
         if rabbit is None:
