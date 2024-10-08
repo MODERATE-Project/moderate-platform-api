@@ -14,6 +14,14 @@ jobs:
         ports:
           - 5432:5432
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+      rabbit:
+        image: rabbitmq:4
+        env:
+          RABBITMQ_DEFAULT_USER: guest
+          RABBITMQ_DEFAULT_PASS: guest
+        ports:
+          - 5672:5672
+        options: --health-cmd "rabbitmq-diagnostics -q ping" --health-interval 10s --health-timeout 5s --health-retries 5
       minio:
         image: docker.io/agmangas/minio-gh-actions
         env:
@@ -34,6 +42,7 @@ jobs:
       TESTS_MINIO_USE_SSL: "false"
       TESTS_MINIO_REGION: eu-central-1
       TESTS_MINIO_BUCKET: moderate-api-tests
+      TESTS_RABBIT_URL: amqp://guest:guest@localhost:5672/
     strategy:
       matrix:
         python-version: ["3.8", "3.9", "3.10", "3.11"]
