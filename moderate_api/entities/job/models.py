@@ -58,8 +58,9 @@ class MatrixProfileArguments(BaseModel):
 
 class MatrixProfileMessage(BaseModel):
     workflow_job_id: int
-    file_url: str
     analysis_variable: str
+    bucket: str
+    key: str
 
 
 ARGUMENTS_TYPE_MAP: Dict[str, BaseModel] = {

@@ -113,8 +113,6 @@ MessageBuilderType = Callable[
     Awaitable[BaseModel],
 ]
 
-_DEFAULT_PRESIGNED_URLS_EXPIRATION_SECS = 3600 * 24
-
 
 async def _build_matrix_profile_message(
     user: User,
@@ -145,16 +143,11 @@ async def _build_matrix_profile_message(
             detail="User does not have permission to run a workflow on this asset.",
         )
 
-    presigned_url = await s3.generate_presigned_url(
-        "get_object",
-        Params={"Bucket": s3_object.bucket, "Key": s3_object.key},
-        ExpiresIn=_DEFAULT_PRESIGNED_URLS_EXPIRATION_SECS,
-    )
-
     return MatrixProfileMessage(
         workflow_job_id=workflow_job.id,
-        file_url=presigned_url,
         analysis_variable=job_args.analysis_variable,
+        bucket=s3_object.bucket,
+        key=s3_object.key,
     )
 
 
