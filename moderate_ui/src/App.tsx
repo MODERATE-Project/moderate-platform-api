@@ -6,7 +6,6 @@ import {
   Global,
   MantineProvider,
 } from "@mantine/core";
-
 import { useLocalStorage } from "@mantine/hooks";
 import { NotificationsProvider } from "@mantine/notifications";
 import { useKeycloak } from "@react-keycloak/web";
@@ -29,6 +28,7 @@ import { useTranslation } from "react-i18next";
 import { BrowserRouter, Outlet, Route, Routes } from "react-router-dom";
 import { getBaseApiUrl } from "./api/utils";
 import { buildKeycloakAuthProvider } from "./auth-provider/keycloak";
+import { useRefreshToken } from "./auth-provider/utils";
 import { FooterLinks } from "./components/FooterLinks";
 import { HeaderMegaMenu } from "./components/HeaderMegaMenu";
 import { Catalogue } from "./pages/Catalogue";
@@ -39,6 +39,7 @@ import { AssetObjectShow } from "./pages/asset-objects/Show";
 import { AssetCreate, AssetEdit, AssetList, AssetShow } from "./pages/assets";
 import { Login } from "./pages/login";
 import { NotebookExploratory } from "./pages/notebooks/Exploratory";
+import { MatrixProfileWorkflow } from "./pages/notebooks/MatrixProfile";
 import { dataProvider } from "./rest-data-provider";
 import { ResourceNames } from "./types";
 
@@ -51,6 +52,7 @@ function App() {
 
   const { keycloak, initialized } = useKeycloak();
   const { t, i18n } = useTranslation();
+  useRefreshToken();
 
   const toggleColorScheme = (value?: ColorScheme) =>
     setColorScheme(value || (colorScheme === "dark" ? "light" : "dark"));
@@ -189,6 +191,10 @@ function App() {
                           <Route
                             path="exploratory"
                             element={<NotebookExploratory />}
+                          />
+                          <Route
+                            path="matrix-profile"
+                            element={<MatrixProfileWorkflow />}
                           />
                         </Route>
                         <Route path="/catalogue" element={<Catalogue />} />

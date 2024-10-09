@@ -28,6 +28,7 @@ import {
   IconBox,
   IconChevronDown,
   IconFileSearch,
+  IconTimeline,
   IconUser,
 } from "@tabler/icons-react";
 import { useCallback, useMemo } from "react";
@@ -159,6 +160,15 @@ export function HeaderMegaMenu() {
         description: t(
           "nav.megaMenu.dataExploration",
           "Download and visualize datasets"
+        ),
+      },
+      {
+        to: "/workflows/matrix-profile",
+        icon: IconTimeline,
+        title: t("nav.matrixProfile", "Matrix profile"),
+        description: t(
+          "nav.megaMenu.matrixProfile",
+          "Detect anomalies in time series"
         ),
       },
     ];

@@ -1,64 +1,107 @@
-import { Badge, Card, Group, Text, createStyles } from "@mantine/core";
-import { DateTime } from "luxon";
+import { Badge, Button, Card, Group, Stack, Text } from "@mantine/core";
+import {
+  IconBox,
+  IconClock,
+  IconExternalLink,
+  IconLockAccess,
+} from "@tabler/icons-react";
 import React, { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
-
-const useStyles = createStyles((theme) => ({
-  card: {
-    transition: "0.3s",
-    "&:hover": {
-      backgroundColor:
-        theme.colorScheme === "dark"
-          ? theme.colors.dark[4]
-          : theme.colors.gray[1],
-    },
-  },
-}));
-
-const parseObjectName = (
-  name: string
-): { name: string; extension?: string } => {
-  const parts = name.split("/");
-  const lastPart = parts[parts.length - 1];
-  const partsExtension = lastPart.split(".");
-
-  return {
-    name: partsExtension[0],
-    extension: partsExtension.length > 1 ? partsExtension[1] : undefined,
-  };
-};
+import { Asset, AssetModel, AssetObject } from "../api/types";
 
 export const AssetObjectCard: React.FC<{
-  asset: { [key: string]: any };
-  assetObject: { [key: string]: any };
-}> = ({ assetObject, asset }) => {
-  const { classes } = useStyles();
+  asset: Asset;
+  assetObject: AssetObject;
+  maxHeight?: boolean;
+}> = ({ asset, assetObject, maxHeight }) => {
+  const { t } = useTranslation();
 
-  const { name, extension } = useMemo(
-    () => parseObjectName(assetObject.key),
-    [assetObject]
-  );
+  const [assetModel, assetObjectModel] = useMemo(() => {
+    const assetModel = new AssetModel(asset);
+    const assetObjectModel = assetModel.getObject(assetObject.id);
+
+    if (!assetObjectModel) {
+      throw new Error("Asset object not found");
+    }
+
+    return [assetModel, assetObjectModel];
+  }, [asset, assetObject.id]);
+
+  const features = useMemo(() => {
+    return [
+      {
+        label: t("catalogue.card.asset", "Asset"),
+        value: assetModel.data.name,
+        icon: IconBox,
+      },
+      {
+        label: t("catalogue.card.createdAt", "Uploaded"),
+        value: assetObjectModel.createdAt.toLocaleString(),
+        icon: IconClock,
+      },
+      {
+        label: t("catalogue.card.accessLevel", "Access level"),
+        value: <Badge color="gray">{assetModel.data.access_level}</Badge>,
+        icon: IconLockAccess,
+      },
+    ];
+  }, [t, assetModel, assetObjectModel]);
 
   return (
     <Card
-      className={classes.card}
-      component={Link}
-      to={`/assets/${asset.id}/objects/show/${assetObject.id}`}
-      withBorder
-      p="sm"
+      shadow="sm"
+      p="lg"
       radius="md"
+      withBorder
+      style={{ height: maxHeight ? "100%" : "inherit" }}
     >
-      <Card.Section withBorder inheritPadding py="sm">
-        <Group mb="sm">
-          <Badge color="gray">
-            {DateTime.fromISO(assetObject.created_at).toLocaleString(
-              DateTime.DATETIME_FULL
-            )}
+      <Group position="apart" mb="xs">
+        <Text weight={500} truncate>
+          {assetObjectModel.humanName}
+        </Text>
+        {assetObjectModel.parsedKey?.ext && (
+          <Badge color="pink" variant="light">
+            {assetObjectModel.parsedKey.ext.toUpperCase()}
           </Badge>
-          <Badge color="cyan">{extension}</Badge>
-        </Group>
-        <Text>{name}</Text>
-      </Card.Section>
+        )}
+      </Group>
+      <Button
+        variant="light"
+        leftIcon={<IconExternalLink size="1em" />}
+        fullWidth
+        mt="md"
+        mb="md"
+        radius="md"
+        target="_blank"
+        component={Link}
+        to={`/assets/${asset.id}/objects/show/${assetObject.id}`}
+      >
+        {t("catalogue.card.view", "View details")}
+      </Button>
+      <Stack spacing="xs">
+        {features.map((feature, idx) => (
+          <Group spacing={0} position="left" key={idx}>
+            <Text
+              color="dimmed"
+              size="sm"
+              style={{ display: "flex", alignItems: "center" }}
+              mr="xs"
+            >
+              <feature.icon size="1rem" style={{ marginRight: "0.25rem" }} />
+              {feature.label}
+            </Text>
+            <Text size="sm" truncate>
+              {feature.value}
+            </Text>
+          </Group>
+        ))}
+      </Stack>
+      {assetObjectModel.description && (
+        <Text mt="md" size="sm" color="dimmed" lineClamp={5}>
+          {assetObjectModel.description}
+        </Text>
+      )}
     </Card>
   );
 };

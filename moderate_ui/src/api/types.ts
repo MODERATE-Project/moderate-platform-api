@@ -1,5 +1,20 @@
 import _ from "lodash";
 
+export enum WorkflowJobType {
+  MATRIX_PROFILE = "matrix_profile",
+}
+
+export interface WorkflowJob {
+  arguments: { [k: string]: any };
+  created_at: string;
+  creator_username: string;
+  finalised_at: string | null;
+  id: number;
+  job_type: WorkflowJobType;
+  results: { [k: string]: any } | null;
+  extended_results?: { [k: string]: any };
+}
+
 export enum AssetAccessLevel {
   PRIVATE = "private",
   PUBLIC = "public",

@@ -1,13 +1,13 @@
 import axios from "axios";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { buildApiUrl } from "./utils";
 
-export function usePing() {
+export function usePing({ intervalMs }: { intervalMs?: number } = {}) {
   const [pingResult, setPingResult] = useState<object | false | undefined>(
     undefined
   );
 
-  useEffect(() => {
+  const ping = useCallback(() => {
     axios
       .get(buildApiUrl("ping"))
       .then((response) => {
@@ -18,6 +18,19 @@ export function usePing() {
         setPingResult(false);
       });
   }, []);
+
+  useEffect(() => {
+    if (!intervalMs) {
+      ping();
+      return;
+    }
+
+    const intervalId = setInterval(() => {
+      ping();
+    }, intervalMs);
+
+    return () => clearInterval(intervalId);
+  }, [intervalMs, ping]);
 
   return { pingResult };
 }
