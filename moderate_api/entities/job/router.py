@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timezone
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Union
 
 import aio_pika
 from fastapi import APIRouter, HTTPException, Query, Response, status
@@ -94,11 +94,41 @@ async def query_workflow_jobs(
     )
 
 
+async def _add_matrix_profile_extended_results(
+    workflow_job: WorkflowJob, s3: S3ClientDep, expiration_secs: int = 3600
+) -> Union[Dict, None]:
+    if not workflow_job.results:
+        return None
+
+    output_bucket = workflow_job.results.get("output_bucket")
+    output_key = workflow_job.results.get("output_key")
+
+    if not output_bucket or not output_key:
+        return None
+
+    download_url = await s3.generate_presigned_url(
+        "get_object",
+        Params={"Bucket": output_bucket, "Key": output_key},
+        ExpiresIn=expiration_secs,
+    )
+
+    return {
+        "download_url": download_url,
+    }
+
+
 @router.get("/{id}", response_model=WorkflowJobRead, tags=[_TAG])
-async def read_workflow_job(*, user: UserDep, session: AsyncSessionDep, id: int):
+async def read_workflow_job(
+    *,
+    user: UserDep,
+    s3: S3ClientDep,
+    session: AsyncSessionDep,
+    id: int,
+    with_extended_results: Optional[str] = Query(default=None),
+):
     user_selector = await build_selector(user=user, session=session)
 
-    return await read_one(
+    workflow_job: WorkflowJob = await read_one(
         user=user,
         entity=_ENTITY,
         sql_model=WorkflowJob,
@@ -106,6 +136,25 @@ async def read_workflow_job(*, user: UserDep, session: AsyncSessionDep, id: int)
         entity_id=id,
         user_selector=user_selector,
     )
+
+    extended_results = None
+
+    if (
+        with_extended_results
+        and workflow_job.results
+        and workflow_job.finalised_at
+        and workflow_job.job_type == WorkflowJobTypes.MATRIX_PROFILE
+    ):
+        extended_results = await _add_matrix_profile_extended_results(
+            workflow_job=workflow_job, s3=s3, expiration_secs=7200
+        )
+
+    response = WorkflowJobRead.model_validate(workflow_job)
+
+    if extended_results:
+        response.extended_results = extended_results
+
+    return response
 
 
 MessageBuilderType = Callable[

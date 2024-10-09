@@ -39,6 +39,7 @@ class WorkflowJobRead(SQLModel):
     created_at: datetime
     finalised_at: Optional[datetime]
     creator_username: str
+    extended_results: Optional[Dict]
 
 
 class WorkflowJobCreate(SQLModel):
