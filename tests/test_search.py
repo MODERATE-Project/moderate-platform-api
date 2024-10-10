@@ -1,5 +1,6 @@
 import logging
 import pprint
+import random
 
 import pytest
 from fastapi.testclient import TestClient
@@ -8,7 +9,7 @@ from sqlmodel import select
 from moderate_api.db import with_session
 from moderate_api.entities.asset.models import Asset
 from moderate_api.main import app
-from tests.utils import create_asset
+from tests.utils import create_asset, upload_test_files
 
 _logger = logging.getLogger(__name__)
 
@@ -63,6 +64,14 @@ async def test_asset_search_endpoint(access_token):
             )
             for item in _KWARGS_LIST
         ]
+
+        for idx, asset in enumerate(assets):
+            upload_test_files(
+                access_token,
+                num_files=random.randint(1, 4),
+                the_asset=asset,
+                upload_prefix=_KWARGS_LIST[idx]["name"],
+            )
 
     headers = {"Authorization": f"Bearer {access_token}"}
     query = "dataset"

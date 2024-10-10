@@ -180,8 +180,9 @@ def post_upload_asset_object(
     the_access_token: str,
     fh: BufferedReader,
     form: Optional[dict] = None,
+    upload_prefix: Optional[str] = None,
 ):
-    upload_name = "upload-{}.csv".format(str(uuid.uuid4()))
+    upload_name = "{}-{}.csv".format(upload_prefix or "upload", str(uuid.uuid4()))
 
     response = client.post(
         "/asset/{}/object".format(the_asset["id"]),
@@ -195,7 +196,11 @@ def post_upload_asset_object(
 
 
 def upload_test_files(
-    the_access_token: str, num_files: Optional[int] = 2, form: Optional[dict] = None
+    the_access_token: str,
+    num_files: Optional[int] = 2,
+    form: Optional[dict] = None,
+    the_asset: Optional[dict] = None,
+    upload_prefix: Optional[str] = None,
 ) -> str:
     with ExitStack() as stack:
         client = stack.enter_context(TestClient(app))
@@ -206,12 +211,19 @@ def upload_test_files(
             temp_csv_path = stack.enter_context(temp_csv())
             temp_csv_paths.append(temp_csv_path)
 
-        the_asset = create_asset(client, the_access_token)
+        the_asset = (
+            create_asset(client, the_access_token) if not the_asset else the_asset
+        )
 
         for temp_path in temp_csv_paths:
             with open(temp_path, "rb") as fh:
                 response = post_upload_asset_object(
-                    client, the_asset, the_access_token, fh, form=form
+                    client,
+                    the_asset,
+                    the_access_token,
+                    fh,
+                    form=form,
+                    upload_prefix=upload_prefix,
                 )
 
                 res_json = response.json()

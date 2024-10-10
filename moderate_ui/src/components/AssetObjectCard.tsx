@@ -97,11 +97,6 @@ export const AssetObjectCard: React.FC<{
           </Group>
         ))}
       </Stack>
-      {assetObjectModel.description && (
-        <Text mt="md" size="sm" color="dimmed" lineClamp={5}>
-          {assetObjectModel.description}
-        </Text>
-      )}
     </Card>
   );
 };

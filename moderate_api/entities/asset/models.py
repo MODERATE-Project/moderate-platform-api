@@ -1,4 +1,5 @@
 import enum
+import os
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Union
@@ -47,7 +48,7 @@ class UploadedS3ObjectBase(SQLModel):
     sha256_hash: str
     proof_id: Optional[str]
     meta: Optional[Dict] = Field(default=None, sa_column=Column(JSONB))
-    name: Optional[str] = Field(default=None, sa_column=Column(Text))
+    name: Optional[str] = Field(default=None)
     description: Optional[str] = Field(default=None, sa_column=Column(Text))
 
 
@@ -66,11 +67,34 @@ class UploadedS3Object(UploadedS3ObjectBase, table=True):
         sa_relationship_kwargs={"lazy": "selectin"},
     )
 
-    # https://www.postgresql.org/docs/14/datatype-json.html#JSON-INDEXING
-    __table_args__ = (
+    _targs = [
         Index("ix_s3obj_meta", "meta", postgresql_using="gin"),
         Index("ix_s3obj_tags", "tags", postgresql_using="gin"),
-    )
+    ]
+
+    # Only create these indexes if we are not running tests to avoid
+    # having to deal with creating extensions in the test database.
+    # These indexes are here to speed up LIKE queries.
+    if not os.getenv("PYTEST_VERSION"):
+        _targs.extend(
+            [
+                Index(
+                    "ix_s3obj_like_key",
+                    "key",
+                    postgresql_using="gin",
+                    postgresql_ops={"description": "gin_trgm_ops"},
+                ),
+                Index(
+                    "ix_s3obj_like_name",
+                    "name",
+                    postgresql_using="gin",
+                    postgresql_ops={"description": "gin_trgm_ops"},
+                ),
+            ]
+        )
+
+    # https://www.postgresql.org/docs/14/datatype-json.html#JSON-INDEXING
+    __table_args__ = tuple(_targs)
 
 
 class Asset(AssetBase, table=True):

@@ -144,6 +144,67 @@ def _user_asset_visibility_selector(
     )
 
 
+async def _query_search_assets(
+    user: Union[User, None],
+    session: AsyncSessionDep,
+    query: str,
+    limit: int,
+    exclude_mine: bool,
+    where_constraint: Union[BinaryExpression, None],
+) -> List[Asset]:
+    stmt = select(Asset).limit(limit)
+
+    if query and len(query) > 0:
+        stmt = stmt.where(Asset.search_vector.match(query))
+    else:
+        stmt = stmt.order_by(Asset.created_at.desc())
+
+    if where_constraint is not None:
+        stmt = stmt.where(where_constraint)
+
+    if exclude_mine and user:
+        stmt = stmt.where(Asset.username != user.username)
+
+    result = await session.execute(stmt)
+
+    return result.scalars().all()
+
+
+async def _query_search_assets_from_objects(
+    user: Union[User, None],
+    session: AsyncSessionDep,
+    query: str,
+    limit: int,
+    exclude_mine: bool,
+    asset_where_constraint: Union[BinaryExpression, None],
+) -> List[Asset]:
+    if not query:
+        return []
+
+    stmt = select(Asset).limit(limit)
+
+    if asset_where_constraint is not None:
+        stmt = stmt.where(asset_where_constraint)
+
+    if exclude_mine and user:
+        stmt = stmt.where(Asset.username != user.username)
+
+    stmt = (
+        stmt.join(UploadedS3Object)
+        .where(
+            or_(
+                UploadedS3Object.name.ilike("%{}%".format(query)),
+                UploadedS3Object.key.ilike("%{}%".format(query)),
+            ),
+        )
+        .distinct()
+    )
+
+    result = await session.execute(stmt)
+
+    return result.scalars().all()
+
+
 async def _search_assets(
     *,
     user: OptionalUserDep,
@@ -154,23 +215,42 @@ async def _search_assets(
 ):
     user_selector = _user_asset_visibility_selector(user=user)
 
-    stmt = select(Asset).limit(limit)
+    assets = await _query_search_assets(
+        user=user,
+        session=session,
+        query=query,
+        limit=limit,
+        exclude_mine=exclude_mine,
+        where_constraint=user_selector,
+    )
 
-    if query and len(query) > 0:
-        stmt = stmt.where(Asset.search_vector.match(query))
-    else:
-        stmt = stmt.order_by(Asset.created_at.desc())
+    assets_from_objects = await _query_search_assets_from_objects(
+        user=user,
+        session=session,
+        query=query,
+        limit=limit,
+        exclude_mine=exclude_mine,
+        asset_where_constraint=user_selector,
+    )
 
-    if user_selector is not None:
-        stmt = stmt.where(user_selector)
+    import pprint
 
-    if exclude_mine and user:
-        stmt = stmt.where(Asset.username != user.username)
+    _logger.warning("Found assets:\n%s", pprint.pformat(assets))
 
-    result = await session.execute(stmt)
-    assets = result.scalars().all()
+    _logger.warning(
+        "Found assets from objects:\n%s", pprint.pformat(assets_from_objects)
+    )
 
-    return assets
+    found_assets = [
+        *assets,
+        *[
+            item
+            for item in assets_from_objects
+            if item.id not in {asset.id for asset in assets}
+        ],
+    ]
+
+    return found_assets
 
 
 router.add_api_route(
