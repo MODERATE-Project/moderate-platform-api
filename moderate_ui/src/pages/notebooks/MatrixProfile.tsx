@@ -1,6 +1,7 @@
 import {
   ActionIcon,
   Button,
+  Card,
   Code,
   Group,
   Skeleton,
@@ -18,6 +19,7 @@ import {
   IconExclamationCircle,
   IconHourglass,
   IconPlayerPlay,
+  IconTerminal,
   IconVariable,
 } from "@tabler/icons-react";
 import React, { useCallback, useEffect, useState } from "react";
@@ -29,6 +31,144 @@ import {
   AssetObjectPicker,
   DatasetSelectOption,
 } from "../../components/AssetObjectPicker";
+
+const MatrixProfileWorkflowAnalysisVariableStep: React.FC<{
+  selectedAsset: DatasetSelectOption;
+  variableInputValue: string;
+  setVariableInputValue: (value: string) => void;
+  setAnalysisVariable: (value: string) => void;
+}> = ({
+  selectedAsset,
+  variableInputValue,
+  setVariableInputValue,
+  setAnalysisVariable,
+}) => {
+  const { t } = useTranslation();
+
+  return (
+    <Stack>
+      <AssetObjectCard
+        asset={selectedAsset.asset.data}
+        assetObject={selectedAsset.assetObject.data}
+      />
+      <TextInput
+        icon={<IconVariable size="1em" />}
+        placeholder={t(
+          "Input the column variable from your dataset that will be the focus of the analysis"
+        )}
+        description={t(
+          "The variable name used for the analysis (i.e., the column in the CSV containing the electrical load under analysis)."
+        )}
+        value={variableInputValue}
+        onChange={(event) => setVariableInputValue(event.currentTarget.value)}
+      />
+      <Button
+        leftIcon={<IconCheck size="1em" />}
+        disabled={variableInputValue === ""}
+        onClick={() => {
+          setAnalysisVariable(variableInputValue);
+        }}
+      >
+        {t("Confirm variable")}
+      </Button>
+    </Stack>
+  );
+};
+
+const MatrixProfileWorkflowResultsStep: React.FC<{
+  selectedAsset: DatasetSelectOption;
+  workflowJob: WorkflowJob | undefined;
+  onJobSubmit: () => void;
+  isJobRunning: boolean;
+}> = ({ selectedAsset, workflowJob, onJobSubmit, isJobRunning }) => {
+  const { t } = useTranslation();
+
+  return (
+    <Stack>
+      <AssetObjectCard
+        asset={selectedAsset.asset.data}
+        assetObject={selectedAsset.assetObject.data}
+      />
+      {!workflowJob && (
+        <Button
+          leftIcon={<IconPlayerPlay size="1em" />}
+          onClick={onJobSubmit}
+          loading={isJobRunning}
+        >
+          {t("Run workflow ")}
+        </Button>
+      )}
+      {workflowJob && (
+        <>
+          <Title mt="md" order={3}>
+            {t("Job results")}
+          </Title>
+          {isJobRunning && (
+            <Group>
+              <ThemeIcon color="gray" variant="light">
+                <IconHourglass size="1em" />
+              </ThemeIcon>
+              <Text>
+                {t(
+                  "The job has been queued. Please wait a few minutes; this may take a while."
+                )}
+              </Text>
+            </Group>
+          )}
+          {!isJobRunning &&
+            workflowJob.results &&
+            !workflowJob.results?.error && (
+              <Group>
+                <ThemeIcon color="green" variant="light">
+                  <IconCheck size="1em" />
+                </ThemeIcon>
+                <Text>
+                  {t(
+                    "The job has finished running. You can find the results below."
+                  )}
+                </Text>
+              </Group>
+            )}
+          {!isJobRunning && workflowJob.results?.error && (
+            <>
+              <Group>
+                <ThemeIcon color="red" variant="light">
+                  <IconExclamationCircle size="1em" />
+                </ThemeIcon>
+                <Text>
+                  {t("An error occurred during the workflow execution.")}
+                </Text>
+              </Group>
+              <Card shadow="sm" p="lg" radius="md" withBorder>
+                <Group mb="xs">
+                  <IconTerminal size="1em" />
+                  <Text weight={500} color="red">
+                    {t("Error details")}
+                  </Text>
+                </Group>
+                <Text size="sm" color="dimmed">
+                  <Code block>{workflowJob.results?.error}</Code>
+                </Text>
+              </Card>
+            </>
+          )}
+          {isJobRunning && <Skeleton height={80} mt={6} radius="md" />}
+          {workflowJob && workflowJob.extended_results?.download_url && (
+            <Button
+              leftIcon={<IconDownload size="1em" />}
+              component="a"
+              href={workflowJob.extended_results.download_url}
+              target="_blank"
+              color="green"
+            >
+              {t("Download the output HTML report")}
+            </Button>
+          )}
+        </>
+      )}
+    </Stack>
+  );
+};
 
 interface Props {
   jobIntervalMs?: number;
@@ -162,37 +302,23 @@ export const MatrixProfileWorkflow: React.FC<Props> = ({
         </Stepper.Step>
         <Stepper.Step
           label={t("Variable")}
-          description={t("Input the analysis variable")}
+          description={
+            analysisVariable ? (
+              <Code>{analysisVariable}</Code>
+            ) : (
+              t("Input the analysis variable")
+            )
+          }
         >
           {selectedAsset && (
-            <Stack>
-              <AssetObjectCard
-                asset={selectedAsset.asset.data}
-                assetObject={selectedAsset.assetObject.data}
-              />
-              <TextInput
-                icon={<IconVariable size="1em" />}
-                placeholder={t(
-                  "Input the column variable from your dataset that will be the focus of the analysis"
-                )}
-                description={t(
-                  "The variable name used for the analysis (i.e., the column in the CSV containing the electrical load under analysis)."
-                )}
-                value={variableInputValue}
-                onChange={(event) =>
-                  setVariableInputValue(event.currentTarget.value)
-                }
-              />
-              <Button
-                leftIcon={<IconCheck size="1em" />}
-                disabled={variableInputValue === ""}
-                onClick={() => {
-                  setAnalysisVariable(variableInputValue);
-                }}
-              >
-                {t("Confirm variable")}
-              </Button>
-            </Stack>
+            <MatrixProfileWorkflowAnalysisVariableStep
+              {...{
+                selectedAsset,
+                variableInputValue,
+                setVariableInputValue,
+                setAnalysisVariable,
+              }}
+            />
           )}
         </Stepper.Step>
         <Stepper.Step
@@ -201,78 +327,14 @@ export const MatrixProfileWorkflow: React.FC<Props> = ({
           loading={isJobRunning}
         >
           {selectedAsset && analysisVariable && (
-            <Stack>
-              <AssetObjectCard
-                asset={selectedAsset.asset.data}
-                assetObject={selectedAsset.assetObject.data}
-              />
-              {!workflowJob && (
-                <Button
-                  leftIcon={<IconPlayerPlay size="1em" />}
-                  onClick={onJobSubmit}
-                  loading={isJobRunning}
-                >
-                  {t("Run workflow on variable ")}&nbsp;
-                  <Code>{analysisVariable}</Code>
-                </Button>
-              )}
-              {workflowJob && (
-                <>
-                  <Title mt="md" order={3}>
-                    {t("Job results")}
-                  </Title>
-                  {isJobRunning && (
-                    <Group>
-                      <ThemeIcon color="gray" variant="light">
-                        <IconHourglass size="1em" />
-                      </ThemeIcon>
-                      <Text>
-                        {t(
-                          "The job has been queued. Please wait a few minutes; this may take a while."
-                        )}
-                      </Text>
-                    </Group>
-                  )}
-                  {!isJobRunning &&
-                    workflowJob.results &&
-                    !workflowJob.results?.error && (
-                      <Group>
-                        <ThemeIcon color="green" variant="light">
-                          <IconCheck size="1em" />
-                        </ThemeIcon>
-                        <Text>
-                          {t(
-                            "The job has finished running. You can find the results below."
-                          )}
-                        </Text>
-                      </Group>
-                    )}
-                  {!isJobRunning && workflowJob.results?.error && (
-                    <Group>
-                      <ThemeIcon color="red" variant="light">
-                        <IconExclamationCircle size="1em" />
-                      </ThemeIcon>
-                      <Text>
-                        {t("An error occurred during the workflow execution.")}
-                      </Text>
-                    </Group>
-                  )}
-                  {isJobRunning && <Skeleton height={80} mt={6} radius="md" />}
-                  {workflowJob &&
-                    workflowJob.extended_results?.download_url && (
-                      <Button
-                        leftIcon={<IconDownload size="1em" />}
-                        component="a"
-                        href={workflowJob.extended_results.download_url}
-                        target="_blank"
-                        color="green"
-                      >
-                        {t("Download the output HTML report")}
-                      </Button>
-                    )}
-                </>
-              )}
-            </Stack>
+            <MatrixProfileWorkflowResultsStep
+              {...{
+                selectedAsset,
+                workflowJob,
+                onJobSubmit,
+                isJobRunning,
+              }}
+            />
           )}
         </Stepper.Step>
       </Stepper>
