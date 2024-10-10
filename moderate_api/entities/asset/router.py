@@ -233,14 +233,6 @@ async def _search_assets(
         asset_where_constraint=user_selector,
     )
 
-    import pprint
-
-    _logger.warning("Found assets:\n%s", pprint.pformat(assets))
-
-    _logger.warning(
-        "Found assets from objects:\n%s", pprint.pformat(assets_from_objects)
-    )
-
     found_assets = [
         *assets,
         *[
