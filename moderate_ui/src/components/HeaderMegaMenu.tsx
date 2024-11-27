@@ -27,6 +27,7 @@ import {
 import {
   IconBox,
   IconChevronDown,
+  IconExternalLink,
   IconFileSearch,
   IconTimeline,
   IconUser,
@@ -229,8 +230,13 @@ export function HeaderMegaMenu() {
         <Link className={classes.link} to="/catalogue">
           {t("nav.catalogue", "Catalogue")}
         </Link>
-        <Link className={classes.link} to="/tools">
-          {t("nav.tools", "Tools")}
+        <Link
+          className={classes.link}
+          to="https://moderate-project.github.io/moderate-docs/tools-and-services/"
+          target="_blank"
+        >
+          <IconExternalLink size={16} /> &nbsp;
+          {t("nav.tools", "Tools & Services")}
         </Link>
       </>
     );
@@ -269,7 +275,7 @@ export function HeaderMegaMenu() {
                     <a href="#" className={classes.link}>
                       <Center inline>
                         <Box component="span" mr={5}>
-                          {t("nav.platformFeatures", "Features & Workflows")}
+                          {t("nav.platformFeatures", "Platform Features")}
                         </Box>
                         <IconChevronDown
                           size={16}
@@ -282,7 +288,7 @@ export function HeaderMegaMenu() {
                   <HoverCard.Dropdown sx={{ overflow: "hidden" }}>
                     <Group position="apart" px="md">
                       <Text weight={500}>
-                        {t("nav.platformFeatures", "Features & Workflows")}
+                        {t("nav.platformFeatures", "Platform Features")}
                       </Text>
                     </Group>
 
