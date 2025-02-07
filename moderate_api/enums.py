@@ -43,6 +43,7 @@ class Notebooks(enum.Enum):
     """Enumeration of types of notebooks in the API."""
 
     EXPLORATION = "exploration"
+    SYNTHETIC_LOAD = "synthetic-load"
 
 
 class WorkflowJobTypes(enum.Enum):
