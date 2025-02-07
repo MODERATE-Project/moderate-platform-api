@@ -5,7 +5,7 @@ import { NotebookContainer } from "../../components/NotebookContainer";
 export const NotebookExploratory: React.FC = () => {
   return (
     <NotebookContainer
-      notebookSrc="/notebook/public/exploration"
+      notebookSrc="/notebook-exploration"
       title={<Text fz="lg">Data exploration</Text>}
       description={
         <>

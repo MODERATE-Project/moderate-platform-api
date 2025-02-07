@@ -133,7 +133,7 @@ async def notebook_auth_middleware(request: Request, call_next):
     """Middleware to check if the user is authenticated to access the notebooks."""
 
     is_notebook_request = re.match(
-        f"^{Prefixes.NOTEBOOK.value}(/.*)?$", request.url.path
+        f"^{Prefixes.NOTEBOOK.value}-.+(/.*)?$", request.url.path
     )
 
     if is_notebook_request:
@@ -185,13 +185,15 @@ async def token_cookie_middleware(request: Request, call_next):
     return response
 
 
-def build_marimo_server(include_code: bool = True):
+def build_marimo_server():
     """Builds the ASGI app for Marimo, which serves the notebooks as web applications."""
 
-    marimo_server = marimo.create_asgi_app(include_code=include_code)
+    marimo_server = marimo.create_asgi_app()
 
     for nb_enum_item, nb_module in ALL_NOTEBOOKS.items():
-        nb_path = f"{Prefixes.NOTEBOOK.value}/public/{nb_enum_item.value}"
+        # The path here must only contain one element, without multiple slashes
+        # Example: "notebook-exploration" is valid, but "notebook/exploration" is not
+        nb_path = f"{Prefixes.NOTEBOOK.value}-{nb_enum_item.value}"
         nb_root = os.path.abspath(nb_module.__file__)
         marimo_server = marimo_server.with_app(path=nb_path, root=nb_root)
         _logger.info("Mounted notebook %s at %s", nb_root, nb_path)

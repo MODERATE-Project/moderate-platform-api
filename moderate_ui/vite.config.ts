@@ -1,7 +1,7 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
-const apiTarget = process.env.VITE_PROXY_API_TARGET || "http://localhost:9080";
+const apiTarget = process.env.VITE_PROXY_API_TARGET || "http://localhost:8000";
 
 export default defineConfig({
   plugins: [react()],
@@ -14,7 +14,7 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api/, ""),
       },
       // Notebooks are a special case to enable embedding in iframes
-      "/notebook": {
+      "^/notebook-.*": {
         target: apiTarget,
         changeOrigin: true,
         ws: true,
