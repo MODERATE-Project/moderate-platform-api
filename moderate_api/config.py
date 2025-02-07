@@ -96,7 +96,6 @@ class Settings(BaseSettings):
 
 def get_settings():
     settings = Settings()
-    _logger.debug("Settings:\n%s", settings.json(indent=2))
     return settings
 
 
