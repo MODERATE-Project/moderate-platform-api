@@ -39,6 +39,7 @@ import { AssetCreate, AssetEdit, AssetList, AssetShow } from "./pages/assets";
 import { Login } from "./pages/login";
 import { NotebookExploratory } from "./pages/notebooks/Exploratory";
 import { MatrixProfileWorkflow } from "./pages/notebooks/MatrixProfile";
+import { NotebookSyntheticLoad } from "./pages/notebooks/SyntheticLoad";
 import { dataProvider } from "./rest-data-provider";
 import { ResourceNames } from "./types";
 
@@ -190,6 +191,10 @@ function App() {
                           <Route
                             path="exploratory"
                             element={<NotebookExploratory />}
+                          />
+                          <Route
+                            path="synthetic-load"
+                            element={<NotebookSyntheticLoad />}
                           />
                           <Route
                             path="matrix-profile"

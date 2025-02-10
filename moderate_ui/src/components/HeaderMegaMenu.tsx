@@ -25,6 +25,7 @@ import {
   useLogout,
 } from "@refinedev/core";
 import {
+  IconBolt,
   IconBox,
   IconChevronDown,
   IconExternalLink,
@@ -170,6 +171,15 @@ export function HeaderMegaMenu() {
         description: t(
           "nav.megaMenu.matrixProfile",
           "Detect anomalies in time series"
+        ),
+      },
+      {
+        to: "/workflows/synthetic-load",
+        icon: IconBolt,
+        title: t("nav.syntheticLoad", "Synthetic load"),
+        description: t(
+          "nav.megaMenu.syntheticLoad",
+          "Generate synthetic load profiles"
         ),
       },
     ];
