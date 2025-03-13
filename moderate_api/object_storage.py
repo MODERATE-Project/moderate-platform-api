@@ -4,6 +4,7 @@ from typing import AsyncGenerator
 
 from aiobotocore.client import AioBaseClient
 from aiobotocore.session import get_session
+from botocore.config import Config
 from botocore.exceptions import ClientError
 from fastapi import Depends
 from typing_extensions import Annotated
@@ -37,6 +38,8 @@ async def with_s3(settings: Settings) -> AsyncGenerator[AioBaseClient, None]:
         aws_access_key_id=settings.s3.access_key,
         aws_secret_access_key=settings.s3.secret_key,
         use_ssl=settings.s3.use_ssl,
+        # https://github.com/boto/boto3/issues/4400#issuecomment-2600742103
+        config=Config(request_checksum_calculation="when_required", response_checksum_validation="when_required")
     ) as s3:
         await ensure_bucket(s3=s3, bucket=settings.s3.bucket)
         yield s3
