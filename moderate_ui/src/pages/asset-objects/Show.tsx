@@ -14,7 +14,9 @@ import {
   Table,
   Tabs,
   Text,
+  TextInput,
   Title,
+  Tooltip,
   createStyles,
 } from "@mantine/core";
 import { useClipboard } from "@mantine/hooks";
@@ -40,7 +42,7 @@ import {
   IconMessageQuestion,
   IconReportSearch,
   IconTable,
-  IconTableFilled,
+  IconX,
   IconZoomQuestion,
 } from "@tabler/icons-react";
 import { EditorOptions } from "@tiptap/react";
@@ -67,6 +69,15 @@ const useStyles = createStyles(() => ({
   percentColumn: {
     minWidth: "70px",
     width: "260px",
+  },
+  editableTitle: {
+    cursor: "pointer",
+    "&:hover": {
+      opacity: 0.4,
+    },
+  },
+  titleInput: {
+    width: "100%",
   },
 }));
 
@@ -157,7 +168,7 @@ const AssetObjectProfile: React.FC<AssetObjectProfileProps> = ({ profile }) => {
     []
   );
 
-  // ToDo: Improve this table
+  // TODO: Improve this table
 
   return (
     <Table highlightOnHover>
@@ -211,6 +222,109 @@ const AssetObjectProfile: React.FC<AssetObjectProfileProps> = ({ profile }) => {
         ))}
       </tbody>
     </Table>
+  );
+};
+
+interface EditableTitleProps {
+  title: string;
+  onSave: (newTitle: string) => Promise<void>;
+  isOwner: boolean;
+}
+
+const EditableTitle: React.FC<EditableTitleProps> = ({
+  title,
+  onSave,
+  isOwner,
+}) => {
+  const { classes } = useStyles();
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedTitle, setEditedTitle] = useState(title);
+  const [isSaving, setIsSaving] = useState(false);
+  const t = useTranslate();
+
+  const handleSave = async () => {
+    if (editedTitle.trim() === title) {
+      setIsEditing(false);
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      await onSave(editedTitle.trim());
+      setIsEditing(false);
+    } catch (error) {
+      setEditedTitle(title);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setEditedTitle(title);
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === "Enter") {
+      handleSave();
+    } else if (event.key === "Escape") {
+      handleCancel();
+    }
+  };
+
+  if (!isOwner) {
+    return <Title>{title}</Title>;
+  }
+
+  if (isEditing) {
+    return (
+      <Group spacing="xs" align="center" noWrap>
+        <TextInput
+          value={editedTitle}
+          onChange={(e) => setEditedTitle(e.target.value)}
+          onKeyDown={handleKeyDown}
+          autoFocus
+          classNames={{ input: classes.titleInput }}
+        />
+        <Group spacing={4}>
+          <Button
+            compact
+            variant="subtle"
+            color="red"
+            onClick={handleCancel}
+            disabled={isSaving}
+            leftIcon={<IconX size="0.8rem" />}
+          >
+            {t("common.cancel", "Cancel")}
+          </Button>
+          <Button
+            compact
+            variant="subtle"
+            color="green"
+            onClick={handleSave}
+            loading={isSaving}
+            leftIcon={<IconCheck size="0.8rem" />}
+          >
+            {t("common.save", "Save")}
+          </Button>
+        </Group>
+      </Group>
+    );
+  }
+
+  return (
+    <Tooltip
+      position="top-start"
+      label={t("assetObjects.clickToEdit", "Click to edit name")}
+    >
+      <Title
+        className={classes.editableTitle}
+        onClick={() => setIsEditing(true)}
+      >
+        {title}
+      </Title>
+    </Tooltip>
   );
 };
 
@@ -424,9 +538,47 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
       });
   }, [assetObjectModel, open]);
 
+  const [isUpdatingName, setIsUpdatingName] = useState(false);
+
+  const handleNameUpdate = useCallback(
+    async (newName: string) => {
+      if (!assetModel || !assetObjectModel) {
+        return;
+      }
+
+      setIsUpdatingName(true);
+
+      try {
+        await updateAssetObject({
+          assetId: assetModel.data.id,
+          objectId: assetObjectModel.data.id,
+          updateBody: {
+            name: newName,
+          },
+        });
+
+        open?.({
+          message: t("assetObjects.nameUpdateSuccess", "Updated name"),
+          type: "success",
+        });
+
+        await queryResult.refetch();
+      } catch (error) {
+        _.partial(
+          catchErrorAndShow,
+          open,
+          t("assetObjects.errorUpdatingName", "Error updating name")
+        )(error);
+      } finally {
+        setIsUpdatingName(false);
+      }
+    },
+    [assetModel, assetObjectModel, open, t, queryResult]
+  );
+
   return (
     <>
-      <LoadingOverlay visible={isLoading} overlayBlur={2} />
+      <LoadingOverlay visible={isLoading || isUpdatingName} overlayBlur={2} />
       <LoadingOverlay
         visible={isPreparingDownload}
         loader={
@@ -464,10 +616,11 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
       )}
       {!!assetObjectModel && (
         <Stack>
-          <Title>
-            <IconTableFilled color="purple" size="1em" />{" "}
-            {assetObjectModel.humanName}
-          </Title>
+          <EditableTitle
+            title={assetObjectModel.humanName}
+            onSave={handleNameUpdate}
+            isOwner={isOwner}
+          />
           <Text color="dimmed">
             {t("assetObjects.partOfAsset", "This dataset is part of")}{" "}
             <Text component="span" fw={800}>

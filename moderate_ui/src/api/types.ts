@@ -31,6 +31,7 @@ export interface AssetObject {
   sha256_hash: string;
   tags: { [k: string]: any } | null;
   description: string | null;
+  name: string | null;
 }
 
 export interface AssetObjectParsedKey {
@@ -78,6 +79,10 @@ export class AssetObjectModel {
   }
 
   get humanName(): string {
+    if (this.data.name) {
+      return this.data.name;
+    }
+
     const parsedKey = this.parsedKey;
 
     if (parsedKey === undefined) {
