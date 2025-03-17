@@ -1,6 +1,7 @@
 import { AuthProvider } from "@refinedev/core";
 import axios from "axios";
 import Keycloak from "keycloak-js";
+import { ApiRoles, KeycloakResourceNames } from "../api/types";
 
 export interface IIdentity {
   username: string;
@@ -14,6 +15,7 @@ export interface IIdentity {
 export type ExtendedAuthProvider = AuthProvider & {
   refreshToken: () => Promise<void>;
   getSignUpUrl: () => string;
+  isAdmin: () => boolean;
 };
 
 export function buildKeycloakAuthProvider({
@@ -136,6 +138,12 @@ export function buildKeycloakAuthProvider({
     },
     getSignUpUrl: () => {
       return keycloak.createRegisterUrl();
+    },
+    isAdmin: () => {
+      return keycloak.hasResourceRole(
+        ApiRoles.ADMIN,
+        KeycloakResourceNames.API
+      );
     },
   };
 

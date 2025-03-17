@@ -3,6 +3,7 @@ import {
   Box,
   Button,
   Code,
+  createStyles,
   Group,
   Loader,
   LoadingOverlay,
@@ -17,9 +18,9 @@ import {
   TextInput,
   Title,
   Tooltip,
-  createStyles,
 } from "@mantine/core";
 import { useClipboard } from "@mantine/hooks";
+import { useKeycloak } from "@react-keycloak/web";
 import {
   IResourceComponentsProps,
   useGetIdentity,
@@ -59,7 +60,10 @@ import {
   updateAssetObject,
 } from "../../api/assets";
 import { Asset, AssetModel } from "../../api/types";
-import { IIdentity } from "../../auth-provider/keycloak";
+import {
+  buildKeycloakAuthProvider,
+  IIdentity,
+} from "../../auth-provider/keycloak";
 import { KeyValuesStack } from "../../components/KeyValuesStack";
 import { RichEditor } from "../../components/RichEditor";
 import { ResourceNames } from "../../types";
@@ -341,10 +345,20 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
   const { open } = useNotification();
 
   const { data: identity } = useGetIdentity<IIdentity>();
+  const { keycloak, initialized } = useKeycloak();
+
+  const isAdmin = useMemo(() => {
+    if (!initialized) {
+      return false;
+    }
+
+    const authProvider = buildKeycloakAuthProvider({ keycloak });
+    return authProvider.isAdmin();
+  }, [initialized, keycloak]);
 
   const isOwner = useMemo(() => {
-    return data?.data?.username === identity?.username;
-  }, [identity, data]);
+    return data?.data?.username === identity?.username || isAdmin;
+  }, [identity, data, isAdmin]);
 
   const [editableDescription, setEditableDescription] = useState<
     string | undefined
@@ -712,7 +726,7 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
                           <IconEyeEdit size="1em" />{" "}
                           {t(
                             "assetObjects.description.editableReason",
-                            "You can edit this description because you are the owner of this dataset"
+                            "You can edit this description because you are either the dataset owner or a platform administrator"
                           )}
                         </Text>
                         <Button

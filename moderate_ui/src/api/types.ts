@@ -1,5 +1,14 @@
 import _ from "lodash";
 
+export enum KeycloakResourceNames {
+  API = "apisix",
+}
+
+export enum ApiRoles {
+  ADMIN = "api_admin",
+  BASIC_ACCESS = "api_basic_access",
+}
+
 export enum WorkflowJobType {
   MATRIX_PROFILE = "matrix_profile",
 }
