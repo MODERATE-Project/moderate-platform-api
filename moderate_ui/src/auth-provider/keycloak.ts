@@ -13,6 +13,7 @@ export interface IIdentity {
 
 export type ExtendedAuthProvider = AuthProvider & {
   refreshToken: () => Promise<void>;
+  getSignUpUrl: () => string;
 };
 
 export function buildKeycloakAuthProvider({
@@ -132,6 +133,9 @@ export function buildKeycloakAuthProvider({
       };
 
       return identity;
+    },
+    getSignUpUrl: () => {
+      return keycloak.createRegisterUrl();
     },
   };
 

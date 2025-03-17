@@ -17,6 +17,7 @@ import {
   createStyles,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import { useKeycloak } from "@react-keycloak/web";
 import {
   useActiveAuthProvider,
   useGetIdentity,
@@ -30,12 +31,15 @@ import {
   IconChevronDown,
   IconExternalLink,
   IconFileSearch,
+  IconLogin,
   IconTimeline,
   IconUser,
+  IconUserPlus,
 } from "@tabler/icons-react";
 import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
+import { buildKeycloakAuthProvider } from "../auth-provider/keycloak";
 
 const useStyles = createStyles((theme) => ({
   link: {
@@ -122,6 +126,8 @@ export function HeaderMegaMenu() {
 
   const { mutate: login } = useLogin();
 
+  const { keycloak, initialized } = useKeycloak();
+
   const onLogout = useCallback(() => {
     mutateLogout();
   }, [mutateLogout]);
@@ -129,6 +135,15 @@ export function HeaderMegaMenu() {
   const onLogin = useCallback(() => {
     login({});
   }, [login]);
+
+  const onRegister = useCallback(() => {
+    if (!initialized) {
+      return;
+    }
+
+    const authProvider = buildKeycloakAuthProvider({ keycloak });
+    window.location.href = authProvider.getSignUpUrl();
+  }, [keycloak, initialized]);
 
   const isAuthenticated = useMemo((): boolean | undefined => {
     if (isLoading) {
@@ -213,8 +228,21 @@ export function HeaderMegaMenu() {
       <>
         {isAuthenticated === false && (
           <>
-            <Button onClick={onLogin}>{t("nav.logIn", "Log in")}</Button>
-            <Button disabled>{t("nav.signUp", "Sign up")}</Button>
+            <Button
+              variant="light"
+              onClick={onLogin}
+              leftIcon={<IconLogin size={16} />}
+            >
+              {t("nav.logIn", "Log in")}
+            </Button>
+            <Button
+              variant="filled"
+              color="blue"
+              onClick={onRegister}
+              leftIcon={<IconUserPlus size={16} />}
+            >
+              {t("nav.signUp", "Sign up")}
+            </Button>
           </>
         )}
         {isAuthenticated === true && (
@@ -232,7 +260,7 @@ export function HeaderMegaMenu() {
         )}
       </>
     );
-  }, [isAuthenticated, onLogout, identity, onLogin, t]);
+  }, [isAuthenticated, onLogout, identity, onLogin, onRegister, t]);
 
   const mainLinks = useMemo(() => {
     return (
