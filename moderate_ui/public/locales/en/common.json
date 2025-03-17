@@ -109,8 +109,8 @@
     "title": "Dashboard"
   },
   "documentTitle": {
-    "default": "refine",
-    "suffix": " | refine"
+    "default": "MODERATE Platform",
+    "suffix": ""
   },
   "table": {
     "actions": "Actions"

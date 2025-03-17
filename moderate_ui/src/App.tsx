@@ -21,6 +21,7 @@ import routerBindings, {
   DocumentTitleHandler,
   NavigateToResource,
   UnsavedChangesNotifier,
+  useDocumentTitle,
 } from "@refinedev/react-router-v6";
 import { IconBox } from "@tabler/icons-react";
 import axios from "axios";
@@ -56,6 +57,8 @@ function App() {
 
   const toggleColorScheme = (value?: ColorScheme) =>
     setColorScheme(value || (colorScheme === "dark" ? "light" : "dark"));
+
+  useDocumentTitle("MODERATE Platform");
 
   if (!initialized) {
     return <div>Loading...</div>;
@@ -176,7 +179,10 @@ function App() {
                     syncWithLocation: true,
                     warnWhenUnsavedChanges: true,
                     useNewQueryKeys: true,
-                    projectId: "jjTjGn-5AuAqE-qsmr54",
+                    projectId: "moderate-platform-ui",
+                    title: {
+                      text: "MODERATE Platform",
+                    },
                   }}
                 >
                   <Routes>
