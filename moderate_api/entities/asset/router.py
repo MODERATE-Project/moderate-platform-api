@@ -163,7 +163,7 @@ async def _query_search_assets(
         stmt = stmt.where(where_constraint)
 
     if exclude_mine and user:
-        stmt = stmt.where(Asset.username != user.username)
+        stmt = stmt.where(or_(Asset.username != user.username, Asset.username == None))
 
     result = await session.execute(stmt)
 
@@ -187,7 +187,7 @@ async def _query_search_assets_from_objects(
         stmt = stmt.where(asset_where_constraint)
 
     if exclude_mine and user:
-        stmt = stmt.where(Asset.username != user.username)
+        stmt = stmt.where(or_(Asset.username != user.username, Asset.username == None))
 
     stmt = (
         stmt.join(UploadedS3Object)
