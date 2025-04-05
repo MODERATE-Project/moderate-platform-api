@@ -31,7 +31,17 @@ services:
       # https://github.com/MODERATE-Project/trust-service/blob/main/actix-server/.mongo.env
       MONGO_INITDB_ROOT_USERNAME: ${TRUST_MONGO_ROOT_USER}
       MONGO_INITDB_ROOT_PASSWORD: ${TRUST_MONGO_ROOT_PASS}
-      MONGO_ENDPOINT: mongodb:27017
+      MONGO_ENDPOINT_L: mongodb:27017
+      MONGO_ENDPOINT_D: mongodb:27017
       MONGO_DATABASE: ${MONGO_DATABASE:-moderate}
+      RUNNING_IN_DOCKER: "true"
+  ipfs:
+    image: ipfs/kubo:latest
+    restart: on-failure
+    ports:
+      - ${IPFS_PORT:-5001}:5001
+    volumes:
+      - ipfs_data:/data/ipfs
 volumes:
   mongo_data: {}
+  ipfs_data: {}

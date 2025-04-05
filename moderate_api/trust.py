@@ -1,5 +1,3 @@
-import base64
-import hashlib
 import logging
 import pprint
 from functools import wraps
@@ -51,7 +49,7 @@ async def create_did_task(
         _logger.debug("Creating DID for %s", username)
         stmt = select(UserMeta).where(UserMeta.username == username)
         result = await session.execute(stmt)
-        user_meta: UserMeta = result.scalar_one_or_none()
+        user_meta = result.scalar_one_or_none()
         _logger.debug("Found UserMeta: %s", user_meta)
 
         if not user_meta:
@@ -162,14 +160,6 @@ async def create_proof_task(
         await set_task_result(session=session, task_id=task_id, result=result)
 
 
-def compute_trust_api_digest(
-    input_string: str, input_encode: str = "utf-8", digest_size: int = 32
-) -> str:
-    input_bytes = input_string.encode(input_encode)
-    hash_object = hashlib.blake2b(input_bytes, digest_size=digest_size)
-    return base64.b64encode(hash_object.digest()).decode()
-
-
 class ProofResponse(BaseModel):
     metadata_digest: str
 
@@ -206,7 +196,7 @@ async def fetch_verify_proof(
 ) -> ProofVerificationResult:
     stmt = select(UploadedS3Object).where(UploadedS3Object.key == asset_obj_key)
     result = await session.execute(stmt)
-    s3obj: UploadedS3Object = result.scalar_one_or_none()
+    s3obj = result.scalar_one_or_none()
 
     if not s3obj:
         return ProofVerificationResult(
@@ -230,7 +220,7 @@ async def fetch_verify_proof(
             reason=f"Error fetching proof for {asset_obj_key}: {ex}",
         )
 
-    expected_proof_digest = compute_trust_api_digest(s3obj.sha256_hash)
+    expected_proof_digest = s3obj.sha256_hash
 
     if proof_resp.metadata_digest != expected_proof_digest:
         return ProofVerificationResult(
