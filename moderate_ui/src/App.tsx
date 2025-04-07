@@ -30,6 +30,7 @@ import { BrowserRouter, Outlet, Route, Routes } from "react-router-dom";
 import { getBaseApiUrl } from "./api/utils";
 import { buildKeycloakAuthProvider } from "./auth-provider/keycloak";
 import { useRefreshToken } from "./auth-provider/utils";
+import { DevelopmentBanner } from "./components/DevelopmentBanner";
 import { FooterLinks } from "./components/FooterLinks";
 import { HeaderMegaMenu } from "./components/HeaderMegaMenu";
 import { Catalogue } from "./pages/Catalogue";
@@ -82,7 +83,12 @@ function App() {
       });
     }
 
-    return <Outlet />;
+    return (
+      <>
+        <DevelopmentBanner />
+        <Outlet />
+      </>
+    );
   };
 
   const AuthenticatedGuardRouteParent: React.FC = () => {
