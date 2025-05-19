@@ -60,10 +60,12 @@ const useStyles = createStyles((theme) => ({
     flexDirection: "column",
     alignItems: "center",
     textAlign: "center",
-    minHeight: 260,
     padding: theme.spacing.lg,
     background:
       theme.colorScheme === "dark" ? theme.colors.dark[6] : theme.white,
+    [`@media (min-width: ${theme.breakpoints.lg}px)`]: {
+      minHeight: 260,
+    },
   },
   cardIcon: {
     marginBottom: theme.spacing.md,
@@ -81,7 +83,6 @@ const useStyles = createStyles((theme) => ({
         : theme.colors.gray[7],
     fontSize: theme.fontSizes.md,
     lineHeight: 1.6,
-    minHeight: 60,
     marginBottom: 0,
   },
   mainSiteButton: {
