@@ -15,12 +15,16 @@ import {
   useShow,
   useTranslate,
 } from "@refinedev/core";
-import { IconFlask, IconGraphOff } from "@tabler/icons-react";
+import { IconFlask, IconGraphOff, IconInfoCircle } from "@tabler/icons-react";
 import { useEffect, useMemo, useState } from "react";
 import { fetchPygwalkerHtml } from "../../api/assets";
 import { ResourceNames } from "../../types";
 
 export const AssetObjectExploratoryDashboard: React.FC = () => {
+  const HEADER_SAMPLED_DATA = "X-Sampled-Data";
+  const HEADER_SAMPLING_FRACTION = "X-Sampling-Fraction";
+  const HEADER_SAMPLING_SIZE = "X-Sampling-Size";
+
   const { params } = useParsed();
 
   const { queryResult } = useShow({
@@ -40,6 +44,14 @@ export const AssetObjectExploratoryDashboard: React.FC = () => {
   const [dashboardHtml, setDashboardHtml] = useState<string | undefined>(
     undefined
   );
+
+  const [isSampled, setIsSampled] = useState<
+    | {
+        samplingFraction?: number | string;
+        samplingSize?: number | string;
+      }
+    | undefined
+  >(undefined);
 
   const t = useTranslate();
 
@@ -64,6 +76,17 @@ export const AssetObjectExploratoryDashboard: React.FC = () => {
 
     fetchPygwalkerHtml({ objectId: assetObject.id })
       .then((response) => {
+        if (
+          response.headers &&
+          response.headers[HEADER_SAMPLED_DATA.toLowerCase()]
+        ) {
+          setIsSampled({
+            samplingFraction:
+              response.headers[HEADER_SAMPLING_FRACTION.toLowerCase()],
+            samplingSize: response.headers[HEADER_SAMPLING_SIZE.toLowerCase()],
+          });
+        }
+
         setDashboardHtml(response.data);
       })
       .catch((err) => {
@@ -128,6 +151,25 @@ export const AssetObjectExploratoryDashboard: React.FC = () => {
               {t(
                 "assetObjects.dashboard.experimentAlertMessage",
                 "This feature is experimental. You may experience some performance issues while using it."
+              )}
+            </Alert>
+          )}
+          {isSampled && (
+            <Alert
+              icon={<IconInfoCircle size="1rem" />}
+              title={t(
+                "assetObjects.dashboard.sampledDataAlertTitle",
+                "Sampled data"
+              )}
+              color="blue"
+            >
+              {t(
+                "assetObjects.dashboard.sampledDataAlertMessage",
+                `The dataset is sampled. ${
+                  isSampled.samplingFraction
+                    ? `Sampling fraction: ${isSampled.samplingFraction}`
+                    : `Sampling size: ${isSampled.samplingSize}`
+                }`
               )}
             </Alert>
           )}

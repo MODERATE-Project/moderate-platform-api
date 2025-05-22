@@ -5,6 +5,7 @@
 .env.dev
 openapi.json
 api-docs-dist
+.vscode
 
 ## Python
 #########
