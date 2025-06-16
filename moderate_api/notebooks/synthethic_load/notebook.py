@@ -156,6 +156,11 @@ def _(files_form, mo):
         mo.callout("Please provide the train data URL", kind="info"),
     )
 
+    # Show loading status
+    mo.output.replace(
+        mo.callout("🔄 Downloading files... This may take a few minutes.", kind="info")
+    )
+
     # Create mock form objects for compatibility with download_file function
     class MockForm:
         def __init__(self, value):
@@ -185,7 +190,7 @@ def _(files_form, mo):
         decompress_zip=True,
     )
 
-    mo.md("**Status:** All files downloaded successfully!")
+    mo.md("✅ **Status:** All files downloaded successfully!")
     return model_file, test_data_file, train_data_file
 
 
@@ -228,6 +233,11 @@ def _(mo):
 
 @app.cell
 def _(mo, pd, test_data_file, train_data_file):
+    # Show loading status
+    mo.output.replace(
+        mo.callout("📊 Loading and processing data files...", kind="info")
+    )
+
     train_data = pd.read_csv(train_data_file, index_col=0)
     train_data.index = pd.to_datetime(train_data.index)
     test_data = pd.read_csv(test_data_file, index_col=0)
@@ -256,6 +266,14 @@ def _(mo, pd, test_data_file, train_data_file):
 
 @app.cell
 def _(generate_data_from_saved_model, mo, model_file, np, pd, train_data):
+    # Show loading status at the beginning
+    mo.output.replace(
+        mo.callout(
+            "🤖 Loading pre-trained model and generating synthetic data... This may take several minutes.",
+            kind="info",
+        )
+    )
+
     print("Loading pre-trained model and generating synthetic data...")
 
     # Generate synthetic data using the pre-trained model
@@ -287,7 +305,7 @@ def _(generate_data_from_saved_model, mo, model_file, np, pd, train_data):
 
     mo.md(
         f"""
-        ## Synthetic Data Generation Results
+        ## ✅ Synthetic Data Generation Results
 
         ### Generation Summary
         - **Profiles Generated:** {n_profiles:,}
@@ -310,6 +328,13 @@ def _(generate_data_from_saved_model, mo, model_file, np, pd, train_data):
 
 @app.cell
 def _(calc_features, mo, np, synthetic_data_array, test_data, train_data):
+    # Show loading status
+    mo.output.replace(
+        mo.callout(
+            "🔍 Calculating features for visualization and comparison...", kind="info"
+        )
+    )
+
     print("Calculating features for visualization and comparison...")
 
     # Convert data to numpy arrays for our plotting functions
@@ -323,7 +348,7 @@ def _(calc_features, mo, np, synthetic_data_array, test_data, train_data):
 
     mo.md(
         f"""
-        ## Feature Analysis Preparation
+        ## ✅ Feature Analysis Preparation
 
         ### Feature Extraction Summary
         | Dataset | Feature Shape | Description |
@@ -346,52 +371,61 @@ def _(calc_features, mo, np, synthetic_data_array, test_data, train_data):
 
 @app.cell
 def _(mo, plot_distrib, real_data_array, synthetic_data_array):
-    print("Creating value distribution comparison: Training vs Synthetic data...")
-    fig_distrib_synth = plot_distrib(real_data_array, synthetic_data_array)
+    def create_distribution_plot():
+        print("Creating value distribution comparison: Training vs Synthetic data...")
+        fig_distrib_synth = plot_distrib(real_data_array, synthetic_data_array)
 
-    mo.vstack(
-        [
-            mo.md("## Distribution Analysis: Training vs Synthetic Data"),
-            mo.md(
-                "This plot compares the value distributions between the original training data and the generated synthetic data. Similar distributions indicate that the GAN has successfully learned the underlying patterns."
-            ),
-            mo.mpl.interactive(fig_distrib_synth),
-        ]
-    )
+        return mo.vstack(
+            [
+                mo.md("## Distribution Analysis: Training vs Synthetic Data"),
+                mo.md(
+                    "This plot compares the value distributions between the original training data and the generated synthetic data. Similar distributions indicate that the GAN has successfully learned the underlying patterns."
+                ),
+                fig_distrib_synth,
+            ]
+        )
+
+    mo.lazy(create_distribution_plot, show_loading_indicator=True)
     return
 
 
 @app.cell
 def _(holdout_data_array, mo, plot_distrib, real_data_array):
-    print("Creating value distribution comparison: Training vs Holdout data...")
-    fig_distrib_holdout = plot_distrib(real_data_array, holdout_data_array)
+    def create_holdout_comparison_plot():
+        print("Creating value distribution comparison: Training vs Holdout data...")
+        fig_distrib_holdout = plot_distrib(real_data_array, holdout_data_array)
 
-    mo.vstack(
-        [
-            mo.md("## Distribution Analysis: Training vs Holdout Data"),
-            mo.md(
-                "This plot compares the value distributions between the training data and the holdout (test) data. This serves as a baseline comparison to understand the natural variation in the dataset."
-            ),
-            mo.mpl.interactive(fig_distrib_holdout),
-        ]
-    )
+        return mo.vstack(
+            [
+                mo.md("## Distribution Analysis: Training vs Holdout Data"),
+                mo.md(
+                    "This plot compares the value distributions between the training data and the holdout (test) data. This serves as a baseline comparison to understand the natural variation in the dataset."
+                ),
+                fig_distrib_holdout,
+            ]
+        )
+
+    mo.lazy(create_holdout_comparison_plot, show_loading_indicator=True)
     return
 
 
 @app.cell
 def _(holdout_features, mo, plot_stats, real_features, synthetic_features):
-    print("Creating statistical features comparison across all datasets...")
-    fig_stats = plot_stats(real_features, synthetic_features, holdout_features)
+    def create_stats_comparison_plot():
+        print("Creating statistical features comparison across all datasets...")
+        fig_stats = plot_stats(real_features, synthetic_features, holdout_features)
 
-    mo.vstack(
-        [
-            mo.md("## Statistical Features Comparison"),
-            mo.md(
-                "This visualization compares key statistical features across training, synthetic, and holdout datasets. The analysis helps validate whether the synthetic data maintains the statistical properties of the original data."
-            ),
-            mo.mpl.interactive(fig_stats),
-        ]
-    )
+        return mo.vstack(
+            [
+                mo.md("## Statistical Features Comparison"),
+                mo.md(
+                    "This visualization compares key statistical features across training, synthetic, and holdout datasets. The analysis helps validate whether the synthetic data maintains the statistical properties of the original data."
+                ),
+                fig_stats,
+            ]
+        )
+
+    mo.lazy(create_stats_comparison_plot, show_loading_indicator=True)
     return
 
 
@@ -405,34 +439,37 @@ def _(
     synthetic_data_array,
     train_data,
 ):
-    print("Computing temporal trends for all datasets...")
-    arr_dt = train_data.index
-    trend_synth_dict = compute_trends(synthetic_data_array, arr_dt)
-    trend_real_dict = compute_trends(real_data_array, arr_dt)
-    trend_holdout_dict = compute_trends(holdout_data_array, arr_dt)
+    def create_temporal_trends_analysis():
+        print("Computing temporal trends for all datasets...")
+        arr_dt = train_data.index
+        trend_synth_dict = compute_trends(synthetic_data_array, arr_dt)
+        trend_real_dict = compute_trends(real_data_array, arr_dt)
+        trend_holdout_dict = compute_trends(holdout_data_array, arr_dt)
 
-    print("Creating temporal trend comparison plots...")
-    trend_plot_dict = plot_mean_trends(
-        trend_real_dict, trend_synth_dict, trend_holdout_dict
-    )
+        print("Creating temporal trend comparison plots...")
+        trend_plot_dict = plot_mean_trends(
+            trend_real_dict, trend_synth_dict, trend_holdout_dict
+        )
 
-    mo.vstack(
-        [
-            mo.md("## Temporal Trend Analysis"),
-            mo.md(
-                """
-        The following plots analyze temporal patterns in the data across different time scales:
+        return mo.vstack(
+            [
+                mo.md("## Temporal Trend Analysis"),
+                mo.md(
+                    """
+            The following plots analyze temporal patterns in the data across different time scales:
 
-        - **Daily patterns**: How load varies throughout the day
-        - **Weekly patterns**: Differences between weekdays and weekends
-        - **Seasonal patterns**: Long-term variations over months
+            - **Daily patterns**: How load varies throughout the day
+            - **Weekly patterns**: Differences between weekdays and weekends
+            - **Seasonal patterns**: Long-term variations over months
 
-        These comparisons help validate that the synthetic data captures not just statistical properties but also temporal dependencies present in real load profiles.
-        """
-            ),
-            *[mo.mpl.interactive(plot) for plot in trend_plot_dict.values()],
-        ]
-    )
+            These comparisons help validate that the synthetic data captures not just statistical properties but also temporal dependencies present in real load profiles.
+            """
+                ),
+                *[plot for plot in trend_plot_dict.values()],
+            ]
+        )
+
+    mo.lazy(create_temporal_trends_analysis, show_loading_indicator=True)
     return
 
 
