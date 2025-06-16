@@ -12,31 +12,52 @@ def _():
     default_test_data_url = "https://github.com/MODERATE-Project/Synthetic-Load-Profiles/releases/download/example-model-v2/test-data.csv.zip"
     default_train_data_url = "https://github.com/MODERATE-Project/Synthetic-Load-Profiles/releases/download/example-model-v2/train-data.csv.zip"
 
-    # Pre-trained model file form
-    model_form = mo.ui.text(
-        kind="url",
-        full_width=True,
-        label="URL to the trained model file, compressed using ZSTD, as produced by the training script in the repository",
-        value=default_model_url,
-    ).form(label="Pre-trained Model")
+    files_form = (
+        mo.md(
+            """
+            ## File Configuration
+            
+            Please provide URLs for all three required files:
+            
+            ### Pre-trained Model
+            {model_url}
+            
+            ### Test Data
+            {test_data_url}
+            
+            ### Training Data
+            {train_data_url}
+            """
+        )
+        .batch(
+            model_url=mo.ui.text(
+                kind="url",
+                full_width=True,
+                label="URL to the trained model file, compressed using ZSTD, as produced by the training script in the repository",
+                value=default_model_url,
+            ),  # type: ignore
+            test_data_url=mo.ui.text(
+                kind="url",
+                full_width=True,
+                label="URL to the test data file (CSV format)",
+                value=default_test_data_url,
+            ),  # type: ignore
+            train_data_url=mo.ui.text(
+                kind="url",
+                full_width=True,
+                label="URL to the train data file (CSV format)",
+                value=default_train_data_url,
+            ),  # type: ignore
+        )
+        .form(
+            label="Required Files",
+            submit_button_label="Load Files",
+            show_clear_button=True,
+            bordered=True,
+        )
+    )
 
-    # Test data file form
-    test_data_form = mo.ui.text(
-        kind="url",
-        full_width=True,
-        label="URL to the test data file (CSV format)",
-        value=default_test_data_url,
-    ).form(label="Test Data")
-
-    # Train data file form
-    train_data_form = mo.ui.text(
-        kind="url",
-        full_width=True,
-        label="URL to the train data file (CSV format)",
-        value=default_train_data_url,
-    ).form(label="Train Data")
-
-    return mo, model_form, test_data_form, train_data_form
+    return mo, files_form
 
 
 @app.cell
@@ -68,6 +89,7 @@ def _(mo):
     This notebook focuses on **inference using a pre-trained model** rather than training. It demonstrates how to generate synthetic load profiles using a model trained on publicly available open data.
 
     **Required files:**
+
     - Pre-trained model (compressed with ZSTD)
     - Test data (CSV format)
     - Training data (CSV format)
@@ -79,16 +101,8 @@ def _(mo):
 
 
 @app.cell
-def _(mo, model_form, test_data_form, train_data_form):
-    mo.vstack(
-        [
-            mo.md("## File Configuration"),
-            mo.md("Please provide URLs for all three required files:"),
-            model_form,
-            test_data_form,
-            train_data_form,
-        ]
-    )
+def _(files_form, mo):
+    files_form  # type: ignore
     return
 
 
@@ -112,32 +126,52 @@ def _(mo):
 
 
 @app.cell
-def _(mo, model_form, test_data_form, train_data_form):
+def _(files_form, mo):
     from moderate_api.notebooks.utils import download_file
 
-    # Check that all three forms have been submitted
+    # Check that the form has been submitted
     mo.stop(
-        model_form.value is None or not model_form.value,
-        mo.callout("Please submit the pre-trained model form", kind="info"),
+        files_form.value is None,
+        mo.callout("Please submit the files form", kind="info"),
+    )
+
+    # Extract individual URLs from the combined form
+    model_url = files_form.value.get("model_url")
+    test_data_url = files_form.value.get("test_data_url")
+    train_data_url = files_form.value.get("train_data_url")
+
+    # Check that all URLs are provided
+    mo.stop(
+        not model_url,
+        mo.callout("Please provide the pre-trained model URL", kind="info"),
     )
 
     mo.stop(
-        test_data_form.value is None or not test_data_form.value,
-        mo.callout("Please submit the test data form", kind="info"),
+        not test_data_url,
+        mo.callout("Please provide the test data URL", kind="info"),
     )
 
     mo.stop(
-        train_data_form.value is None or not train_data_form.value,
-        mo.callout("Please submit the train data form", kind="info"),
+        not train_data_url,
+        mo.callout("Please provide the train data URL", kind="info"),
     )
+
+    # Create mock form objects for compatibility with download_file function
+    class MockForm:
+        def __init__(self, value):
+            self.value = value
+
+    model_form_mock = MockForm(model_url)
+    test_data_form_mock = MockForm(test_data_url)
+    train_data_form_mock = MockForm(train_data_url)
 
     model_file = download_file(
-        mo, model_form, title="Downloading model file", max_size_mb=200
+        mo, model_form_mock, title="Downloading model file", max_size_mb=200
     )
 
     test_data_file = download_file(
         mo,
-        test_data_form,
+        test_data_form_mock,
         title="Downloading test data",
         max_size_mb=50,
         decompress_zip=True,
@@ -145,14 +179,13 @@ def _(mo, model_form, test_data_form, train_data_form):
 
     train_data_file = download_file(
         mo,
-        train_data_form,
+        train_data_form_mock,
         title="Downloading train data",
         max_size_mb=50,
         decompress_zip=True,
     )
 
     mo.md("**Status:** All files downloaded successfully!")
-
     return model_file, test_data_file, train_data_file
 
 
@@ -181,7 +214,6 @@ def _(mo):
     mo.md(
         "**Status:** All imports successful! Matplotlib plots will be displayed using marimo's interactive plotting."
     )
-
     return (
         calc_features,
         compute_trends,
@@ -219,7 +251,6 @@ def _(mo, pd, test_data_file, train_data_file):
         | **Standard Deviation** | {train_data.std().mean():.4f} |
         """
     )
-
     return test_data, train_data
 
 
@@ -274,7 +305,6 @@ def _(generate_data_from_saved_model, mo, model_file, np, pd, train_data):
         **Status:** Model loaded and synthetic data generated successfully!
         """
     )
-
     return (synthetic_data_array,)
 
 
@@ -305,7 +335,6 @@ def _(calc_features, mo, np, synthetic_data_array, test_data, train_data):
         Features calculated include statistical measures that capture the essential characteristics of load profiles for comparison and validation.
         """
     )
-
     return (
         holdout_data_array,
         holdout_features,
