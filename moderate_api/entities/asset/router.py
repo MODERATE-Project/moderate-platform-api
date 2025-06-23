@@ -3,14 +3,24 @@ import json
 import logging
 import os
 import uuid
+from datetime import datetime
 from io import BytesIO
 from typing import Any, Dict, List, Optional, Union
 
-from fastapi import (APIRouter, BackgroundTasks, File, Form, HTTPException,
-                     Query, Response, UploadFile, status)
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Response,
+    UploadFile,
+    status,
+)
 from pydantic import BaseModel
 from slugify import slugify
-from sqlalchemy import and_, true
+from sqlalchemy import and_, case, desc, func, true
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import BinaryExpression
 from sqlmodel import or_, select
@@ -20,27 +30,65 @@ from moderate_api.authz.user import OptionalUserDep, User
 from moderate_api.config import SettingsDep
 from moderate_api.db import AsyncSessionDep
 from moderate_api.entities.asset.models import (
-    Asset, AssetAccessLevels, AssetCreate, AssetRead, AssetUpdate,
-    UploadedS3Object, UploadedS3ObjectRead, UploadedS3ObjectUpdate,
-    filter_object_ids_by_username, find_s3object_by_key_or_id,
-    find_s3object_pending_quality_check, update_s3object_quality_check_flag)
-from moderate_api.entities.crud import (CrudFiltersQuery, CrudSortsQuery,
-                                        create_one, delete_one, read_many,
-                                        read_one, select_one,
-                                        set_response_count_header, update_one)
+    Asset,
+    AssetAccessLevels,
+    AssetCreate,
+    AssetRead,
+    AssetUpdate,
+    UploadedS3Object,
+    UploadedS3ObjectRead,
+    UploadedS3ObjectUpdate,
+    filter_object_ids_by_username,
+    find_s3object_by_key_or_id,
+    find_s3object_pending_quality_check,
+    update_s3object_quality_check_flag,
+)
+from moderate_api.entities.crud import (
+    CrudFiltersQuery,
+    CrudSortsQuery,
+    create_one,
+    delete_one,
+    read_many,
+    read_one,
+    select_one,
+    set_response_count_header,
+    update_one,
+)
 from moderate_api.enums import Actions, Entities, Tags
 from moderate_api.long_running import LongRunningTask, get_task, init_task
 from moderate_api.object_storage import S3ClientDep, ensure_bucket
-from moderate_api.open_metadata import (OMProfile, get_asset_object_profile,
-                                        search_asset_object)
-from moderate_api.trust import (ProofVerificationResult, create_proof_task,
-                                fetch_verify_proof)
+from moderate_api.open_metadata import (
+    OMProfile,
+    get_asset_object_profile,
+    search_asset_object,
+)
+from moderate_api.trust import (
+    ProofVerificationResult,
+    create_proof_task,
+    fetch_verify_proof,
+)
 
 _logger = logging.getLogger(__name__)
 
 _TAG = "Data assets"
 _ENTITY = Entities.ASSET
 _CHUNK_SIZE = 16 * 1024**2
+
+
+class AssetSearchResult(BaseModel):
+    """Enhanced search result that includes only matching objects for each asset."""
+
+    id: int
+    uuid: str
+    name: str
+    description: Optional[str]
+    meta: Optional[Dict]
+    created_at: str
+    access_level: AssetAccessLevels
+    username: Optional[str]
+    objects: List[UploadedS3ObjectRead]
+    match_type: str  # 'asset' or 'object' - indicates what matched the search
+    match_score: Optional[float] = None  # For future ranking improvements
 
 
 async def build_selector(user: User, session: AsyncSession) -> List[BinaryExpression]:
@@ -126,11 +174,14 @@ async def _query_search_assets(
     limit: int,
     exclude_mine: bool,
     where_constraint: Union[BinaryExpression, None],
-) -> List[Asset]:
+) -> List[AssetSearchResult]:
+    """Search assets by name/description and return results with all their objects."""
     stmt = select(Asset).limit(limit)
 
     if query and len(query) > 0:
         stmt = stmt.where(Asset.search_vector.match(query))  # type: ignore
+        # Order by search rank for better relevance
+        stmt = stmt.order_by(desc(func.ts_rank(Asset.search_vector, func.plainto_tsquery(query))))  # type: ignore
     else:
         stmt = stmt.order_by(Asset.created_at.desc())  # type: ignore
 
@@ -141,8 +192,39 @@ async def _query_search_assets(
         stmt = stmt.where(or_(Asset.username != user.username, Asset.username == None))  # type: ignore
 
     result = await session.execute(stmt)
+    assets = list(result.scalars().all())
 
-    return list(result.scalars().all())
+    # Convert to AssetSearchResult format
+    search_results = []
+
+    for asset in assets:
+        if asset.id is None:
+            continue  # Skip assets without IDs
+
+        # Convert objects, filtering out any without IDs
+        objects = []
+
+        for obj in asset.objects:
+            if obj.id is not None:
+                objects.append(UploadedS3ObjectRead(**obj.__dict__))
+
+        search_results.append(
+            AssetSearchResult(
+                id=asset.id,
+                uuid=asset.uuid,
+                name=asset.name,
+                description=asset.description,
+                meta=asset.meta,
+                created_at=asset.created_at.isoformat(),
+                access_level=asset.access_level,
+                username=asset.username,
+                objects=objects,
+                match_type="asset",
+                match_score=None,  # Could be enhanced with actual ts_rank value
+            )
+        )
+
+    return search_results
 
 
 async def _query_search_assets_from_objects(
@@ -152,32 +234,88 @@ async def _query_search_assets_from_objects(
     limit: int,
     exclude_mine: bool,
     asset_where_constraint: Union[BinaryExpression, None],
-) -> List[Asset]:
+) -> List[AssetSearchResult]:
+    """Search for assets by their object names/keys and return only matching objects."""
     if not query:
         return []
 
-    stmt = select(Asset).limit(limit)
+    # First, find matching objects with their assets
+    stmt = select(UploadedS3Object, Asset).join(Asset)
 
+    # Apply asset visibility constraints
     if asset_where_constraint is not None:
         stmt = stmt.where(asset_where_constraint)
 
     if exclude_mine and user:
         stmt = stmt.where(or_(Asset.username != user.username, Asset.username == None))  # type: ignore
 
-    stmt = (
-        stmt.join(UploadedS3Object)
-        .where(
-            or_(  # type: ignore
-                UploadedS3Object.name.ilike("%{}%".format(query)),  # type: ignore
-                UploadedS3Object.key.ilike("%{}%".format(query)),  # type: ignore
-            ),
+    # Search in object names and keys (case-insensitive)
+    search_pattern = "%{}%".format(query.lower())
+
+    stmt = stmt.where(
+        or_(  # type: ignore
+            func.lower(UploadedS3Object.name).ilike(search_pattern),  # type: ignore
+            func.lower(UploadedS3Object.key).ilike(search_pattern),  # type: ignore
+            func.lower(UploadedS3Object.description).ilike(search_pattern),  # type: ignore
         )
-        .distinct()
+    )
+
+    # Order by relevance: exact matches first, then partial matches
+    # Also consider object creation date for tie-breaking
+    stmt = stmt.order_by(
+        case(
+            (func.lower(UploadedS3Object.name) == query.lower(), 1),  # type: ignore
+            (func.lower(UploadedS3Object.key).contains(query.lower()), 2),  # type: ignore
+            else_=3,
+        ),
+        desc(UploadedS3Object.created_at),  # type: ignore
     )
 
     result = await session.execute(stmt)
+    object_asset_pairs = list(result.all())
 
-    return list(result.scalars().all())
+    # Group matching objects by asset
+    asset_objects_map: Dict[int, List[UploadedS3Object]] = {}
+    assets_map: Dict[int, Asset] = {}
+
+    for obj, asset in object_asset_pairs:
+        if asset.id is None or obj.id is None:
+            continue
+
+        if asset.id not in asset_objects_map:
+            asset_objects_map[asset.id] = []
+            assets_map[asset.id] = asset
+
+        asset_objects_map[asset.id].append(obj)
+
+    # Convert to AssetSearchResult format with only matching objects
+    search_results = []
+
+    for asset_id, matching_objects in asset_objects_map.items():
+        asset = assets_map[asset_id]
+
+        # Convert only the matching objects
+        objects = [UploadedS3ObjectRead(**obj.__dict__) for obj in matching_objects]
+
+        # asset.id is guaranteed to be not None due to the continue check above
+        search_results.append(
+            AssetSearchResult(
+                id=asset.id,  # type: ignore
+                uuid=asset.uuid,
+                name=asset.name,
+                description=asset.description,
+                meta=asset.meta,
+                created_at=asset.created_at.isoformat(),
+                access_level=asset.access_level,
+                username=asset.username,
+                objects=objects,
+                match_type="object",
+                match_score=None,
+            )
+        )
+
+    # Apply limit to final results
+    return search_results[:limit]
 
 
 async def _search_assets(
@@ -188,9 +326,11 @@ async def _search_assets(
     limit: int = Query(default=20, le=100),
     exclude_mine: bool = Query(default=False),
 ):
+    """Enhanced search that returns assets with proper object filtering."""
     user_selector = _user_asset_visibility_selector(user=user)
 
-    assets = await _query_search_assets(
+    # Search for assets by name/description (returns all objects for matching assets)
+    assets_by_name = await _query_search_assets(
         user=user,
         session=session,
         query=query,
@@ -199,7 +339,8 @@ async def _search_assets(
         where_constraint=user_selector,
     )
 
-    assets_from_objects = await _query_search_assets_from_objects(
+    # Search for assets by object properties (returns only matching objects)
+    assets_by_objects = await _query_search_assets_from_objects(
         user=user,
         session=session,
         query=query,
@@ -208,21 +349,83 @@ async def _search_assets(
         asset_where_constraint=user_selector,
     )
 
-    found_assets = [
-        *assets,
-        *[
-            item
-            for item in assets_from_objects
-            if item.id not in {asset.id for asset in assets}
-        ],
-    ]
+    # Combine results, avoiding duplicates but preserving the better match
+    # Priority: asset matches (with all objects) > object matches (with filtered objects)
+    found_assets_map: Dict[int, AssetSearchResult] = {}
+
+    # First add asset matches (these get priority and include all objects)
+    for asset_result in assets_by_name:
+        found_assets_map[asset_result.id] = asset_result
+
+    # Then add object matches (only if asset wasn't already matched by name)
+    for asset_result in assets_by_objects:
+        if asset_result.id not in found_assets_map:
+            found_assets_map[asset_result.id] = asset_result
+
+    # Convert back to list and apply final limit
+    found_assets = list(found_assets_map.values())[:limit]
+
+    # Sort by match type (asset matches first) and then by creation date
+    found_assets.sort(
+        key=lambda x: (
+            0 if x.match_type == "asset" else 1,  # Asset matches first
+            -int(
+                x.created_at.replace("T", "")
+                .replace("-", "")
+                .replace(":", "")
+                .replace(".", "")[:14]
+            ),  # Newer first
+        )
+    )
 
     return found_assets
 
 
+async def _search_assets_wrapper(
+    *,
+    user: OptionalUserDep,
+    session: AsyncSessionDep,
+    query: str = Query(default=None),
+    limit: int = Query(default=20, le=100),
+    exclude_mine: bool = Query(default=False),
+) -> List[AssetRead]:
+    """Backward-compatible wrapper that converts AssetSearchResult to AssetRead."""
+
+    search_results = await _search_assets(
+        user=user,
+        session=session,
+        query=query,
+        limit=limit,
+        exclude_mine=exclude_mine,
+    )
+
+    # Convert AssetSearchResult back to AssetRead for backward compatibility
+    ret_results = []
+
+    for result in search_results:
+        # Convert ISO string back to datetime for AssetRead compatibility
+        created_at_dt = datetime.fromisoformat(result.created_at)
+
+        ret_results.append(
+            AssetRead(
+                id=result.id,
+                uuid=result.uuid,
+                name=result.name,
+                description=result.description,
+                meta=result.meta,
+                created_at=created_at_dt,
+                access_level=result.access_level,
+                username=result.username,
+                objects=result.objects,
+            )
+        )
+
+    return ret_results
+
+
 router.add_api_route(
     "/search",
-    _search_assets,
+    _search_assets_wrapper,
     methods=["GET"],
     response_model=List[AssetRead],
     tags=[_TAG],
@@ -230,7 +433,7 @@ router.add_api_route(
 
 router.add_api_route(
     "/public/search",
-    _search_assets,
+    _search_assets_wrapper,
     methods=["GET"],
     response_model=List[AssetRead],
     tags=[_TAG, Tags.PUBLIC.value],
