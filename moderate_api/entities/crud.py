@@ -3,17 +3,17 @@ import logging
 import re
 import warnings
 from datetime import datetime
-from typing import Any, Dict, List, Literal, Optional, Type, Union
+from typing import Any, Dict, List, Literal, Optional, Type, TypeVar, Union, cast
 
 import arrow
 from fastapi import HTTPException, Query, Response, status
 from pydantic import BaseModel
-from sqlalchemy import Text, asc, cast, desc, func
+from sqlalchemy import Text, asc, cast as sql_cast, desc, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.attributes import InstrumentedAttribute, flag_modified
-from sqlalchemy.sql.elements import BinaryExpression, UnaryExpression
+from sqlalchemy.sql.elements import BinaryExpression, ColumnElement, UnaryExpression
 from sqlmodel import SQLModel, select
 
 from moderate_api.authz import User
@@ -32,12 +32,15 @@ _REGEX_DTTM_ISO = (
 # and the string should not start or end with brackets.
 _REGEX_LIST = r"(?<!\[)\b\w+\b(?:(?:\s*,\s*\b\w+\b)+)(?!\])"
 
+# Generic type variable for better type safety
+T = TypeVar('T', bound=BaseModel)
+
 
 def _models_from_json(
-    model_cls: Type[BaseModel],
+    model_cls: Type[T],
     json_str: str,
     positional_args: Optional[List[str]] = None,
-) -> List[BaseModel]:
+) -> List[T]:
     """Helper function to parse a JSON string into a list of models."""
 
     parsed = json.loads(json_str)
@@ -50,7 +53,7 @@ def _models_from_json(
 
     _logger.debug("JSON CRUD filters: %s", parsed)
 
-    ret = []
+    ret: List[T] = []
 
     for item in parsed:
         if isinstance(item, list) and positional_args:
@@ -228,8 +231,8 @@ def _map_nin(model: Type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression
     return getattr(model, crud_filter.field).notin_(crud_filter.parsed_value)
 
 
-def _map_contains(model: Type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression:
-    return cast(getattr(model, crud_filter.field), Text).match(
+def _map_contains(model: Type[SQLModel], crud_filter: CrudFilter) -> ColumnElement[bool]:
+    return sql_cast(getattr(model, crud_filter.field), Text).match(
         str(crud_filter.parsed_value)
     )
 
@@ -237,6 +240,8 @@ def _map_contains(model: Type[SQLModel], crud_filter: CrudFilter) -> BinaryExpre
 def _primary_key(sql_model: Type[SQLModel]) -> str:
     for column in sql_model.__table__.primary_key:
         return column.name
+    # Fallback for models without explicit primary key
+    raise ValueError(f"No primary key found for model {sql_model}")
 
 
 async def set_response_count_header(
@@ -448,14 +453,15 @@ async def find_by_json_key(
     selector: Optional[List[BinaryExpression]] = None,
 ) -> List[SQLModel]:
     stmt = select(sql_model).filter(
-        getattr(sql_model, json_column)[json_key] == cast(json_value, JSONB)
+        getattr(sql_model, json_column)[json_key] == sql_cast(json_value, JSONB)
     )
 
     if selector and len(selector) > 0:
         stmt = stmt.where(*selector)
 
     result = await session.execute(stmt)
-    return result.scalars().all()
+    # Convert Sequence to List for type compatibility
+    return list(result.scalars().all())
 
 
 async def update_json_key(

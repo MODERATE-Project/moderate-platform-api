@@ -6,17 +6,8 @@ import uuid
 from io import BytesIO
 from typing import Any, Dict, List, Optional, Union
 
-from fastapi import (
-    APIRouter,
-    BackgroundTasks,
-    File,
-    Form,
-    HTTPException,
-    Query,
-    Response,
-    UploadFile,
-    status,
-)
+from fastapi import (APIRouter, BackgroundTasks, File, Form, HTTPException,
+                     Query, Response, UploadFile, status)
 from pydantic import BaseModel
 from slugify import slugify
 from sqlalchemy import and_, true
@@ -29,43 +20,21 @@ from moderate_api.authz.user import OptionalUserDep, User
 from moderate_api.config import SettingsDep
 from moderate_api.db import AsyncSessionDep
 from moderate_api.entities.asset.models import (
-    Asset,
-    AssetAccessLevels,
-    AssetCreate,
-    AssetRead,
-    AssetUpdate,
-    UploadedS3Object,
-    UploadedS3ObjectRead,
-    UploadedS3ObjectUpdate,
-    filter_object_ids_by_username,
-    find_s3object_by_key_or_id,
-    find_s3object_pending_quality_check,
-    update_s3object_quality_check_flag,
-)
-from moderate_api.entities.crud import (
-    CrudFiltersQuery,
-    CrudSortsQuery,
-    create_one,
-    delete_one,
-    read_many,
-    read_one,
-    select_one,
-    set_response_count_header,
-    update_one,
-)
+    Asset, AssetAccessLevels, AssetCreate, AssetRead, AssetUpdate,
+    UploadedS3Object, UploadedS3ObjectRead, UploadedS3ObjectUpdate,
+    filter_object_ids_by_username, find_s3object_by_key_or_id,
+    find_s3object_pending_quality_check, update_s3object_quality_check_flag)
+from moderate_api.entities.crud import (CrudFiltersQuery, CrudSortsQuery,
+                                        create_one, delete_one, read_many,
+                                        read_one, select_one,
+                                        set_response_count_header, update_one)
 from moderate_api.enums import Actions, Entities, Tags
 from moderate_api.long_running import LongRunningTask, get_task, init_task
 from moderate_api.object_storage import S3ClientDep, ensure_bucket
-from moderate_api.open_metadata import (
-    OMProfile,
-    get_asset_object_profile,
-    search_asset_object,
-)
-from moderate_api.trust import (
-    ProofVerificationResult,
-    create_proof_task,
-    fetch_verify_proof,
-)
+from moderate_api.open_metadata import (OMProfile, get_asset_object_profile,
+                                        search_asset_object)
+from moderate_api.trust import (ProofVerificationResult, create_proof_task,
+                                fetch_verify_proof)
 
 _logger = logging.getLogger(__name__)
 
@@ -75,10 +44,11 @@ _CHUNK_SIZE = 16 * 1024**2
 
 
 async def build_selector(user: User, session: AsyncSession) -> List[BinaryExpression]:
+    # SQLAlchemy column expressions - type: ignore to handle type checker issues
     return [
-        or_(
-            Asset.username == user.username,
-            Asset.access_level == AssetAccessLevels.PUBLIC,
+        or_(  # type: ignore
+            Asset.username == user.username,  # type: ignore
+            Asset.access_level == AssetAccessLevels.PUBLIC,  # type: ignore
         )
     ]
 
@@ -86,13 +56,18 @@ async def build_selector(user: User, session: AsyncSession) -> List[BinaryExpres
 async def build_create_patch(
     user: User, session: AsyncSession
 ) -> Optional[Dict[str, Any]]:
-    return {Asset.username.key: user.username}
+    return {Asset.username.key: user.username}  # type: ignore
 
 
 router = APIRouter()
 
 
 def build_object_key(obj: UploadFile, user: User) -> str:
+    if not obj.filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="File has no filename"
+        )
+
     path_name, ext = os.path.splitext(obj.filename)
     safe_name = slugify(path_name)
 
@@ -113,7 +88,7 @@ async def get_asset_presigned_urls(
     ret = []
 
     for s3_object in asset.objects:
-        download_url = await s3.generate_presigned_url(
+        download_url = await s3.generate_presigned_url(  # type: ignore
             "get_object",
             Params={"Bucket": s3_object.bucket, "Key": s3_object.key},
             ExpiresIn=expiration_secs,
@@ -125,7 +100,7 @@ async def get_asset_presigned_urls(
 
 
 def _user_asset_visibility_selector(
-    user: Union[User, None]
+    user: Union[User, None],
 ) -> Union[BinaryExpression, None]:
     public_visibility_levels = [
         AssetAccessLevels.VISIBLE,
@@ -133,14 +108,14 @@ def _user_asset_visibility_selector(
     ]
 
     if not user:
-        return Asset.access_level.in_(public_visibility_levels)
+        return Asset.access_level.in_(public_visibility_levels)  # type: ignore
 
     if user.is_admin:
         return None
 
-    return or_(
-        Asset.access_level.in_(public_visibility_levels),
-        Asset.username == user.username,
+    return or_(  # type: ignore
+        Asset.access_level.in_(public_visibility_levels),  # type: ignore
+        Asset.username == user.username,  # type: ignore
     )
 
 
@@ -155,19 +130,19 @@ async def _query_search_assets(
     stmt = select(Asset).limit(limit)
 
     if query and len(query) > 0:
-        stmt = stmt.where(Asset.search_vector.match(query))
+        stmt = stmt.where(Asset.search_vector.match(query))  # type: ignore
     else:
-        stmt = stmt.order_by(Asset.created_at.desc())
+        stmt = stmt.order_by(Asset.created_at.desc())  # type: ignore
 
     if where_constraint is not None:
         stmt = stmt.where(where_constraint)
 
     if exclude_mine and user:
-        stmt = stmt.where(or_(Asset.username != user.username, Asset.username == None))
+        stmt = stmt.where(or_(Asset.username != user.username, Asset.username == None))  # type: ignore
 
     result = await session.execute(stmt)
 
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def _query_search_assets_from_objects(
@@ -187,14 +162,14 @@ async def _query_search_assets_from_objects(
         stmt = stmt.where(asset_where_constraint)
 
     if exclude_mine and user:
-        stmt = stmt.where(or_(Asset.username != user.username, Asset.username == None))
+        stmt = stmt.where(or_(Asset.username != user.username, Asset.username == None))  # type: ignore
 
     stmt = (
         stmt.join(UploadedS3Object)
         .where(
-            or_(
-                UploadedS3Object.name.ilike("%{}%".format(query)),
-                UploadedS3Object.key.ilike("%{}%".format(query)),
+            or_(  # type: ignore
+                UploadedS3Object.name.ilike("%{}%".format(query)),  # type: ignore
+                UploadedS3Object.key.ilike("%{}%".format(query)),  # type: ignore
             ),
         )
         .distinct()
@@ -202,7 +177,7 @@ async def _query_search_assets_from_objects(
 
     result = await session.execute(stmt)
 
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def _search_assets(
@@ -263,8 +238,8 @@ router.add_api_route(
 
 
 class AssetObjectProfileResponse(BaseModel):
-    profile: Optional[OMProfile]
-    reason: Optional[str]
+    profile: Optional[OMProfile] = None
+    reason: Optional[str] = None
 
 
 async def _get_asset_object_profile(
@@ -290,8 +265,8 @@ async def _get_asset_object_profile(
 
     stmt = (
         select(UploadedS3Object, Asset)
-        .join(Asset, and_(Asset.id == UploadedS3Object.asset_id, user_selector))
-        .where(UploadedS3Object.id == object_id)
+        .join(Asset, and_(Asset.id == UploadedS3Object.asset_id, user_selector))  # type: ignore
+        .where(UploadedS3Object.id == object_id)  # type: ignore
     )
 
     result = await session.execute(stmt)
@@ -302,7 +277,7 @@ async def _get_asset_object_profile(
 
     try:
         search_result = await search_asset_object(
-            asset_object_key=s3obj.key, settings=settings
+            asset_object_key=s3obj.key, settings=settings  # type: ignore
         )
     except Exception as exc:
         return AssetObjectProfileResponse(
@@ -391,11 +366,18 @@ async def flag_asset_objects_quality_check(
 ):
     """Update the quality check flag for a list of asset objects."""
 
+    # Normalize to list
+    object_ids = (
+        body.asset_object_id
+        if isinstance(body.asset_object_id, list)
+        else [body.asset_object_id]
+    )
+
     if user.is_admin:
-        asset_object_ids = body.asset_object_id
+        asset_object_ids = object_ids
     else:
         asset_object_ids = await filter_object_ids_by_username(
-            object_ids=body.asset_object_id,
+            object_ids=object_ids,
             session=session,
             username=user.username,
         )
@@ -509,9 +491,11 @@ async def upload_object(
     user.enforce_raise(obj=_ENTITY.value, act=Actions.UPDATE.value)
     user_selector = await build_selector(user=user, session=session)
 
+    # Parse tags from JSON string to dict
+    parsed_tags: Optional[Dict] = None
     if tags:
         try:
-            tags = json.loads(tags)
+            parsed_tags = json.loads(tags)
         except Exception as ex:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -536,12 +520,19 @@ async def upload_object(
     obj_key = build_object_key(obj=obj, user=user)
     _logger.info("Uploading object to S3: %s", obj_key)
 
+    # Handle potential None s3 settings
+    if not settings.s3 or not settings.s3.bucket:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="S3 configuration is missing",
+        )
+
     user_bucket = settings.s3.bucket
     _logger.debug("Ensuring user assets bucket exists: %s", user_bucket)
     await ensure_bucket(s3=s3, bucket=user_bucket)
 
     _logger.debug("Creating multipart upload (object=%s)", obj_key)
-    multipart_upload = await s3.create_multipart_upload(Bucket=user_bucket, Key=obj_key)
+    multipart_upload = await s3.create_multipart_upload(Bucket=user_bucket, Key=obj_key)  # type: ignore
 
     parts = []
     part_number = 1
@@ -555,7 +546,7 @@ async def upload_object(
 
         hash_object.update(chunk)
 
-        part = await s3.upload_part(
+        part = await s3.upload_part(  # type: ignore
             Bucket=user_bucket,
             Key=obj_key,
             PartNumber=part_number,
@@ -570,7 +561,7 @@ async def upload_object(
         "Completing multipart upload (object=%s) (chunks=%s)", obj_key, len(parts)
     )
 
-    result_s3_upload = await s3.complete_multipart_upload(
+    result_s3_upload = await s3.complete_multipart_upload(  # type: ignore
         Bucket=user_bucket,
         Key=obj_key,
         UploadId=multipart_upload["UploadId"],
@@ -587,9 +578,10 @@ async def upload_object(
         key=result_s3_upload["Key"],
         location=result_s3_upload["Location"],
         asset_id=the_asset.id,
-        tags=tags,
+        tags=parsed_tags,
         series_id=series_id,
         sha256_hash=sha256_hash,
+        proof_id=None,  # Add missing required field
     )
 
     session.add(uploaded_s3_object)
@@ -605,10 +597,10 @@ async def create_asset(*, user: UserDep, session: AsyncSessionDep, entity: Asset
     entity_create_patch = await build_create_patch(user=user, session=session)
 
     if entity.is_public_ownerless:
-        entity_create_patch.update(
+        entity_create_patch.update(  # type: ignore
             {
-                Asset.username.key: None,
-                Asset.access_level.key: AssetAccessLevels.PUBLIC,
+                Asset.username.key: None,  # type: ignore
+                Asset.access_level.key: AssetAccessLevels.PUBLIC,  # type: ignore
             }
         )
 
@@ -637,8 +629,9 @@ async def _read_assets(
     if user:
         user_selector = await build_selector(user=user, session=session)
     else:
+        # Use proper SQLAlchemy expression for public assets
         user_selector: List[BinaryExpression] = [
-            Asset.access_level == AssetAccessLevels.PUBLIC
+            Asset.access_level == AssetAccessLevels.PUBLIC  # type: ignore
         ]
 
     await set_response_count_header(
@@ -833,6 +826,10 @@ async def _find_enforce_s3obj(
     if not s3object:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
+    # Handle potential None asset relationship
+    if not s3object.asset:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+
     is_asset_owner = (
         s3object.asset.username and s3object.asset.username == user.username
     )
@@ -870,20 +867,20 @@ async def ensure_trust_proof(
     )
 
     if s3object.proof_id:
-        return AssetObjectProofCreationResponse(obj=s3object)
+        return AssetObjectProofCreationResponse(task_id=None, obj=s3object)
 
     task_id = await init_task(session=session, username_owner=user.username)
 
     background_tasks.add_task(
         create_proof_task,
-        task_id=task_id,
+        task_id=str(task_id),  # Convert int to str as expected by the function
         s3object_key_or_id=body.object_key_or_id,
         requester_username=user.username,
         user_did=None,
         create_proof_url=settings.trust_service.url_create_proof(),
     )
 
-    return AssetObjectProofCreationResponse(task_id=task_id)
+    return AssetObjectProofCreationResponse(task_id=task_id, obj=None)
 
 
 @router.get("/proof/task/{task_id}", response_model=LongRunningTask, tags=[_TAG])
