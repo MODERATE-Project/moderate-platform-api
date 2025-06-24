@@ -46,7 +46,7 @@ async def get_task(
 async def set_task_result(
     session: AsyncSession, task_id: int, result: Dict
 ) -> LongRunningTask:
-    the_task = await session.get(LongRunningTask, task_id)
+    the_task = await session.get(LongRunningTask, int(task_id))
     the_task.result = result
     the_task.finished_at = datetime.utcnow()
     _logger.debug("Task finished: %s", the_task)
@@ -58,7 +58,7 @@ async def set_task_result(
 async def set_task_error(
     session: AsyncSession, task_id: int, ex: Exception
 ) -> LongRunningTask:
-    the_task = await session.get(LongRunningTask, task_id)
+    the_task = await session.get(LongRunningTask, int(task_id))
     the_task.error = repr(ex)
     the_task.finished_at = datetime.utcnow()
     _logger.debug("Task errored: %s", the_task)
