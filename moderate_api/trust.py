@@ -1,28 +1,5 @@
-"""
-Trust service integration for asset proofs and DID operations.
-
-This module handles interactions with the Trust API microservice for creating
-asset proofs and managing user DIDs (Decentralized Identifiers).
-
-TEMPORARY WORKAROUND NOTICE:
-This module contains a temporary workaround for username resolution issues in
-the asset system. The workaround infers usernames from S3 key patterns when
-the database-level asset username doesn't match the actual uploader.
-
-Key functions with workaround logic:
-- _infer_username_from_asset_key(): Extracts username from '<username>-assets/*' pattern
-- create_proof_task(): Uses inferred username when database username is inconsistent
-
-TODO: Remove the workaround once the underlying asset ownership issue is resolved.
-The root cause is that assets can have multiple objects uploaded by different users,
-but the username is currently stored at the asset level in the database.
-
-Search for "TEMPORARY WORKAROUND" comments to locate all related code.
-"""
-
 import logging
 import pprint
-import re
 from functools import wraps
 from typing import Optional, Union
 
@@ -43,45 +20,6 @@ _TIMEOUT_SECS_HIGH = 600
 _TIMEOUT_SECS_LOW = 30
 
 _logger = logging.getLogger(__name__)
-
-
-def _infer_username_from_asset_key(asset_key: str) -> Optional[str]:
-    """
-    TEMPORARY WORKAROUND: Infer username from asset key pattern.
-
-    This function attempts to extract the username from asset keys that follow
-    the pattern '<username>-assets/*'. This is a temporary solution to address
-    cases where the database-level asset username doesn't match the actual
-    uploader of individual asset objects.
-
-    TODO: Remove this workaround once the underlying asset ownership issue
-    is properly fixed. The root cause is that assets can have multiple objects
-    uploaded by different users, but the username is stored at the asset level.
-
-    Args:
-        asset_key (str): The S3 object key to analyze
-
-    Returns:
-        Optional[str]: The inferred username if pattern matches, None otherwise
-    """
-
-    # Pattern: <username>-assets/*
-    # Note: Username can contain hyphens, but must end with '-assets/'
-    pattern = r"^(.+?)-assets/"
-    match = re.match(pattern, asset_key)
-
-    if match:
-        username = match.group(1)
-
-        # Ensure username is not empty
-        if username:
-            _logger.debug(
-                "Inferred username '%s' from asset key pattern: %s", username, asset_key
-            )
-            return username
-
-    _logger.debug("Could not infer username from asset key: %s", asset_key)
-    return None
 
 
 def _handle_task_error(func):
@@ -167,42 +105,9 @@ async def create_proof_task(
         if s3obj.proof_id:
             raise ValueError(f"Asset object '{s3object_key_or_id}' already has a proof")
 
-        # TEMPORARY WORKAROUND: Check if we should use username inferred from key pattern
-        # TODO: Remove this workaround once asset ownership is properly handled
-        # The issue is that assets can have multiple objects uploaded by different users,
-        # but the username is stored at the asset level in the database.
-
-        inferred_username = _infer_username_from_asset_key(s3obj.key)
-        database_username = s3obj.asset.username  # type: ignore
-
-        if (
-            inferred_username
-            and database_username
-            and inferred_username != database_username
-        ):
-            _logger.warning(
-                "TEMPORARY WORKAROUND: Using inferred username '%s' from key pattern instead of "
-                "database username '%s' for asset object '%s'. This indicates a data consistency issue.",
-                inferred_username,
-                database_username,
-                s3obj.key,
-            )
-
-            default_proof_owner_username = inferred_username
-        elif inferred_username and not database_username:
-            _logger.info(
-                "TEMPORARY WORKAROUND: Using inferred username '%s' from key pattern for "
-                "asset object '%s' with no database username.",
-                inferred_username,
-                s3obj.key,
-            )
-
-            default_proof_owner_username = inferred_username
-        else:
-            # Use original logic as fallback
-            default_proof_owner_username = (
-                database_username if database_username else requester_username
-            )
+        default_proof_owner_username = (
+            s3obj.asset.username if s3obj.asset.username else requester_username
+        )
 
         if not user_did:
             _logger.debug(
