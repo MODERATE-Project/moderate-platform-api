@@ -132,7 +132,7 @@ async def create_proof_task(
                 "did": user_did,
             }
 
-            _logger.debug(
+            _logger.info(
                 "Calling %s with payload:\n%s",
                 create_proof_url,
                 pprint.pformat(json_payload),
