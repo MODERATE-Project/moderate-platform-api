@@ -35,6 +35,8 @@ services:
       MONGO_ENDPOINT_D: mongodb:27017
       MONGO_DATABASE: ${MONGO_DATABASE:-moderate}
       RUNNING_IN_DOCKER: "true"
+    volumes:
+      - trust_data:/var/lib/trust
   ipfs:
     image: ipfs/kubo:latest
     restart: on-failure
@@ -45,3 +47,4 @@ services:
 volumes:
   mongo_data: {}
   ipfs_data: {}
+  trust_data: {}
