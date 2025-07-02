@@ -42,21 +42,28 @@ services:
       - ${DEV_KEYCLOAK_PORT:-8080}:8080
     command: [start-dev]
     environment:
+      # Bootstrap admin user
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN_USER}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
-      KC_PROXY: edge
-      KC_LOG_CONSOLE_COLOR: "true"
-      KC_LOG_LEVEL: debug
+      # Configuration reference:
+      # https://github.com/keycloak/keycloak/tree/22.0.0/quarkus/config-api/src/main/java/org/keycloak/config
+      # Logging
+      KC_LOG_CONSOLE_COLOR: true
+      KC_LOG_LEVEL: info
+      # Database
       KC_DB: postgres
       KC_DB_USERNAME: ${POSTGRES_USER}
       KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
       KC_DB_URL_PORT: 5432
       KC_DB_URL_DATABASE: ${KEYCLOAK_POSTGRES_DBNAME}
       KC_DB_URL_HOST: postgres
-      KC_HTTP_ENABLED: "true"
-      KC_HOSTNAME_STRICT: "false"
-      KC_HOSTNAME_STRICT_HTTPS: "false"
-      PROXY_ADDRESS_FORWARDING: "true"
+      # HTTP
+      KC_HTTP_ENABLED: true
+      KC_HTTP_PORT: 8080
+      # Hostname
+      KC_HOSTNAME_STRICT: false
+      KC_HOSTNAME_STRICT_HTTPS: false
+      KC_HOSTNAME_STRICT_BACKCHANNEL: false
       # It is crucial to set the frontend URL for Keycloak to avoid errors
       # when the token introspection endpoint is called using a different
       # hostname from the one originally used to issue the token
@@ -84,14 +91,16 @@ services:
       retries: 3
       start_period: 40s
   keycloak_init:
-    image: agmangas/moderate-cli:0.5.0
+    image: agmangas/moderate-cli:0.6.0
     restart: on-failure
     command:
-      [
-        /bin/bash,
-        -c,
-        moderatecli create-keycloak-realm && moderatecli create-apisix-client && moderatecli create-ui-client,
-      ]
+      - /bin/bash
+      - -c
+      - |
+        set -xe
+        moderatecli create-keycloak-realm
+        moderatecli create-apisix-client  
+        moderatecli create-ui-client
     environment:
       KEYCLOAK_URL: http://keycloak:8080
       KEYCLOAK_ADMIN_USER: ${KEYCLOAK_ADMIN_USER}
@@ -105,6 +114,34 @@ services:
       UI_REDIRECT_URIS: "*"
     depends_on:
       - keycloak
+  # A Docker networking update likely caused Keycloak to require HTTPS when
+  # accessing from localhost while "Require SSL" was set to "External". This
+  # container disables SSL requirements for all realms to work around this issue.
+  keycloak_ssl_disable:
+    image: quay.io/keycloak/keycloak:22.0
+    restart: on-failure
+    entrypoint: []
+    command:
+      - /bin/bash
+      - -c
+      - |
+        set -xe
+        /opt/keycloak/bin/kcadm.sh config credentials \
+          --server http://keycloak:8080 \
+          --realm master \
+          --user ${KEYCLOAK_ADMIN_USER} \
+          --password ${KEYCLOAK_ADMIN_PASSWORD}
+        if ! /opt/keycloak/bin/kcadm.sh get realms/moderate > /dev/null 2>&1; then
+          echo "Error: moderate realm does not exist"
+          exit 1
+        fi
+        /opt/keycloak/bin/kcadm.sh update realms/moderate -s sslRequired=NONE
+        /opt/keycloak/bin/kcadm.sh update realms/master -s sslRequired=NONE
+    environment:
+      KEYCLOAK_ADMIN_USER: ${KEYCLOAK_ADMIN_USER}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+    depends_on:
+      - keycloak_init
   minio:
     image: minio/minio:RELEASE.2023-11-15T20-43-25Z
     command: server /data --console-address ":9001"
