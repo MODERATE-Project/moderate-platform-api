@@ -8,17 +8,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import Field, SQLModel, select
 
 from moderate_api.authz import User
-from moderate_api.authz.user import User
 from moderate_api.db import AsyncSessionDep
 from moderate_api.entities.access_request.models import valid_access_request_exists
 from moderate_api.entities.asset.models import Asset, AssetAccessLevels
 from moderate_api.enums import WorkflowJobTypes
+from moderate_api.utils.factories import now_factory
 
 _DEFAULT_JOB_DEBOUNCE_SECS = 10
-
-
-def _now_factory() -> datetime:
-    return datetime.now(tz=timezone.utc).replace(tzinfo=None)
 
 
 class WorkflowJob(SQLModel, table=True):
@@ -26,7 +22,7 @@ class WorkflowJob(SQLModel, table=True):
     job_type: WorkflowJobTypes
     arguments: Optional[Dict] = Field(default=None, sa_column=Column(JSONB))
     results: Optional[Dict] = Field(default=None, sa_column=Column(JSONB))
-    created_at: datetime = Field(default_factory=_now_factory, index=True)
+    created_at: datetime = Field(default_factory=now_factory, index=True)
     finalised_at: Optional[datetime] = Field(default=None, index=True)
     creator_username: str
 

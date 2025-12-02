@@ -1,7 +1,7 @@
 import dataclasses
 import logging
 import pprint
-from typing import Dict, List, Union
+from typing import Dict, List, Optional, TypeVar, Union
 
 import casbin
 from fastapi import Depends, HTTPException, Request, status
@@ -11,6 +11,8 @@ from moderate_api.authz.enforcer import debug_enforcer, get_enforcer
 from moderate_api.authz.enums import TokenFields
 from moderate_api.authz.token import get_request_token
 from moderate_api.config import Settings, SettingsDep
+
+T = TypeVar("T")
 
 _logger = logging.getLogger(__name__)
 
@@ -92,6 +94,42 @@ class User:
 
         if not self.enforcer.enforce(self.username, obj, act):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+
+    def apply_admin_bypass(
+        self, value: T, admin_value: Optional[T] = None
+    ) -> Optional[T]:
+        """Apply admin bypass logic to a value.
+
+        Returns admin_value if user is admin, otherwise returns value.
+        This is useful for conditional logic like user selectors or filters.
+
+        Args:
+            value: The value to return for non-admin users.
+            admin_value: The value to return for admin users (default: None).
+
+        Returns:
+            admin_value if user is admin, otherwise value.
+
+        Example:
+            >>> user_selector = user.apply_admin_bypass(selector)
+            >>> # Returns None for admins, selector for regular users
+        """
+        return admin_value if self.is_admin else value
+
+    def get_username_filter(self) -> Optional[str]:
+        """Get username filter for queries.
+
+        Returns None for admins (no filter), username for regular users.
+        This is useful for filtering queries by username ownership.
+
+        Returns:
+            None if user is admin, otherwise the username.
+
+        Example:
+            >>> username_filter = user.get_username_filter()
+            >>> # Returns None for admins, username for regular users
+        """
+        return None if self.is_admin else self.username
 
 
 async def _get_user(request: Request, settings: Settings) -> User:

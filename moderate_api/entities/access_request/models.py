@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional
 
 from sqlmodel import Field, Relationship, SQLModel, select
@@ -7,12 +7,9 @@ from sqlmodel import Field, Relationship, SQLModel, select
 from moderate_api.authz.user import User
 from moderate_api.db import AsyncSessionDep
 from moderate_api.entities.asset.models import Asset
+from moderate_api.utils.factories import now_factory
 
 _logger = logging.getLogger(__name__)
-
-
-def _now_factory() -> datetime:
-    return datetime.now(tz=timezone.utc).replace(tzinfo=None)
 
 
 class AccessRequestBase(SQLModel):
@@ -23,7 +20,7 @@ class AccessRequest(AccessRequestBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     requester_username: str
     allowed: Optional[bool] = Field(default=None, nullable=True)
-    created_at: datetime = Field(default_factory=_now_factory, index=True)
+    created_at: datetime = Field(default_factory=now_factory, index=True)
     validated_at: Optional[datetime] = Field(default=None, nullable=True)
     validator_username: Optional[str] = Field(default=None, nullable=True)
     asset_id: int = Field(foreign_key="asset.id")

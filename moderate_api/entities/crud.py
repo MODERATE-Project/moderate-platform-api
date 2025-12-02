@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional, Type, TypeVar, Union, cast
 
 import arrow
-from fastapi import HTTPException, Query, Response, status
+from fastapi import Query, Response
 from pydantic import BaseModel
 from sqlalchemy import Text, asc, cast as sql_cast, desc, func
 from sqlalchemy.dialects.postgresql import JSONB
@@ -19,6 +19,7 @@ from sqlmodel import SQLModel, select
 from moderate_api.authz import User
 from moderate_api.config import get_settings
 from moderate_api.enums import Actions, Entities
+from moderate_api.utils.exceptions import raise_bad_request, raise_not_found
 
 _logger = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ _REGEX_DTTM_ISO = (
 _REGEX_LIST = r"(?<!\[)\b\w+\b(?:(?:\s*,\s*\b\w+\b)+)(?!\])"
 
 # Generic type variable for better type safety
-T = TypeVar('T', bound=BaseModel)
+T = TypeVar("T", bound=BaseModel)
 
 
 def _models_from_json(
@@ -87,10 +88,7 @@ class CrudSort(BaseModel):
             )
         except Exception as ex:
             _logger.debug("Failed to parse JSON-encoded CRUD sorters", exc_info=True)
-
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail=str(ex)
-            ) from ex
+            raise_bad_request(detail=str(ex))
 
     def get_expression(self, model: Type[SQLModel]) -> UnaryExpression:
         if self.order == "asc":
@@ -163,10 +161,7 @@ class CrudFilter(BaseModel):
             )
         except Exception as ex:
             _logger.debug("Failed to parse JSON-encoded CRUD filters", exc_info=True)
-
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail=str(ex)
-            ) from ex
+            raise_bad_request(detail=str(ex))
 
     @property
     def parsed_value(self) -> Union[datetime, int, float, str, bool, List, None]:
@@ -231,7 +226,9 @@ def _map_nin(model: Type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression
     return getattr(model, crud_filter.field).notin_(crud_filter.parsed_value)
 
 
-def _map_contains(model: Type[SQLModel], crud_filter: CrudFilter) -> ColumnElement[bool]:
+def _map_contains(
+    model: Type[SQLModel], crud_filter: CrudFilter
+) -> ColumnElement[bool]:
     return sql_cast(getattr(model, crud_filter.field), Text).match(
         str(crud_filter.parsed_value)
     )
@@ -354,7 +351,7 @@ async def select_one(
     entity = result.one_or_none()
 
     if not entity:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+        raise_not_found()
 
     return entity[0]
 
@@ -378,7 +375,7 @@ async def read_one(
         sql_model=sql_model,
         entity_id=entity_id,
         session=session,
-        user_selector=user_selector if not user.is_admin else None,
+        user_selector=user.apply_admin_bypass(user_selector),
         select_in_load=select_in_load,
     )
 
@@ -402,7 +399,7 @@ async def update_one(
         sql_model=sql_model,
         entity_id=entity_id,
         session=session,
-        user_selector=user_selector if not user.is_admin else None,
+        user_selector=user.apply_admin_bypass(user_selector),
     )
 
     entity_data = entity_update.model_dump(exclude_unset=True)
@@ -435,7 +432,7 @@ async def delete_one(
         sql_model=sql_model,
         entity_id=entity_id,
         session=session,
-        user_selector=user_selector if not user.is_admin else None,
+        user_selector=user.apply_admin_bypass(user_selector),
     )
 
     await session.delete(db_entity)

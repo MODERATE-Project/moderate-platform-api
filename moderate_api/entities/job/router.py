@@ -10,7 +10,6 @@ from sqlalchemy.sql.elements import BinaryExpression
 from sqlmodel import or_, select
 
 from moderate_api.authz import User, UserDep
-from moderate_api.authz.user import User
 from moderate_api.db import AsyncSessionDep
 from moderate_api.entities.asset.models import UploadedS3Object
 from moderate_api.entities.crud import (

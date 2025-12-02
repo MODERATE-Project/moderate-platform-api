@@ -8,7 +8,6 @@ from sqlalchemy.sql.elements import BinaryExpression
 from sqlmodel import or_
 
 from moderate_api.authz import User, UserDep
-from moderate_api.authz.user import User
 from moderate_api.config import SettingsDep
 from moderate_api.db import AsyncSessionDep
 from moderate_api.entities.crud import (

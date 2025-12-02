@@ -1,7 +1,6 @@
 import enum
 import os
-import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
 from pydantic import validator
@@ -12,6 +11,7 @@ from sqlmodel import Field, Relationship, SQLModel
 from moderate_api.db import AsyncSessionDep, build_tsvector_computed
 from moderate_api.entities.crud import find_by_json_key, update_json_key
 from moderate_api.object_storage import S3ClientDep
+from moderate_api.utils.factories import now_factory, uuid_factory
 
 
 class S3ObjectWellKnownMetaKeys(enum.Enum):
@@ -24,26 +24,18 @@ class AssetAccessLevels(enum.Enum):
     VISIBLE = "visible"
 
 
-def _uuid_factory() -> str:
-    return str(uuid.uuid4())
-
-
-def _now_factory() -> datetime:
-    return datetime.now(tz=timezone.utc).replace(tzinfo=None)
-
-
 class AssetBase(SQLModel):
-    uuid: str = Field(default_factory=_uuid_factory)
+    uuid: str = Field(default_factory=uuid_factory)
     name: str
     description: Optional[str] = Field(default=None, sa_column=Column(Text))
     meta: Optional[Dict] = Field(default=None, sa_column=Column(JSONB))
-    created_at: datetime = Field(default_factory=_now_factory, index=True)
+    created_at: datetime = Field(default_factory=now_factory, index=True)
 
 
 class UploadedS3ObjectBase(SQLModel):
     key: str = Field(unique=True)
     tags: Optional[Dict] = Field(default=None, sa_column=Column(JSONB))
-    created_at: datetime = Field(default_factory=_now_factory, index=True)
+    created_at: datetime = Field(default_factory=now_factory, index=True)
     series_id: Optional[str]
     sha256_hash: str
     proof_id: Optional[str]
@@ -99,7 +91,7 @@ class UploadedS3Object(UploadedS3ObjectBase, table=True):
 
 class Asset(AssetBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    uuid: str = Field(default_factory=_uuid_factory, unique=True)
+    uuid: str = Field(default_factory=uuid_factory, unique=True)
     username: Optional[str]
     access_level: AssetAccessLevels = Field(default=AssetAccessLevels.PRIVATE)
 
