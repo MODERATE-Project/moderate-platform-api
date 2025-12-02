@@ -18,6 +18,81 @@ The API integrates with:
 - **Trust Services** (optional - IOTA DLT cryptographic proofs)
 - **OpenMetadata** (optional - data discovery and profiling)
 
+## General Workflow
+
+- **User-Guided Planning:** For non-trivial or unclear features, begin with brief, user-centric planning. Ask questions to remove ambiguity.
+- **Simplicity First:** Keep implementation and logic straightforward. Only include third-party dependencies with clear justification.
+- **Functional Structure:** Organize files/directories by feature to maximize maintainability and ease onboarding.
+- **Focused Files:** Keep files concise; split when scope grows or clarity suffers.
+- **Consistent Style:** Apply uniform naming and syntax conventions across the codebase.
+- **Repo Hygiene:** Maintain clean repositories—remove dead code, unnecessary comments, unused files, and avoid inline CSS/styles.
+
+## Code Style Guidelines
+
+### React / Frontend
+
+- **Components:** Use only functional components with hooks. Avoid class-based components.
+- **Naming:** Component and file names must be `PascalCase`; props, events, functions, and variables use `camelCase`.
+- **State:** Prefer local, derived state. Use `useReducer` for complex logic. State should be lifted only when necessary.
+- **File Structure:** One component per file, unless trivial. Styles and tests should be co-located. Use index files for exports.
+- **Styling:** Avoid inline CSS; use framework's recommended styling solutions (Refine/Mantine components).
+- **TypeScript:**
+  - Enable strict typing. Avoid `any`; prefer `unknown` and narrow as needed.
+  - Use explicit return types for all functions.
+  - Use `interface` for objects/props, `type` for unions/intersections.
+  - Leverage built-in types (`Pick`, `Omit`, `Partial`) and optional chaining (`?.`).
+
+### Python / Backend
+
+- **Formatting:** Enforce PEP 8 formatting: 4-space indentation, 79-character max lines.
+  - Run formatter: `poetry run black moderate_api/ tests/`
+- **Naming:** Functions and variables are `snake_case`. Classes are `PascalCase`.
+- **Type Hints:** Use type hints (PEP 484) for all functions and class attributes.
+- **Docstrings:** Every public function/class/module uses Google-style docstrings with clear sections for Args, Returns, Raises.
+- **Imports:** Grouped and ordered: standard library, third-party, local. Avoid wildcard imports.
+- **Models:** Follow SQLModel inheritance pattern (`*Base`, `*Create`, `*Update`, `*Read`).
+
+### CSS
+
+- **Frameworks:** Prefer framework-native (Mantine) and utility classes over custom CSS.
+- **BEM:** When custom CSS is used, follow the BEM (`.block__element--modifier`) methodology.
+- **Variables:** Define theme variables as CSS custom properties in the root selector.
+- **Layout:** Use Grid and Flexbox. Avoid floats or absolute positioning for primary layouts.
+
+### JavaScript
+
+- **Variables:** Use `const` by default, `let` if reassignment is needed. No `var`.
+- **Functions:** Arrow functions for callbacks and function expressions.
+- **Equality:** Always use strict equality (`===`, `!==`).
+- **Immutability:** Prefer immutable operations (spread syntax, map, filter).
+- **Async:** Use `async`/`await` and proper error handling via `try/catch`.
+
+## Universal Dos/Don'ts
+
+**Do:**
+
+- Clarify requirements with short planning, especially for ambiguous work.
+- Search codebase and online for patterns before complex implementation.
+- Confirm framework/library versions before writing code.
+- Make atomic, descriptive commits.
+- Generate automated smoke tests for key logic.
+- Document reasoning behind key code decisions.
+- Ensure code passes local lint/build before pushing.
+- Sanitize inputs and follow security best practices.
+
+**Don't:**
+
+- Add dependencies unless native APIs are insufficient.
+- Leave dependency versions unpinned.
+- Make large, unfocused commits.
+- Work outside of a git directory.
+- Commit secrets—use env vars.
+- Hardcode values; use named constants/config.
+- Over-optimize before profiling.
+- Ignore errors; handle all failures visibly.
+- Rely on mutable globals.
+- Leave dead code or commented-out sections.
+
 ## Development Commands
 
 ### Setup and Running
@@ -84,14 +159,6 @@ Stop test dependencies:
 
 ```bash
 task test-deps-down
-```
-
-### Code Quality
-
-Format code with Black:
-
-```bash
-poetry run black moderate_api/ tests/
 ```
 
 ### Database Migrations
