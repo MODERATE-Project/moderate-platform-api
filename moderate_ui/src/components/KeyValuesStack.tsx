@@ -14,24 +14,19 @@ import { IconCheck, IconCopy } from "@tabler/icons-react";
 import _ from "lodash";
 import React from "react";
 import { AssetAccessLevel } from "../api/types";
+import {
+  ACCESS_LEVEL_COLORS,
+  ACCESS_LEVEL_TOOLTIP_KEYS,
+  ACCESS_LEVEL_TOOLTIPS,
+} from "../utils/accessLevel";
 
 const STATUS_COLORS: Record<string, string> = {
   active: "green",
   success: "green",
-  public: "green",
-  visible: "cyan",
-  private: "red",
   inactive: "gray",
   pending: "yellow",
   failed: "red",
   error: "red",
-};
-
-const ACCESS_LEVEL_TOOLTIPS: Record<string, string> = {
-  [AssetAccessLevel.PRIVATE]: "Only you and platform admins can see this asset",
-  [AssetAccessLevel.VISIBLE]:
-    "Everyone can see metadata, but access requires approval",
-  [AssetAccessLevel.PUBLIC]: "Everyone can see and download this asset",
 };
 
 const RenderedValue: React.FC<{ value: any; theKey: string }> = ({
@@ -53,8 +48,12 @@ const RenderedValue: React.FC<{ value: any; theKey: string }> = ({
     theKey === "access_level" &&
     Object.values(AssetAccessLevel).includes(value as AssetAccessLevel)
   ) {
-    const tooltip = ACCESS_LEVEL_TOOLTIPS[value as string] || "Access Level";
-    const color = STATUS_COLORS[value as string] || "gray";
+    const accessLevel = value as AssetAccessLevel;
+    const tooltip = translate(
+      ACCESS_LEVEL_TOOLTIP_KEYS[accessLevel],
+      ACCESS_LEVEL_TOOLTIPS[accessLevel],
+    );
+    const color = ACCESS_LEVEL_COLORS[accessLevel];
     return (
       <Tooltip
         label={tooltip}

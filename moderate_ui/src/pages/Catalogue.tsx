@@ -152,7 +152,7 @@ export const Catalogue: React.FC = () => {
       dateFilter,
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, performSearch, includeMine, sortBy, fileFormatFilter, dateFilter]);
+  }, [open, performSearch, sortBy, fileFormatFilter, dateFilter]);
 
   const numResults = useMemo(() => {
     if (!assets) {
@@ -259,6 +259,14 @@ export const Catalogue: React.FC = () => {
               if (assets) {
                 setTouched(true);
               }
+              performSearch(
+                searchQuery,
+                newValue,
+                sortBy,
+                undefined,
+                fileFormatFilter,
+                dateFilter,
+              );
             }}
             label={
               <Group spacing="xs">

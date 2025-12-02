@@ -17,13 +17,12 @@ import {
 import React, { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
+import { Asset, AssetModel, AssetObject, AssetObjectModel } from "../api/types";
 import {
-  Asset,
-  AssetAccessLevel,
-  AssetModel,
-  AssetObject,
-  AssetObjectModel,
-} from "../api/types";
+  ACCESS_LEVEL_COLORS,
+  ACCESS_LEVEL_TOOLTIP_KEYS,
+  ACCESS_LEVEL_TOOLTIPS,
+} from "../utils/accessLevel";
 import { routes } from "../utils/routes";
 
 export const AssetObjectCard: React.FC<{
@@ -58,27 +57,20 @@ export const AssetObjectCard: React.FC<{
         label: t("catalogue.card.accessLevel", "Access level"),
         value: (
           <Tooltip
-            label={
-              assetModel.data.access_level === AssetAccessLevel.PUBLIC
-                ? t(
-                    "asset.fields.accessLevelPublic",
-                    "Public: Visible and downloadable by everyone",
-                  )
-                : assetModel.data.access_level === AssetAccessLevel.VISIBLE
-                  ? t(
-                      "asset.fields.accessLevelVisible",
-                      "Visible: Searchable by everyone, but only downloadable by you",
-                    )
-                  : t(
-                      "asset.fields.accessLevelPrivate",
-                      "Private: Only visible and downloadable by you",
-                    )
-            }
+            label={t(
+              ACCESS_LEVEL_TOOLTIP_KEYS[assetModel.data.access_level],
+              ACCESS_LEVEL_TOOLTIPS[assetModel.data.access_level],
+            )}
             multiline
             withArrow
           >
             <Box sx={{ cursor: "help", display: "inline-block" }}>
-              <Badge color="gray">{assetModel.data.access_level}</Badge>
+              <Badge
+                color={ACCESS_LEVEL_COLORS[assetModel.data.access_level]}
+                variant="light"
+              >
+                {assetModel.data.access_level}
+              </Badge>
             </Box>
           </Tooltip>
         ),
@@ -120,7 +112,7 @@ export const AssetObjectCard: React.FC<{
       </Button>
       <Stack spacing="xs">
         {features.map((feature, idx) => (
-          <Group spacing={0} position="left" key={idx}>
+          <Group spacing="md" position="left" key={idx}>
             <Group spacing="xs" noWrap>
               <feature.icon size="1rem" />
               <Text color="dimmed" size="sm">
