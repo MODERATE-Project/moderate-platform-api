@@ -11,9 +11,9 @@ import { useNotification, useTranslate } from "@refinedev/core";
 import { IconFile } from "@tabler/icons";
 import { IconUpload, IconX } from "@tabler/icons-react";
 import React, { useState } from "react";
-import { uploadObject } from "../api/assets";
 import { AssetModel } from "../api/types";
 import { catchErrorAndShow } from "../utils";
+import { uploadMultipleFiles, UploadProgress } from "../utils/upload";
 
 export const AssetObjectDropzone: React.FC<{
   asset: AssetModel;
@@ -25,7 +25,7 @@ export const AssetObjectDropzone: React.FC<{
   const [isLoading, setIsLoading] = useState(false);
 
   const [uploadingFile, setUploadingFile] = useState<
-    { name: string; progress: number } | undefined
+    UploadProgress | undefined
   >(undefined);
 
   const { open } = useNotification();
@@ -35,18 +35,16 @@ export const AssetObjectDropzone: React.FC<{
   return (
     <Dropzone
       onDrop={(filesWithPath) => {
-        console.debug("Dropzone.onDrop", filesWithPath);
-
         if (filesWithPath.length + asset.getObjects().length > maxFiles) {
           open &&
             open({
               description: t(
                 "asset.dropFiles.tooManyFiles",
-                "Too many dataset files"
+                "Too many dataset files",
               ),
               message: t(
                 "asset.dropFiles.tooManyFilesDescription",
-                "Maximum file limit reached for this asset"
+                "Maximum file limit reached for this asset",
               ),
               type: "error",
             });
@@ -54,39 +52,23 @@ export const AssetObjectDropzone: React.FC<{
           return;
         }
 
-        const uploadPromiseFuncs = filesWithPath.map((file) => {
-          return () => {
-            setUploadingFile({ name: file.name, progress: 0 });
-
-            return uploadObject({
-              assetId: asset.data.id,
-              file,
-              onProgress: (progress) => {
-                console.debug("Dropzone.onDrop.onProgress", file, progress);
-                setUploadingFile({ name: file.name, progress });
-              },
-            });
-          };
-        });
-
         setIsLoading(true);
 
-        const allUploads = uploadPromiseFuncs.reduce(
-          (prevPromise, currPromiseFunc) => {
-            return prevPromise.then(currPromiseFunc);
+        uploadMultipleFiles(
+          String(asset.data.id),
+          filesWithPath,
+          (progress) => {
+            setUploadingFile(progress);
           },
-          Promise.resolve({})
-        );
-
-        allUploads
+        )
           .catch(
             (err) =>
               open &&
               catchErrorAndShow(
                 open,
                 t("asset.dropFiles.uploadError", "Error uploading file"),
-                err
-              )
+                err,
+              ),
           )
           .then(() => {
             setIsLoading(false);
@@ -103,7 +85,7 @@ export const AssetObjectDropzone: React.FC<{
           open({
             description: t(
               "asset.dropFiles.rejectedFile",
-              "Unable to upload file"
+              "Unable to upload file",
             ),
             message: errMsgs && errMsgs.length > 0 ? errMsgs[0] : "",
             type: "error",
@@ -118,7 +100,7 @@ export const AssetObjectDropzone: React.FC<{
             return {
               code: "invalid-extension",
               message: `Invalid file extension. Supported extensions: ${validExts.join(
-                ", "
+                ", ",
               )}`,
             };
           }
@@ -139,7 +121,7 @@ export const AssetObjectDropzone: React.FC<{
               <Stack spacing="xs">
                 <Text color="dimmed">
                   {t("asset.dropFiles.uploading", "Uploading")}{" "}
-                  <code>{uploadingFile.name}</code>
+                  <code>{uploadingFile.fileName}</code>
                 </Text>
                 <Progress
                   value={uploadingFile.progress}
@@ -169,7 +151,7 @@ export const AssetObjectDropzone: React.FC<{
           <Text size="sm" color="dimmed" inline mt={7}>
             {t(
               "asset.dropFiles.description",
-              "The dataset files will be uploaded to the MODERATE platform and attached to the current asset"
+              "The dataset files will be uploaded to the MODERATE platform and attached to the current asset",
             )}
           </Text>
         </div>

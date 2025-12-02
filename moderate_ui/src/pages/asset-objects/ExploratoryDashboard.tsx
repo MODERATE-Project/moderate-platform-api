@@ -38,11 +38,11 @@ export const AssetObjectExploratoryDashboard: React.FC = () => {
   const [alertClosed, setAlertClosed] = useState(false);
 
   const [error, setError] = useState<{ [k: string]: any } | undefined>(
-    undefined
+    undefined,
   );
 
   const [dashboardHtml, setDashboardHtml] = useState<string | undefined>(
-    undefined
+    undefined,
   );
 
   const [isSampled, setIsSampled] = useState<
@@ -63,7 +63,7 @@ export const AssetObjectExploratoryDashboard: React.FC = () => {
     }
 
     return asset?.objects.find(
-      (item: { [key: string]: any }) => item.id == params?.objectId
+      (item: { [key: string]: any }) => item.id == params?.objectId,
     );
   }, [data, params]);
 
@@ -107,7 +107,7 @@ export const AssetObjectExploratoryDashboard: React.FC = () => {
             <Text color="dimmed">
               {t(
                 "assetObjects.dashboard.loadingMessage",
-                "We're preparing the dashboard to explore the dataset. Please wait, this process may take several minutes, depending on your connection."
+                "We're preparing the dashboard to explore the dataset. Please wait, this process may take several minutes, depending on your connection.",
               )}
             </Text>
           </Stack>
@@ -126,7 +126,7 @@ export const AssetObjectExploratoryDashboard: React.FC = () => {
         >
           {t(
             "assetObjects.dashboard.noResultsDescription",
-            "It is likely that the dataset is too large to be displayed in the exploratory dashboard. Please check the error message below."
+            "It is likely that the dataset is too large to be displayed in the exploratory dashboard. Please check the error message below.",
           )}
           {error?.response?.data?.detail && (
             <Box mt="sm" mb={0}>
@@ -142,7 +142,7 @@ export const AssetObjectExploratoryDashboard: React.FC = () => {
               icon={<IconFlask size="1rem" />}
               title={t(
                 "assetObjects.dashboard.experimentAlertTitle",
-                "Experimental feature"
+                "Experimental feature",
               )}
               color="yellow"
               withCloseButton
@@ -150,7 +150,7 @@ export const AssetObjectExploratoryDashboard: React.FC = () => {
             >
               {t(
                 "assetObjects.dashboard.experimentAlertMessage",
-                "This feature is experimental. You may experience some performance issues while using it."
+                "This feature is experimental. You may experience some performance issues while using it.",
               )}
             </Alert>
           )}
@@ -159,7 +159,7 @@ export const AssetObjectExploratoryDashboard: React.FC = () => {
               icon={<IconInfoCircle size="1rem" />}
               title={t(
                 "assetObjects.dashboard.sampledDataAlertTitle",
-                "Sampled data"
+                "Sampled data",
               )}
               color="blue"
             >
@@ -169,7 +169,7 @@ export const AssetObjectExploratoryDashboard: React.FC = () => {
                   isSampled.samplingFraction
                     ? `Sampling fraction: ${isSampled.samplingFraction}`
                     : `Sampling size: ${isSampled.samplingSize}`
-                }`
+                }`,
               )}
             </Alert>
           )}

@@ -15,7 +15,7 @@ axiosInstance.interceptors.response.use(
     };
 
     return Promise.reject(customError);
-  }
+  },
 );
 
 export { axiosInstance };

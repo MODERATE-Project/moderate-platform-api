@@ -54,10 +54,10 @@ const MatrixProfileWorkflowAnalysisVariableStep: React.FC<{
       <TextInput
         icon={<IconVariable size="1em" />}
         placeholder={t(
-          "Input the column variable from your dataset that will be the focus of the analysis"
+          "Input the column variable from your dataset that will be the focus of the analysis",
         )}
         description={t(
-          "The variable name used for the analysis (i.e., the column in the CSV containing the electrical load under analysis)."
+          "The variable name used for the analysis (i.e., the column in the CSV containing the electrical load under analysis).",
         )}
         value={variableInputValue}
         onChange={(event) => setVariableInputValue(event.currentTarget.value)}
@@ -110,7 +110,7 @@ const MatrixProfileWorkflowResultsStep: React.FC<{
               </ThemeIcon>
               <Text>
                 {t(
-                  "The job has been queued. Please wait a few minutes; this may take a while."
+                  "The job has been queued. Please wait a few minutes; this may take a while.",
                 )}
               </Text>
             </Group>
@@ -124,7 +124,7 @@ const MatrixProfileWorkflowResultsStep: React.FC<{
                 </ThemeIcon>
                 <Text>
                   {t(
-                    "The job has finished running. You can find the results below."
+                    "The job has finished running. You can find the results below.",
                   )}
                 </Text>
               </Group>
@@ -188,11 +188,11 @@ export const MatrixProfileWorkflow: React.FC<Props> = ({
   const [variableInputValue, setVariableInputValue] = useState<string>("");
 
   const [analysisVariable, setAnalysisVariable] = useState<string | undefined>(
-    undefined
+    undefined,
   );
 
   const [workflowJob, setWorkflowJob] = useState<WorkflowJob | undefined>(
-    undefined
+    undefined,
   );
 
   const [isJobRunning, setIsJobRunning] = useState<boolean>(false);
@@ -201,7 +201,7 @@ export const MatrixProfileWorkflow: React.FC<Props> = ({
     (item: DatasetSelectOption | undefined) => {
       setSelectedAsset(item);
     },
-    []
+    [],
   );
 
   const onJobSubmit = useCallback(() => {
@@ -216,7 +216,6 @@ export const MatrixProfileWorkflow: React.FC<Props> = ({
       analysisVariable,
     })
       .then((res) => {
-        console.debug("Job created", res);
         setWorkflowJob(res);
       })
       .catch((err) => {
@@ -232,7 +231,6 @@ export const MatrixProfileWorkflow: React.FC<Props> = ({
     const intervalId = setInterval(() => {
       getJob({ jobId: workflowJob.id, withExtendedResults: true })
         .then((updatedJob) => {
-          console.debug("Job refreshed", updatedJob);
           setWorkflowJob(updatedJob);
         })
         .catch((err) => {
@@ -246,7 +244,6 @@ export const MatrixProfileWorkflow: React.FC<Props> = ({
 
   useEffect(() => {
     if (workflowJob && workflowJob.finalised_at) {
-      console.log("Job finished");
       setIsJobRunning(false);
     }
   }, [workflowJob]);
@@ -280,7 +277,7 @@ export const MatrixProfileWorkflow: React.FC<Props> = ({
             <Group>
               <span>
                 {t(
-                  "An algorithm designed to identify patterns and anomalies in time series data"
+                  "An algorithm designed to identify patterns and anomalies in time series data",
                 )}
               </span>
               <ActionIcon

@@ -20,10 +20,8 @@ export async function uploadObject({
   const config = {
     onUploadProgress: function (progressEvent: { [k: string]: any }) {
       const percentCompleted = Math.round(
-        (progressEvent.loaded * 100) / progressEvent.total
+        (progressEvent.loaded * 100) / progressEvent.total,
       );
-
-      console.debug("Upload progress:", percentCompleted, "%");
 
       if (onProgress) {
         onProgress(percentCompleted);
@@ -34,7 +32,7 @@ export async function uploadObject({
   return await axios.post(
     buildApiUrl("asset", assetId.toString(), "object"),
     data,
-    config
+    config,
   );
 }
 
@@ -156,7 +154,7 @@ export async function updateAssetObject({
     "asset",
     assetId.toString(),
     "object",
-    objectId.toString()
+    objectId.toString(),
   );
 
   const response = await axios.patch(url, updateBody);
@@ -174,7 +172,7 @@ export async function deleteAssetObject({
     "asset",
     assetId.toString(),
     "object",
-    objectId.toString()
+    objectId.toString(),
   );
 
   const response = await axios.delete(url);

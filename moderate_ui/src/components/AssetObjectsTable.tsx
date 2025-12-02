@@ -15,6 +15,7 @@ import React, { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 import { deleteAssetObject } from "../api/assets";
 import { AssetModel } from "../api/types";
+import { routes } from "../utils/routes";
 
 export const AssetObjectsTable: React.FC<{
   asset: AssetModel;
@@ -42,7 +43,7 @@ export const AssetObjectsTable: React.FC<{
         setIsLoading(false);
       }
     },
-    [asset.data.id]
+    [asset.data.id],
   );
 
   return (
@@ -79,12 +80,15 @@ export const AssetObjectsTable: React.FC<{
                       openDelay={500}
                       label={t(
                         "assetObject.table.tooltip.view",
-                        "Go to details page"
+                        "Go to details page",
                       )}
                     >
                       <ActionIcon
                         component={Link}
-                        to={`/assets/${asset.data.id}/objects/show/${assetObject.data.id}`}
+                        to={routes.assetObjectShow(
+                          asset.data.id,
+                          assetObject.data.id,
+                        )}
                         variant="light"
                         color="blue"
                       >
@@ -95,7 +99,7 @@ export const AssetObjectsTable: React.FC<{
                       openDelay={500}
                       label={t(
                         "assetObject.table.tooltip.delete",
-                        "Delete file"
+                        "Delete file",
                       )}
                     >
                       <ActionIcon
@@ -105,7 +109,7 @@ export const AssetObjectsTable: React.FC<{
                           onDeleteClick({ objectId: assetObject.data.id }).then(
                             () => {
                               onDeleted && onDeleted();
-                            }
+                            },
                           );
                         }}
                       >

@@ -1,6 +1,7 @@
 import {
   Box,
   Burger,
+  Button,
   Center,
   Collapse,
   Divider,
@@ -9,7 +10,9 @@ import {
   Header,
   HoverCard,
   ScrollArea,
+  SimpleGrid,
   Text,
+  ThemeIcon,
   UnstyledButton,
   createStyles,
 } from "@mantine/core";
@@ -26,19 +29,17 @@ import {
   IconBolt,
   IconBox,
   IconChevronDown,
+  IconExternalLink,
   IconFileSearch,
+  IconLogin,
   IconTimeline,
+  IconUser,
+  IconUserPlus,
 } from "@tabler/icons-react";
 import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
-import {
-  buildKeycloakAuthProvider,
-  IIdentity,
-} from "../auth-provider/keycloak";
-import { AuthButtons } from "./header/AuthButtons";
-import { MainNavLinks } from "./header/MainNavLinks";
-import { MegaMenuItem, MegaMenuItems } from "./header/MegaMenuItems";
+import { buildKeycloakAuthProvider } from "../auth-provider/keycloak";
 
 const useStyles = createStyles((theme) => ({
   link: {
@@ -67,6 +68,35 @@ const useStyles = createStyles((theme) => ({
     }),
   },
 
+  subLink: {
+    width: "100%",
+    padding: `${theme.spacing.xs}px ${theme.spacing.md}px`,
+    borderRadius: theme.radius.md,
+
+    ...theme.fn.hover({
+      backgroundColor:
+        theme.colorScheme === "dark"
+          ? theme.colors.dark[7]
+          : theme.colors.gray[0],
+    }),
+
+    "&:active": theme.activeStyles,
+  },
+
+  dropdownFooter: {
+    backgroundColor:
+      theme.colorScheme === "dark"
+        ? theme.colors.dark[7]
+        : theme.colors.gray[0],
+    margin: -theme.spacing.md,
+    marginTop: theme.spacing.sm,
+    padding: `${theme.spacing.md}px ${theme.spacing.md * 2}px`,
+    paddingBottom: theme.spacing.xl,
+    borderTop: `1px solid ${
+      theme.colorScheme === "dark" ? theme.colors.dark[5] : theme.colors.gray[1]
+    }`,
+  },
+
   hiddenMobile: {
     [theme.fn.smallerThan("md")]: {
       display: "none",
@@ -80,6 +110,10 @@ const useStyles = createStyles((theme) => ({
   },
 }));
 
+type IIdentity = {
+  name: string;
+};
+
 export function HeaderMegaMenu() {
   const { t } = useTranslation();
   const authProvider = useActiveAuthProvider();
@@ -91,6 +125,7 @@ export function HeaderMegaMenu() {
   });
 
   const { mutate: login } = useLogin();
+
   const { keycloak, initialized } = useKeycloak();
 
   const onLogout = useCallback(() => {
@@ -124,7 +159,7 @@ export function HeaderMegaMenu() {
   const [linksOpened, { toggle: toggleLinks }] = useDisclosure(false);
   const { classes, theme } = useStyles();
 
-  const megaMenuItems: MegaMenuItem[] = useMemo(() => {
+  const megaMenuItems = useMemo(() => {
     return [
       {
         to: "/assets",
@@ -165,6 +200,86 @@ export function HeaderMegaMenu() {
     ];
   }, [t]);
 
+  const megaMenuLinks = megaMenuItems.map((item) => (
+    <UnstyledButton
+      component={Link}
+      to={item.to}
+      className={classes.subLink}
+      key={item.title}
+    >
+      <Group noWrap align="flex-start">
+        <ThemeIcon size={34} variant="default" radius="md">
+          <item.icon size={22} color={theme.fn.primaryColor()} />
+        </ThemeIcon>
+        <div>
+          <Text size="sm" weight={500}>
+            {item.title}
+          </Text>
+          <Text size="xs" color="dimmed">
+            {item.description}
+          </Text>
+        </div>
+      </Group>
+    </UnstyledButton>
+  ));
+
+  const authButtons = useMemo(() => {
+    return (
+      <>
+        {isAuthenticated === false && (
+          <>
+            <Button
+              variant="light"
+              onClick={onLogin}
+              leftIcon={<IconLogin size={16} />}
+            >
+              {t("nav.logIn", "Log in")}
+            </Button>
+            <Button
+              variant="filled"
+              color="blue"
+              onClick={onRegister}
+              leftIcon={<IconUserPlus size={16} />}
+            >
+              {t("nav.signUp", "Sign up")}
+            </Button>
+          </>
+        )}
+        {isAuthenticated === true && (
+          <>
+            <ThemeIcon variant="light" color="blue" style={{ flexGrow: 0 }}>
+              <IconUser size="1em" />
+            </ThemeIcon>
+            <Text fw={500} size="sm">
+              {identity?.name}
+            </Text>
+            <Button onClick={onLogout} variant="filled" color="gray">
+              {t("nav.logOut", "Logout")}
+            </Button>
+          </>
+        )}
+      </>
+    );
+  }, [isAuthenticated, onLogout, identity, onLogin, onRegister, t]);
+
+  const mainLinks = useMemo(() => {
+    return (
+      <>
+        <Link className={classes.link} to="/catalogue">
+          {t("nav.catalogue", "Catalogue")}
+        </Link>
+        <Link
+          className={classes.link}
+          to="https://moderate-project.github.io/moderate-docs/tools-and-services/"
+          target="_blank"
+        >
+          <IconExternalLink size={16} /> &nbsp;
+          {t("nav.tools", "Tools & Services")}
+        </Link>
+      </>
+    );
+  }, [classes.link, t]);
+
   return (
     <Box>
       <Header height={60} px="md">
@@ -174,7 +289,6 @@ export function HeaderMegaMenu() {
               <img
                 src="/images/moderate-logo-wide.png"
                 style={{ height: "100%" }}
-                alt="MODERATE logo"
               />
             </Link>
           </Box>
@@ -186,7 +300,7 @@ export function HeaderMegaMenu() {
           >
             {isAuthenticated === true && (
               <>
-                <MainNavLinks t={t} />
+                {mainLinks}
 
                 <HoverCard
                   width={600}
@@ -222,23 +336,16 @@ export function HeaderMegaMenu() {
                       color={theme.colorScheme === "dark" ? "dark.5" : "gray.1"}
                     />
 
-                    <MegaMenuItems items={megaMenuItems} />
+                    <SimpleGrid cols={2} spacing={0}>
+                      {megaMenuLinks}
+                    </SimpleGrid>
                   </HoverCard.Dropdown>
                 </HoverCard>
               </>
             )}
           </Group>
 
-          <Group className={classes.hiddenMobile}>
-            <AuthButtons
-              isAuthenticated={isAuthenticated}
-              identityName={identity?.name}
-              onLogin={onLogin}
-              onLogout={onLogout}
-              onRegister={onRegister}
-              t={t}
-            />
-          </Group>
+          <Group className={classes.hiddenMobile}>{authButtons}</Group>
 
           <Burger
             opened={drawerOpened}
@@ -265,7 +372,7 @@ export function HeaderMegaMenu() {
 
           {isAuthenticated === true && (
             <>
-              <MainNavLinks t={t} />
+              {mainLinks}
               <UnstyledButton className={classes.link} onClick={toggleLinks}>
                 <Center inline>
                   <Box component="span" mr={5}>
@@ -276,9 +383,7 @@ export function HeaderMegaMenu() {
               </UnstyledButton>
 
               <Collapse in={linksOpened}>
-                <Box ml="sm">
-                  <MegaMenuItems items={megaMenuItems} />
-                </Box>
+                <Box ml="sm">{megaMenuLinks}</Box>
               </Collapse>
             </>
           )}
@@ -289,14 +394,7 @@ export function HeaderMegaMenu() {
           />
 
           <Group position="center" grow pb="xl" px="md">
-            <AuthButtons
-              isAuthenticated={isAuthenticated}
-              identityName={identity?.name}
-              onLogin={onLogin}
-              onLogout={onLogout}
-              onRegister={onRegister}
-              t={t}
-            />
+            {authButtons}
           </Group>
         </ScrollArea>
       </Drawer>

@@ -4,7 +4,7 @@ import { buildApiUrl } from "./utils";
 
 export function usePing({ intervalMs }: { intervalMs?: number } = {}) {
   const [pingResult, setPingResult] = useState<object | false | undefined>(
-    undefined
+    undefined,
   );
 
   const ping = useCallback(() => {

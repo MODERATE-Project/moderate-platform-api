@@ -34,7 +34,7 @@ export const Catalogue: React.FC = () => {
   const [touched, setTouched] = useState<boolean>(false);
 
   const [assets, setAssets] = useState<{ [k: string]: any }[] | undefined>(
-    undefined
+    undefined,
   );
 
   const { open } = useNotification();
@@ -52,7 +52,6 @@ export const Catalogue: React.FC = () => {
       excludeMine: !includeMine,
     })
       .then((res) => {
-        console.debug(res);
         setAssets(res);
         setIsLoading(false);
       })
@@ -75,7 +74,6 @@ export const Catalogue: React.FC = () => {
       excludeMine: true,
     })
       .then((res) => {
-        console.debug(res);
         setAssets(res);
         setIsLoading(false);
       })
@@ -108,7 +106,7 @@ export const Catalogue: React.FC = () => {
           <Text color="dimmed">
             {t(
               "catalogue.description",
-              "Browse datasets uploaded to the MODERATE platform"
+              "Browse datasets uploaded to the MODERATE platform",
             )}
           </Text>
         </Stack>
@@ -164,7 +162,7 @@ export const Catalogue: React.FC = () => {
                     maxHeight
                   />
                 </Grid.Col>
-              ))
+              )),
             )}
           </Grid>
         </Stack>
@@ -182,7 +180,7 @@ export const Catalogue: React.FC = () => {
         >
           {t(
             "catalogue.noResultsDescription",
-            "Please try refining your search query"
+            "Please try refining your search query",
           )}
         </Alert>
       )}

@@ -19,5 +19,5 @@ root.render(
     <ReactKeycloakProvider authClient={keycloak}>
       <App />
     </ReactKeycloakProvider>
-  </React.Suspense>
+  </React.Suspense>,
 );

@@ -2,7 +2,7 @@ import { CrudFilters, HttpError, MetaQuery } from "@refinedev/core";
 import axios from "axios";
 
 export const getHeadersWithCommon = (
-  meta: MetaQuery | undefined
+  meta: MetaQuery | undefined,
 ): { [k: string]: string } => {
   const { headers: headersFromMeta } = meta ?? {};
   return Object.assign(axios.defaults.headers.common, headersFromMeta);
@@ -24,7 +24,6 @@ export const validateFilters = (filters?: CrudFilters) => {
   for (const filter of filters || []) {
     if (!supportedOperators.includes(filter.operator)) {
       const errMsg = `Operator "${filter.operator}" is not supported`;
-      console.warn(errMsg);
 
       const customError: HttpError = {
         message: errMsg,

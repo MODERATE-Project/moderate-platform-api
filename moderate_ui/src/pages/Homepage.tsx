@@ -199,7 +199,7 @@ export const Homepage: React.FC = () => {
         <Text className={classes.sectionSubtitle}>
           {t(
             "home.goal",
-            "The MODERATE platform is an ecosystem for datasets, tools, and models related to buildings."
+            "The MODERATE platform is an ecosystem for datasets, tools, and models related to buildings.",
           )}
         </Text>
         <SimpleGrid
@@ -266,13 +266,13 @@ export const Homepage: React.FC = () => {
                 <Title order={3}>
                   {t(
                     "home.overlay.title",
-                    "Please log in to access the platform"
+                    "Please log in to access the platform",
                   )}
                 </Title>
                 <Text color="dimmed">
                   {t(
                     "home.overlay.desc",
-                    "During the development phase, the MODERATE platform is only accessible to registered users"
+                    "During the development phase, the MODERATE platform is only accessible to registered users",
                   )}
                 </Text>
               </Stack>

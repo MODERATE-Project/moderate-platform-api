@@ -9,6 +9,7 @@ import React, { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { Asset, AssetModel, AssetObject } from "../api/types";
+import { routes } from "../utils/routes";
 
 export const AssetObjectCard: React.FC<{
   asset: Asset;
@@ -75,7 +76,7 @@ export const AssetObjectCard: React.FC<{
         radius="md"
         target="_blank"
         component={Link}
-        to={`/assets/${asset.id}/objects/show/${assetObject.id}`}
+        to={routes.assetObjectShow(asset.id, assetObject.id)}
       >
         {t("catalogue.card.view", "View details")}
       </Button>

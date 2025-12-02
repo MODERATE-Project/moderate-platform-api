@@ -35,6 +35,54 @@ Refine's hooks and components simplifies the development process and eliminates 
     npm run start
 ```
 
+## Code Quality Scripts
+
+### Linting
+
+Run ESLint to check for code quality issues:
+
+```bash
+npm run lint
+```
+
+Automatically fix ESLint issues where possible:
+
+```bash
+npm run lint:fix
+```
+
+### Formatting
+
+Format code with Prettier:
+
+```bash
+npm run format
+```
+
+Check if code is properly formatted (useful in CI/CD):
+
+```bash
+npm run format:check
+```
+
+### Type Checking
+
+Run TypeScript type checking without emitting files:
+
+```bash
+npm run type-check
+```
+
+### Pre-commit Workflow
+
+Before committing, run:
+
+```bash
+npm run format        # Format all files
+npm run lint:fix      # Fix auto-fixable lint issues
+npm run type-check    # Ensure no TypeScript errors
+```
+
 ## Learn More
 
 To learn more about **Refine**, please check out the [Documentation](https://refine.dev/docs)

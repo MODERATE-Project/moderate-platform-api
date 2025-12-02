@@ -14,15 +14,15 @@ import { Create, useForm } from "@refinedev/mantine";
 import { IconUpload } from "@tabler/icons-react";
 import _ from "lodash";
 import { useState } from "react";
-import { uploadObject } from "../../api/assets";
 import { AssetAccessLevel } from "../../api/types";
 import { ResourceNames } from "../../types";
+import { uploadMultipleFiles, UploadProgress } from "../../utils/upload";
 
 export const AssetCreate = () => {
   const t = useTranslate();
 
   const [uploadingFile, setUploadingFile] = useState<
-    { name: string; progress: number } | undefined
+    UploadProgress | undefined
   >(undefined);
 
   const go = useGo();
@@ -45,7 +45,6 @@ export const AssetCreate = () => {
       files: isNotEmpty(),
     },
     transformValues: (values) => {
-      console.debug("transformValues", values);
       return values;
     },
     refineCoreProps: {
@@ -57,19 +56,15 @@ export const AssetCreate = () => {
           return;
         }
 
-        for (const file of variables.files as File[]) {
-          setUploadingFile({ name: file.name, progress: 0 });
+        await uploadMultipleFiles(
+          String(assetId),
+          variables.files as File[],
+          (progress) => {
+            setUploadingFile(progress);
+          },
+        );
 
-          await uploadObject({
-            assetId,
-            file,
-            onProgress: (progress) => {
-              setUploadingFile({ name: file.name, progress });
-            },
-          });
-
-          setUploadingFile(undefined);
-        }
+        setUploadingFile(undefined);
 
         go({
           to: {
@@ -91,7 +86,7 @@ export const AssetCreate = () => {
             <Loader size="xl" />
             <Text color="dimmed">
               {t("asset.form.uploading", "Uploading")}{" "}
-              <code>{uploadingFile?.name}</code>
+              <code>{uploadingFile?.fileName}</code>
             </Text>
             <Text fz="xl" fw={700}>
               {uploadingFile?.progress}%
@@ -104,7 +99,7 @@ export const AssetCreate = () => {
           mt="sm"
           description={t(
             "asset.fields.nameDescription",
-            "A descriptive name for this asset"
+            "A descriptive name for this asset",
           )}
           label={t("asset.fields.name", "Asset name")}
           {...getInputProps("name")}
@@ -113,7 +108,7 @@ export const AssetCreate = () => {
           mt="sm"
           description={t(
             "asset.fields.accessLevelDescription",
-            "Public assets are downloadable by anyone, private assets only by you, and visible assets are searchable but not downloadable by others"
+            "Public assets are downloadable by anyone, private assets only by you, and visible assets are searchable but not downloadable by others",
           )}
           label={t("asset.fields.accessLevel", "Access level")}
           {...getInputProps("access_level")}
@@ -126,7 +121,7 @@ export const AssetCreate = () => {
           mt="sm"
           description={t(
             "asset.fields.descriptionDescription",
-            "A longer description of what this asset is and what it contains"
+            "A longer description of what this asset is and what it contains",
           )}
           label={t("asset.fields.description", "Description")}
           {...getInputProps("description")}
@@ -137,7 +132,7 @@ export const AssetCreate = () => {
           mt="sm"
           description={t(
             "asset.fields.filesDescription",
-            'These files will be attached to this asset as individual datasets or "asset objects"'
+            'These files will be attached to this asset as individual datasets or "asset objects"',
           )}
           label={t("asset.fields.files", "Attached files")}
           {...getInputProps("files")}

@@ -34,8 +34,6 @@ export function buildKeycloakAuthProvider({
       const refreshed = await keycloak.updateToken(refreshMinValidity);
 
       if (refreshed) {
-        console.debug("Updated default headers with new token");
-
         axios.defaults.headers.common = {
           Authorization: `Bearer ${keycloak.token}`,
         };
@@ -142,7 +140,7 @@ export function buildKeycloakAuthProvider({
     isAdmin: () => {
       return keycloak.hasResourceRole(
         ApiRoles.ADMIN,
-        KeycloakResourceNames.API
+        KeycloakResourceNames.API,
       );
     },
   };

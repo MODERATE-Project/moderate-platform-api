@@ -11,8 +11,8 @@ export const RichEditor: React.FC<{
   content?: string;
 }> = function ({ editorProps, onUpdate, content }) {
   const mergedEditorProps = useMemo(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { extensions, ...filteredEditorProps } = editorProps ?? {};
-    extensions && console.debug("Ignored extensions:", extensions);
 
     const baseEditorProps = {
       extensions: [

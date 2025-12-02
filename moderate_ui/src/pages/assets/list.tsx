@@ -67,19 +67,14 @@ export const AssetList: React.FC<IResourceComponentsProps> = () => {
         },
       },
     ],
-    [translate]
+    [translate],
   );
 
   const {
     getHeaderGroups,
     getRowModel,
     setOptions,
-    refineCore: {
-      setCurrent,
-      pageCount,
-      current,
-      tableQueryResult: { data: tableData },
-    },
+    refineCore: { setCurrent, pageCount, current },
   } = useTable({
     columns,
   });
@@ -110,7 +105,7 @@ export const AssetList: React.FC<IResourceComponentsProps> = () => {
                           {!header.isPlaceholder &&
                             flexRender(
                               header.column.columnDef.header,
-                              header.getContext()
+                              header.getContext(),
                             )}
                         </div>
                       </th>
@@ -128,7 +123,7 @@ export const AssetList: React.FC<IResourceComponentsProps> = () => {
                         <td key={cell.id}>
                           {flexRender(
                             cell.column.columnDef.cell,
-                            cell.getContext()
+                            cell.getContext(),
                           )}
                         </td>
                       );

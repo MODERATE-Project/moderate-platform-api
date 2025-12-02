@@ -6,6 +6,7 @@
 openapi.json
 api-docs-dist
 .vscode
+.claude
 
 ## Python
 #########

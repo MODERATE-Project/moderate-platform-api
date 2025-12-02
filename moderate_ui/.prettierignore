@@ -1,0 +1,25 @@
+# Dependencies
+node_modules
+
+# Build outputs
+dist
+build
+.refine
+
+# Lock files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# IDE
+.vscode
+.idea
+
+# Misc
+coverage
+*.log

@@ -31,7 +31,7 @@ const DatasetSelectItem = forwardRef<HTMLDivElement, ItemProps>(
         </div>
       </Group>
     </div>
-  )
+  ),
 );
 
 interface Props {
@@ -58,11 +58,10 @@ export const AssetObjectPicker: React.FC<Props> = ({
 
   const [debouncedSearchValue] = useDebouncedValue(
     searchValue,
-    debouncedSearchWaitMs
+    debouncedSearchWaitMs,
   );
 
   useEffect(() => {
-    console.debug("Search query:", debouncedSearchValue);
     setIsSearching(true);
 
     searchAssets({
@@ -81,10 +80,9 @@ export const AssetObjectPicker: React.FC<Props> = ({
               group: assetModel.data.name,
               asset: assetModel,
               assetObject: assetObject,
-            }))
+            })),
           );
 
-        console.debug("Search results:", responseOptions);
         setFoundOptions(responseOptions);
       })
       .catch((err) => {
@@ -104,17 +102,11 @@ export const AssetObjectPicker: React.FC<Props> = ({
         ]
       : foundOptions;
 
-    console.debug("Updating options:", newOptions);
     setOptions(newOptions);
   }, [foundOptions, value, currentOption]);
 
   const handleValueChange = (value: string | null) => {
     const theCurrentOption = options.find((option) => option.value === value);
-
-    console.debug({
-      value,
-      currentOption: theCurrentOption,
-    });
 
     setValue(value);
     setCurrentOption(theCurrentOption);

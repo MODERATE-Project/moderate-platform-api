@@ -3,7 +3,7 @@ import { OpenNotificationParams } from "@refinedev/core";
 export function catchErrorAndShow(
   open: ((params: OpenNotificationParams) => void) | undefined,
   message: string | undefined,
-  err: any
+  err: any,
 ) {
   if (!open) {
     return;

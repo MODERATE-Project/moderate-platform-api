@@ -10,7 +10,7 @@ export const NotebookContainer: React.FC<{
   iframeResizeIntervalMs?: number;
 }> = ({ title, description, notebookSrc, iframeResizeIntervalMs = 500 }) => {
   const [pingResult, setPingResult] = React.useState<boolean | undefined>(
-    undefined
+    undefined,
   );
 
   const [frameHeight, setFrameHeight] = React.useState<string>("100vh");

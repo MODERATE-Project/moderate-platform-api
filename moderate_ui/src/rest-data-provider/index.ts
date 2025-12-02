@@ -8,7 +8,7 @@ type MethodTypesWithBody = "post" | "put" | "patch";
 
 export const dataProvider = (
   apiUrl: string,
-  httpClient: AxiosInstance = axiosInstance
+  httpClient: AxiosInstance = axiosInstance,
 ): Omit<
   Required<DataProvider>,
   "createMany" | "updateMany" | "deleteMany" | "getMany"
@@ -156,7 +156,7 @@ export const dataProvider = (
 
     const headersWithCommon = Object.assign(
       axios.defaults.headers.common,
-      headers
+      headers,
     );
 
     let axiosResponse;
