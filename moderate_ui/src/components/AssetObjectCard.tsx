@@ -8,7 +8,7 @@ import {
 import React, { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
-import { Asset, AssetModel, AssetObject } from "../api/types";
+import { Asset, AssetModel, AssetObject, AssetObjectModel } from "../api/types";
 import { routes } from "../utils/routes";
 
 export const AssetObjectCard: React.FC<{
@@ -20,14 +20,12 @@ export const AssetObjectCard: React.FC<{
 
   const [assetModel, assetObjectModel] = useMemo(() => {
     const assetModel = new AssetModel(asset);
-    const assetObjectModel = assetModel.getObject(assetObject.id);
-
-    if (!assetObjectModel) {
-      throw new Error("Asset object not found");
-    }
+    // Direct instantiation of AssetObjectModel for the single object passed in
+    // This avoids the lookup failure if asset.objects doesn't contain all objects
+    const assetObjectModel = new AssetObjectModel(assetObject);
 
     return [assetModel, assetObjectModel];
-  }, [asset, assetObject.id]);
+  }, [asset, assetObject]);
 
   const features = useMemo(() => {
     return [

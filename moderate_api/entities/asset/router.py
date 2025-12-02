@@ -3,7 +3,7 @@ import json
 import logging
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from io import BytesIO
 from typing import Any, Dict, List, Optional, Union
 
@@ -20,7 +20,7 @@ from fastapi import (
 )
 from pydantic import BaseModel
 from slugify import slugify
-from sqlalchemy import and_, case, desc, func, true
+from sqlalchemy import and_, asc, case, desc, func, true
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import BinaryExpression
 from sqlmodel import or_, select
@@ -37,6 +37,7 @@ from moderate_api.entities.asset.models import (
     AssetUpdate,
     UploadedS3Object,
     UploadedS3ObjectRead,
+    UploadedS3ObjectReadWithAsset,
     UploadedS3ObjectUpdate,
     filter_object_ids_by_username,
     find_s3object_by_key_or_id,
@@ -440,6 +441,130 @@ router.add_api_route(
 )
 
 
+async def _search_objects(
+    *,
+    user: OptionalUserDep,
+    session: AsyncSessionDep,
+    query: str = Query(default=None),
+    limit: int = Query(default=20, le=100),
+    offset: int = Query(default=0),
+    sort: str = Query(default="date", regex="^(name|date|format|asset_name)$"),
+    exclude_mine: bool = Query(default=False),
+    file_format: str = Query(default=None),
+    date_from: str = Query(default=None),
+) -> List[UploadedS3ObjectReadWithAsset]:
+    """Search for objects (datasets) directly."""
+
+    # Base query joining Object and Asset
+    stmt = select(UploadedS3Object, Asset).join(Asset)
+
+    # Visibility filter
+    user_selector = _user_asset_visibility_selector(user=user)
+    if user_selector is not None:
+        stmt = stmt.where(user_selector)
+
+    if exclude_mine and user:
+        stmt = stmt.where(or_(Asset.username != user.username, Asset.username == None))  # type: ignore
+
+    # Search query filter
+    if query:
+        search_pattern = f"%{query.lower()}%"
+        stmt = stmt.where(
+            or_(  # type: ignore
+                func.lower(UploadedS3Object.name).ilike(search_pattern),  # type: ignore
+                func.lower(UploadedS3Object.key).ilike(search_pattern),  # type: ignore
+                func.lower(UploadedS3Object.description).ilike(search_pattern),  # type: ignore
+                func.lower(Asset.name).ilike(search_pattern),  # type: ignore
+            )
+        )
+
+    # File format filter
+    if file_format:
+        # Parse comma-separated list of formats and normalize to lowercase
+        formats = [f.strip().lower() for f in file_format.split(",") if f.strip()]
+        if formats:
+            # Match extension at end of key using LIKE pattern (case-insensitive)
+            format_conditions = []
+            for fmt in formats:
+                # Use ILIKE for case-insensitive pattern matching: %.ext
+                format_conditions.append(
+                    func.lower(UploadedS3Object.key).like(f"%.{fmt}")  # type: ignore
+                )
+            if format_conditions:
+                stmt = stmt.where(or_(*format_conditions))  # type: ignore
+
+    # Date range filter
+    if date_from:
+        try:
+            # Parse date and ensure it is offset-naive (UTC) to match database
+            date_from_dt = datetime.fromisoformat(date_from.replace("Z", "+00:00"))
+            if date_from_dt.tzinfo is not None:
+                # Convert to UTC first to be safe, then strip tzinfo
+                date_from_dt = date_from_dt.astimezone(timezone.utc).replace(tzinfo=None)
+            stmt = stmt.where(UploadedS3Object.created_at >= date_from_dt)  # type: ignore
+        except (ValueError, AttributeError):
+            # Invalid date format, skip filter
+            _logger.warning("Invalid date_from format: %s", date_from)
+
+    # Sorting
+    if sort == "name":
+        # Sort by object name, fallback to key
+        sort_col = func.coalesce(UploadedS3Object.name, UploadedS3Object.key)  # type: ignore
+        stmt = stmt.order_by(asc(sort_col))
+    elif sort == "asset_name":
+        # Sort by asset name
+        stmt = stmt.order_by(asc(Asset.name))  # type: ignore
+    elif sort == "format":
+        # Sort by extension.
+        # substring(string from pattern) where pattern matches the extension
+        stmt = stmt.order_by(asc(func.substring(UploadedS3Object.key, r"\.([a-zA-Z0-9]+)$")))  # type: ignore
+    else:  # date
+        stmt = stmt.order_by(desc(UploadedS3Object.created_at))  # type: ignore
+
+    # Pagination
+    stmt = stmt.limit(limit).offset(offset)
+
+    result = await session.execute(stmt)
+    rows = result.all()
+
+    ret = []
+    for obj, asset in rows:
+        # Create read model for object
+        obj_read = UploadedS3ObjectRead(**obj.model_dump())
+
+        # Create read model for asset, containing only this object
+        asset_read = AssetRead(
+            **asset.model_dump(exclude={"objects"}),
+            objects=[obj_read],
+        )
+
+        ret.append(
+            UploadedS3ObjectReadWithAsset(
+                **obj_read.model_dump(),
+                asset=asset_read,
+            )
+        )
+
+    return ret
+
+
+router.add_api_route(
+    "/objects/search",
+    _search_objects,
+    methods=["GET"],
+    response_model=List[UploadedS3ObjectReadWithAsset],
+    tags=[_TAG],
+)
+
+router.add_api_route(
+    "/public/objects/search",
+    _search_objects,
+    methods=["GET"],
+    response_model=List[UploadedS3ObjectReadWithAsset],
+    tags=[_TAG, Tags.PUBLIC.value],
+)
+
+
 class AssetObjectProfileResponse(BaseModel):
     profile: Optional[OMProfile] = None
     reason: Optional[str] = None
@@ -686,6 +811,8 @@ async def upload_object(
     obj: UploadFile = File(...),
     tags: str = Form(default=None),
     series_id: str = Form(default=None),
+    name: str = Form(default=None),
+    description: str = Form(default=None),
 ):
     """Uploads a new object (e.g. a CSV dataset file) to MODERATE's
     object storage service and associates it with the _Asset_ given by `id`.
@@ -785,6 +912,8 @@ async def upload_object(
         series_id=series_id,
         sha256_hash=sha256_hash,
         proof_id=None,  # Add missing required field
+        name=name,
+        description=description,
     )
 
     session.add(uploaded_s3_object)

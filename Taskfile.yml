@@ -268,3 +268,28 @@ tasks:
           VERSION_UI: "{{.VERSION_UI}}"
       - task: commit-tag
       - echo "📣 Remember to push the changes and tags to the repository"
+
+  fixtures-create:
+    desc: Create development fixtures for assets and asset objects (requires Keycloak authentication)
+    vars:
+      NUM_ASSETS: '{{default "10" .NUM_ASSETS}}'
+      OBJECTS_PER_ASSET: '{{default "2" .OBJECTS_PER_ASSET}}'
+      API_URL: '{{default "http://localhost:8000" .API_URL}}'
+      KEYCLOAK_URL: '{{default (printf "http://localhost:%s" .DEV_KEYCLOAK_PORT) .KEYCLOAK_URL}}'
+      KEYCLOAK_REALM: '{{default "moderate" .KEYCLOAK_REALM}}'
+      KEYCLOAK_CLIENT_ID: '{{default "apisix" .KEYCLOAK_CLIENT_ID}}'
+      KEYCLOAK_CLIENT_SECRET: '{{default "apisix" .KEYCLOAK_CLIENT_SECRET}}'
+      KEYCLOAK_USERNAME: "{{.KEYCLOAK_USERNAME}}"
+      KEYCLOAK_PASSWORD: "{{.KEYCLOAK_PASSWORD}}"
+    cmds:
+      - >
+        poetry run python scripts/create_dev_fixtures.py
+        --num-assets {{.NUM_ASSETS}}
+        --objects-per-asset {{.OBJECTS_PER_ASSET}}
+        --api-url {{.API_URL}}
+        --keycloak-url {{.KEYCLOAK_URL}}
+        --keycloak-realm {{.KEYCLOAK_REALM}}
+        --keycloak-client-id {{.KEYCLOAK_CLIENT_ID}}
+        --keycloak-client-secret {{.KEYCLOAK_CLIENT_SECRET}}
+        {{if .KEYCLOAK_USERNAME}}--keycloak-username {{.KEYCLOAK_USERNAME}}{{end}}
+        {{if .KEYCLOAK_PASSWORD}}--keycloak-password {{.KEYCLOAK_PASSWORD}}{{end}}

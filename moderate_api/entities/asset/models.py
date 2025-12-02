@@ -160,6 +160,10 @@ class AssetRead(AssetBase):
     username: Optional[str]
 
 
+class UploadedS3ObjectReadWithAsset(UploadedS3ObjectRead):
+    asset: AssetRead
+
+
 class AssetUpdate(SQLModel):
     name: Optional[str] = None
     access_level: Optional[AssetAccessLevels] = None

@@ -59,6 +59,7 @@ priority = "supplemental"
 black = "^24.4.0"
 pytest = "^8.3.0"
 pytest-asyncio = "^0.23.0"
+pyarrow = "^14.0.0"
 
 [build-system]
 requires = ["poetry-core"]

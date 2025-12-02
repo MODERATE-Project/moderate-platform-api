@@ -69,6 +69,86 @@ export async function searchAssets({
   return response.data;
 }
 
+export async function searchAssetObjects({
+  searchQuery,
+  excludeMine,
+  sort,
+  limit,
+  offset,
+  fileFormat,
+  dateFilter,
+  usePublicEndpoint,
+}: {
+  searchQuery: string;
+  excludeMine?: boolean;
+  sort?: string;
+  limit?: number;
+  offset?: number;
+  fileFormat?: string | string[];
+  dateFilter?: "always" | "last_week" | "last_month";
+  usePublicEndpoint?: boolean;
+}): Promise<{ [k: string]: any }[]> {
+  const urlParts = ["asset"];
+
+  if (usePublicEndpoint) {
+    urlParts.push("public");
+  }
+
+  urlParts.push("objects");
+  urlParts.push("search");
+  const url = buildApiUrl(...urlParts);
+
+  const params = {};
+
+  if (searchQuery) {
+    Object.assign(params, { query: searchQuery });
+  }
+
+  if (excludeMine) {
+    Object.assign(params, { exclude_mine: excludeMine });
+  }
+
+  if (sort) {
+    Object.assign(params, { sort: sort });
+  }
+
+  if (limit !== undefined) {
+    Object.assign(params, { limit: limit });
+  }
+
+  if (offset !== undefined) {
+    Object.assign(params, { offset: offset });
+  }
+
+  if (fileFormat) {
+    // Convert array to comma-separated string, or use string as-is
+    const formatStr = Array.isArray(fileFormat)
+      ? fileFormat.join(",")
+      : fileFormat;
+    Object.assign(params, { file_format: formatStr });
+  }
+
+  if (dateFilter && dateFilter !== "always") {
+    const now = new Date();
+    let dateFrom: Date;
+
+    if (dateFilter === "last_week") {
+      dateFrom = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    } else if (dateFilter === "last_month") {
+      dateFrom = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    } else {
+      dateFrom = now; // fallback (shouldn't happen)
+    }
+
+    // Convert to ISO string format
+    Object.assign(params, { date_from: dateFrom.toISOString() });
+  }
+
+  const response = await axios.get(url, { params });
+
+  return response.data;
+}
+
 export interface DownloadAssetObjectItem {
   key: string;
   download_url: string;
