@@ -256,9 +256,7 @@ export const Catalogue: React.FC = () => {
               const newValue = event.currentTarget.checked;
               setIncludeMine(newValue);
               localStorage.setItem(INCLUDE_MINE_STORAGE_KEY, String(newValue));
-              if (assets) {
-                setTouched(true);
-              }
+              setTouched(true);
               performSearch(
                 searchQuery,
                 newValue,
