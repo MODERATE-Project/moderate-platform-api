@@ -113,6 +113,20 @@ export class AssetObjectModel {
   get createdAt(): Date {
     return new Date(this.data.created_at);
   }
+
+  get format(): string | undefined {
+    if (this.parsedKey) {
+      return this.parsedKey.ext;
+    }
+
+    // Fallback: try to extract extension from the key directly
+    const parts = this.data.key.split(".");
+    if (parts.length > 1) {
+      return parts[parts.length - 1];
+    }
+
+    return undefined;
+  }
 }
 
 export class AssetModel {

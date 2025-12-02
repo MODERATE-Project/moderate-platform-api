@@ -1,4 +1,4 @@
-import { Select, Textarea, TextInput } from "@mantine/core";
+import { Select, Stack, Text, Textarea, TextInput } from "@mantine/core";
 import { useTranslate } from "@refinedev/core";
 import { Edit, useForm } from "@refinedev/mantine";
 import { AssetAccessLevel } from "../../api/types";
@@ -41,10 +41,28 @@ export const AssetEdit = () => {
       <Select
         mt="sm"
         label={t("asset.fields.accessLevel", "Access level")}
-        description={t(
-          "asset.fields.accessLevelDescription",
-          "Public assets are downloadable by anyone, private assets only by you, and visible assets are searchable but not downloadable by others",
-        )}
+        description={
+          <Stack spacing={2}>
+            <Text size="xs" color="dimmed">
+              {t(
+                "asset.fields.accessLevelPublic",
+                "Public: Visible and downloadable by everyone",
+              )}
+            </Text>
+            <Text size="xs" color="dimmed">
+              {t(
+                "asset.fields.accessLevelVisible",
+                "Visible: Searchable by everyone, but only downloadable by you",
+              )}
+            </Text>
+            <Text size="xs" color="dimmed">
+              {t(
+                "asset.fields.accessLevelPrivate",
+                "Private: Only visible and downloadable by you",
+              )}
+            </Text>
+          </Stack>
+        }
         data={Object.values(AssetAccessLevel).map((val) => ({
           value: val,
           label: val.charAt(0).toUpperCase() + val.slice(1).toLowerCase(),

@@ -1,4 +1,13 @@
-import { Badge, Button, Card, Group, Stack, Text } from "@mantine/core";
+import {
+  Badge,
+  Box,
+  Button,
+  Card,
+  Group,
+  Stack,
+  Text,
+  Tooltip,
+} from "@mantine/core";
 import {
   IconBox,
   IconClock,
@@ -8,7 +17,13 @@ import {
 import React, { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
-import { Asset, AssetModel, AssetObject, AssetObjectModel } from "../api/types";
+import {
+  Asset,
+  AssetAccessLevel,
+  AssetModel,
+  AssetObject,
+  AssetObjectModel,
+} from "../api/types";
 import { routes } from "../utils/routes";
 
 export const AssetObjectCard: React.FC<{
@@ -41,7 +56,32 @@ export const AssetObjectCard: React.FC<{
       },
       {
         label: t("catalogue.card.accessLevel", "Access level"),
-        value: <Badge color="gray">{assetModel.data.access_level}</Badge>,
+        value: (
+          <Tooltip
+            label={
+              assetModel.data.access_level === AssetAccessLevel.PUBLIC
+                ? t(
+                    "asset.fields.accessLevelPublic",
+                    "Public: Visible and downloadable by everyone",
+                  )
+                : assetModel.data.access_level === AssetAccessLevel.VISIBLE
+                  ? t(
+                      "asset.fields.accessLevelVisible",
+                      "Visible: Searchable by everyone, but only downloadable by you",
+                    )
+                  : t(
+                      "asset.fields.accessLevelPrivate",
+                      "Private: Only visible and downloadable by you",
+                    )
+            }
+            multiline
+            withArrow
+          >
+            <Box sx={{ cursor: "help", display: "inline-block" }}>
+              <Badge color="gray">{assetModel.data.access_level}</Badge>
+            </Box>
+          </Tooltip>
+        ),
         icon: IconLockAccess,
       },
     ];
@@ -53,15 +93,15 @@ export const AssetObjectCard: React.FC<{
       p="lg"
       radius="md"
       withBorder
-      style={{ height: maxHeight ? "100%" : "inherit" }}
+      h={maxHeight ? "100%" : undefined}
     >
       <Group position="apart" mb="xs">
         <Text weight={500} truncate>
           {assetObjectModel.humanName}
         </Text>
-        {assetObjectModel.parsedKey?.ext && (
+        {assetObjectModel.format && (
           <Badge color="pink" variant="light">
-            {assetObjectModel.parsedKey.ext.toUpperCase()}
+            {assetObjectModel.format.toUpperCase()}
           </Badge>
         )}
       </Group>
@@ -81,15 +121,12 @@ export const AssetObjectCard: React.FC<{
       <Stack spacing="xs">
         {features.map((feature, idx) => (
           <Group spacing={0} position="left" key={idx}>
-            <Text
-              color="dimmed"
-              size="sm"
-              style={{ display: "flex", alignItems: "center" }}
-              mr="xs"
-            >
-              <feature.icon size="1rem" style={{ marginRight: "0.25rem" }} />
-              {feature.label}
-            </Text>
+            <Group spacing="xs" noWrap>
+              <feature.icon size="1rem" />
+              <Text color="dimmed" size="sm">
+                {feature.label}
+              </Text>
+            </Group>
             <Text size="sm" truncate>
               {feature.value}
             </Text>

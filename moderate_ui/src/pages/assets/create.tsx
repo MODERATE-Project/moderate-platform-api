@@ -1,4 +1,5 @@
 import {
+  Code,
   FileInput,
   Loader,
   LoadingOverlay,
@@ -86,7 +87,7 @@ export const AssetCreate = () => {
             <Loader size="xl" />
             <Text color="dimmed">
               {t("asset.form.uploading", "Uploading")}{" "}
-              <code>{uploadingFile?.fileName}</code>
+              <Code>{uploadingFile?.fileName}</Code>
             </Text>
             <Text fz="xl" fw={700}>
               {uploadingFile?.progress}%
@@ -106,10 +107,28 @@ export const AssetCreate = () => {
         />
         <Select
           mt="sm"
-          description={t(
-            "asset.fields.accessLevelDescription",
-            "Public assets are downloadable by anyone, private assets only by you, and visible assets are searchable but not downloadable by others",
-          )}
+          description={
+            <Stack spacing={0}>
+              <Text size="xs" color="dimmed">
+                {t(
+                  "asset.fields.accessLevelPublic",
+                  "Public: Visible and downloadable by everyone",
+                )}
+              </Text>
+              <Text size="xs" color="dimmed">
+                {t(
+                  "asset.fields.accessLevelVisible",
+                  "Visible: Searchable by everyone, but only downloadable by you",
+                )}
+              </Text>
+              <Text size="xs" color="dimmed">
+                {t(
+                  "asset.fields.accessLevelPrivate",
+                  "Private: Only visible and downloadable by you",
+                )}
+              </Text>
+            </Stack>
+          }
           label={t("asset.fields.accessLevel", "Access level")}
           {...getInputProps("access_level")}
           data={Object.values(AssetAccessLevel).map((val) => ({
