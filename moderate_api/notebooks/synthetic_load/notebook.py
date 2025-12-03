@@ -203,15 +203,15 @@ def _(mo):
 
     warnings.filterwarnings("ignore")
 
-    from moderate_api.notebooks.synthethic_load.model.main import (
+    from moderate_api.notebooks.synthetic_load.model.main import (
         generate_data_from_saved_model,
     )
-    from moderate_api.notebooks.synthethic_load.model.plot import (
+    from moderate_api.notebooks.synthetic_load.model.plot import (
         plot_distrib,
         plot_mean_trends,
         plot_stats,
     )
-    from moderate_api.notebooks.synthethic_load.model.utils import (
+    from moderate_api.notebooks.synthetic_load.model.utils import (
         calc_features,
         compute_trends,
     )

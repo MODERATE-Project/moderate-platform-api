@@ -51,3 +51,9 @@ class WorkflowJobTypes(enum.Enum):
     which also determine the name of the message broker queues."""
 
     MATRIX_PROFILE = "matrix_profile"
+
+
+class Tokens(str, enum.Enum):
+    """Enumeration of token-related constants."""
+
+    ACCESS_TOKEN_COOKIE = "access_token"

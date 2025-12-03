@@ -1,15 +1,11 @@
-import hashlib
 import json
 import logging
 import os
 import uuid
-from datetime import datetime, timezone
-from io import BytesIO
 from typing import Any, Dict, List, Optional, Union
 
 from fastapi import (
     APIRouter,
-    BackgroundTasks,
     File,
     Form,
     HTTPException,
@@ -20,15 +16,15 @@ from fastapi import (
 )
 from pydantic import BaseModel
 from slugify import slugify
-from sqlalchemy import and_, asc, case, desc, func, true
+from sqlalchemy import and_, true
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import BinaryExpression
 from sqlmodel import or_, select
 
-from moderate_api.authz import User, UserDep
-from moderate_api.authz.user import OptionalUserDep, User
+from moderate_api.authz.user import OptionalUserDep, User, UserDep
 from moderate_api.config import SettingsDep
 from moderate_api.db import AsyncSessionDep
+from moderate_api.entities.asset import trust_routes
 from moderate_api.entities.asset.models import (
     Asset,
     AssetAccessLevels,
@@ -40,9 +36,13 @@ from moderate_api.entities.asset.models import (
     UploadedS3ObjectReadWithAsset,
     UploadedS3ObjectUpdate,
     filter_object_ids_by_username,
-    find_s3object_by_key_or_id,
     find_s3object_pending_quality_check,
     update_s3object_quality_check_flag,
+)
+from moderate_api.entities.asset.search import (
+    search_assets_wrapper,
+    search_objects,
+    user_asset_visibility_selector,
 )
 from moderate_api.entities.crud import (
     CrudFiltersQuery,
@@ -56,40 +56,25 @@ from moderate_api.entities.crud import (
     update_one,
 )
 from moderate_api.enums import Actions, Entities, Tags
-from moderate_api.long_running import LongRunningTask, get_task, init_task
-from moderate_api.object_storage import S3ClientDep, ensure_bucket
+from moderate_api.object_storage import (
+    S3ClientDep,
+    ensure_bucket,
+    upload_file_multipart,
+)
 from moderate_api.open_metadata import (
     OMProfile,
     get_asset_object_profile,
     search_asset_object,
 )
-from moderate_api.trust import (
-    ProofVerificationResult,
-    create_proof_task,
-    fetch_verify_proof,
-)
 
 _logger = logging.getLogger(__name__)
+
+router = APIRouter()
+router.include_router(trust_routes.router)
 
 _TAG = "Data assets"
 _ENTITY = Entities.ASSET
 _CHUNK_SIZE = 16 * 1024**2
-
-
-class AssetSearchResult(BaseModel):
-    """Enhanced search result that includes only matching objects for each asset."""
-
-    id: int
-    uuid: str
-    name: str
-    description: Optional[str]
-    meta: Optional[Dict]
-    created_at: str
-    access_level: AssetAccessLevels
-    username: Optional[str]
-    objects: List[UploadedS3ObjectRead]
-    match_type: str  # 'asset' or 'object' - indicates what matched the search
-    match_score: Optional[float] = None  # For future ranking improvements
 
 
 async def build_selector(user: User, session: AsyncSession) -> List[BinaryExpression]:
@@ -106,9 +91,6 @@ async def build_create_patch(
     user: User, session: AsyncSession
 ) -> Optional[Dict[str, Any]]:
     return {Asset.username.key: user.username}  # type: ignore
-
-
-router = APIRouter()
 
 
 def build_object_key(obj: UploadFile, user: User) -> str:
@@ -148,285 +130,9 @@ async def get_asset_presigned_urls(
     return ret
 
 
-def _user_asset_visibility_selector(
-    user: Union[User, None],
-) -> Union[BinaryExpression, None]:
-    public_visibility_levels = [
-        AssetAccessLevels.VISIBLE,
-        AssetAccessLevels.PUBLIC,
-    ]
-
-    if not user:
-        return Asset.access_level.in_(public_visibility_levels)  # type: ignore
-
-    if user.is_admin:
-        return None
-
-    return or_(  # type: ignore
-        Asset.access_level.in_(public_visibility_levels),  # type: ignore
-        Asset.username == user.username,  # type: ignore
-    )
-
-
-async def _query_search_assets(
-    user: Union[User, None],
-    session: AsyncSessionDep,
-    query: str,
-    limit: int,
-    exclude_mine: bool,
-    where_constraint: Union[BinaryExpression, None],
-) -> List[AssetSearchResult]:
-    """Search assets by name/description and return results with all their objects."""
-    stmt = select(Asset).limit(limit)
-
-    if query and len(query) > 0:
-        stmt = stmt.where(Asset.search_vector.match(query))  # type: ignore
-        # Order by search rank for better relevance
-        stmt = stmt.order_by(desc(func.ts_rank(Asset.search_vector, func.plainto_tsquery(query))))  # type: ignore
-    else:
-        stmt = stmt.order_by(Asset.created_at.desc())  # type: ignore
-
-    if where_constraint is not None:
-        stmt = stmt.where(where_constraint)
-
-    if exclude_mine and user:
-        stmt = stmt.where(or_(Asset.username != user.username, Asset.username == None))  # type: ignore
-
-    result = await session.execute(stmt)
-    assets = list(result.scalars().all())
-
-    # Convert to AssetSearchResult format
-    search_results = []
-
-    for asset in assets:
-        if asset.id is None:
-            continue  # Skip assets without IDs
-
-        # Convert objects, filtering out any without IDs
-        objects = []
-
-        for obj in asset.objects:
-            if obj.id is not None:
-                objects.append(UploadedS3ObjectRead(**obj.__dict__))
-
-        search_results.append(
-            AssetSearchResult(
-                id=asset.id,
-                uuid=asset.uuid,
-                name=asset.name,
-                description=asset.description,
-                meta=asset.meta,
-                created_at=asset.created_at.isoformat(),
-                access_level=asset.access_level,
-                username=asset.username,
-                objects=objects,
-                match_type="asset",
-                match_score=None,  # Could be enhanced with actual ts_rank value
-            )
-        )
-
-    return search_results
-
-
-async def _query_search_assets_from_objects(
-    user: Union[User, None],
-    session: AsyncSessionDep,
-    query: str,
-    limit: int,
-    exclude_mine: bool,
-    asset_where_constraint: Union[BinaryExpression, None],
-) -> List[AssetSearchResult]:
-    """Search for assets by their object names/keys and return only matching objects."""
-    if not query:
-        return []
-
-    # First, find matching objects with their assets
-    stmt = select(UploadedS3Object, Asset).join(Asset)
-
-    # Apply asset visibility constraints
-    if asset_where_constraint is not None:
-        stmt = stmt.where(asset_where_constraint)
-
-    if exclude_mine and user:
-        stmt = stmt.where(or_(Asset.username != user.username, Asset.username == None))  # type: ignore
-
-    # Search in object names and keys (case-insensitive)
-    search_pattern = "%{}%".format(query.lower())
-
-    stmt = stmt.where(
-        or_(  # type: ignore
-            func.lower(UploadedS3Object.name).ilike(search_pattern),  # type: ignore
-            func.lower(UploadedS3Object.key).ilike(search_pattern),  # type: ignore
-            func.lower(UploadedS3Object.description).ilike(search_pattern),  # type: ignore
-        )
-    )
-
-    # Order by relevance: exact matches first, then partial matches
-    # Also consider object creation date for tie-breaking
-    stmt = stmt.order_by(
-        case(
-            (func.lower(UploadedS3Object.name) == query.lower(), 1),  # type: ignore
-            (func.lower(UploadedS3Object.key).contains(query.lower()), 2),  # type: ignore
-            else_=3,
-        ),
-        desc(UploadedS3Object.created_at),  # type: ignore
-    )
-
-    result = await session.execute(stmt)
-    object_asset_pairs = list(result.all())
-
-    # Group matching objects by asset
-    asset_objects_map: Dict[int, List[UploadedS3Object]] = {}
-    assets_map: Dict[int, Asset] = {}
-
-    for obj, asset in object_asset_pairs:
-        if asset.id is None or obj.id is None:
-            continue
-
-        if asset.id not in asset_objects_map:
-            asset_objects_map[asset.id] = []
-            assets_map[asset.id] = asset
-
-        asset_objects_map[asset.id].append(obj)
-
-    # Convert to AssetSearchResult format with only matching objects
-    search_results = []
-
-    for asset_id, matching_objects in asset_objects_map.items():
-        asset = assets_map[asset_id]
-
-        # Convert only the matching objects
-        objects = [UploadedS3ObjectRead(**obj.__dict__) for obj in matching_objects]
-
-        # asset.id is guaranteed to be not None due to the continue check above
-        search_results.append(
-            AssetSearchResult(
-                id=asset.id,  # type: ignore
-                uuid=asset.uuid,
-                name=asset.name,
-                description=asset.description,
-                meta=asset.meta,
-                created_at=asset.created_at.isoformat(),
-                access_level=asset.access_level,
-                username=asset.username,
-                objects=objects,
-                match_type="object",
-                match_score=None,
-            )
-        )
-
-    # Apply limit to final results
-    return search_results[:limit]
-
-
-async def _search_assets(
-    *,
-    user: OptionalUserDep,
-    session: AsyncSessionDep,
-    query: str = Query(default=None),
-    limit: int = Query(default=20, le=100),
-    exclude_mine: bool = Query(default=False),
-):
-    """Enhanced search that returns assets with proper object filtering."""
-    user_selector = _user_asset_visibility_selector(user=user)
-
-    # Search for assets by name/description (returns all objects for matching assets)
-    assets_by_name = await _query_search_assets(
-        user=user,
-        session=session,
-        query=query,
-        limit=limit,
-        exclude_mine=exclude_mine,
-        where_constraint=user_selector,
-    )
-
-    # Search for assets by object properties (returns only matching objects)
-    assets_by_objects = await _query_search_assets_from_objects(
-        user=user,
-        session=session,
-        query=query,
-        limit=limit,
-        exclude_mine=exclude_mine,
-        asset_where_constraint=user_selector,
-    )
-
-    # Combine results, avoiding duplicates but preserving the better match
-    # Priority: asset matches (with all objects) > object matches (with filtered objects)
-    found_assets_map: Dict[int, AssetSearchResult] = {}
-
-    # First add asset matches (these get priority and include all objects)
-    for asset_result in assets_by_name:
-        found_assets_map[asset_result.id] = asset_result
-
-    # Then add object matches (only if asset wasn't already matched by name)
-    for asset_result in assets_by_objects:
-        if asset_result.id not in found_assets_map:
-            found_assets_map[asset_result.id] = asset_result
-
-    # Convert back to list and apply final limit
-    found_assets = list(found_assets_map.values())[:limit]
-
-    # Sort by match type (asset matches first) and then by creation date
-    found_assets.sort(
-        key=lambda x: (
-            0 if x.match_type == "asset" else 1,  # Asset matches first
-            -int(
-                x.created_at.replace("T", "")
-                .replace("-", "")
-                .replace(":", "")
-                .replace(".", "")[:14]
-            ),  # Newer first
-        )
-    )
-
-    return found_assets
-
-
-async def _search_assets_wrapper(
-    *,
-    user: OptionalUserDep,
-    session: AsyncSessionDep,
-    query: str = Query(default=None),
-    limit: int = Query(default=20, le=100),
-    exclude_mine: bool = Query(default=False),
-) -> List[AssetRead]:
-    """Backward-compatible wrapper that converts AssetSearchResult to AssetRead."""
-
-    search_results = await _search_assets(
-        user=user,
-        session=session,
-        query=query,
-        limit=limit,
-        exclude_mine=exclude_mine,
-    )
-
-    # Convert AssetSearchResult back to AssetRead for backward compatibility
-    ret_results = []
-
-    for result in search_results:
-        # Convert ISO string back to datetime for AssetRead compatibility
-        created_at_dt = datetime.fromisoformat(result.created_at)
-
-        ret_results.append(
-            AssetRead(
-                id=result.id,
-                uuid=result.uuid,
-                name=result.name,
-                description=result.description,
-                meta=result.meta,
-                created_at=created_at_dt,
-                access_level=result.access_level,
-                username=result.username,
-                objects=result.objects,
-            )
-        )
-
-    return ret_results
-
-
 router.add_api_route(
     "/search",
-    _search_assets_wrapper,
+    search_assets_wrapper,
     methods=["GET"],
     response_model=List[AssetRead],
     tags=[_TAG],
@@ -434,123 +140,16 @@ router.add_api_route(
 
 router.add_api_route(
     "/public/search",
-    _search_assets_wrapper,
+    search_assets_wrapper,
     methods=["GET"],
     response_model=List[AssetRead],
     tags=[_TAG, Tags.PUBLIC.value],
 )
 
 
-async def _search_objects(
-    *,
-    user: OptionalUserDep,
-    session: AsyncSessionDep,
-    query: str = Query(default=None),
-    limit: int = Query(default=20, le=100),
-    offset: int = Query(default=0),
-    sort: str = Query(default="date", regex="^(name|date|format|asset_name)$"),
-    exclude_mine: bool = Query(default=False),
-    file_format: str = Query(default=None),
-    date_from: str = Query(default=None),
-) -> List[UploadedS3ObjectReadWithAsset]:
-    """Search for objects (datasets) directly."""
-
-    # Base query joining Object and Asset
-    stmt = select(UploadedS3Object, Asset).join(Asset)
-
-    # Visibility filter
-    user_selector = _user_asset_visibility_selector(user=user)
-    if user_selector is not None:
-        stmt = stmt.where(user_selector)
-
-    if exclude_mine and user:
-        stmt = stmt.where(or_(Asset.username != user.username, Asset.username == None))  # type: ignore
-
-    # Search query filter
-    if query:
-        search_pattern = f"%{query.lower()}%"
-        stmt = stmt.where(
-            or_(  # type: ignore
-                func.lower(UploadedS3Object.name).ilike(search_pattern),  # type: ignore
-                func.lower(UploadedS3Object.key).ilike(search_pattern),  # type: ignore
-                func.lower(UploadedS3Object.description).ilike(search_pattern),  # type: ignore
-                func.lower(Asset.name).ilike(search_pattern),  # type: ignore
-            )
-        )
-
-    # File format filter
-    if file_format:
-        # Parse comma-separated list of formats and normalize to lowercase
-        formats = [f.strip().lower() for f in file_format.split(",") if f.strip()]
-        if formats:
-            # Match extension at end of key using LIKE pattern (case-insensitive)
-            format_conditions = []
-            for fmt in formats:
-                # Use ILIKE for case-insensitive pattern matching: %.ext
-                format_conditions.append(
-                    func.lower(UploadedS3Object.key).like(f"%.{fmt}")  # type: ignore
-                )
-            if format_conditions:
-                stmt = stmt.where(or_(*format_conditions))  # type: ignore
-
-    # Date range filter
-    if date_from:
-        try:
-            # Parse date and ensure it is offset-naive (UTC) to match database
-            date_from_dt = datetime.fromisoformat(date_from.replace("Z", "+00:00"))
-            if date_from_dt.tzinfo is not None:
-                # Convert to UTC first to be safe, then strip tzinfo
-                date_from_dt = date_from_dt.astimezone(timezone.utc).replace(tzinfo=None)
-            stmt = stmt.where(UploadedS3Object.created_at >= date_from_dt)  # type: ignore
-        except (ValueError, AttributeError):
-            # Invalid date format, skip filter
-            _logger.warning("Invalid date_from format: %s", date_from)
-
-    # Sorting
-    if sort == "name":
-        # Sort by object name, fallback to key
-        sort_col = func.coalesce(UploadedS3Object.name, UploadedS3Object.key)  # type: ignore
-        stmt = stmt.order_by(asc(sort_col))
-    elif sort == "asset_name":
-        # Sort by asset name
-        stmt = stmt.order_by(asc(Asset.name))  # type: ignore
-    elif sort == "format":
-        # Sort by extension.
-        # substring(string from pattern) where pattern matches the extension
-        stmt = stmt.order_by(asc(func.substring(UploadedS3Object.key, r"\.([a-zA-Z0-9]+)$")))  # type: ignore
-    else:  # date
-        stmt = stmt.order_by(desc(UploadedS3Object.created_at))  # type: ignore
-
-    # Pagination
-    stmt = stmt.limit(limit).offset(offset)
-
-    result = await session.execute(stmt)
-    rows = result.all()
-
-    ret = []
-    for obj, asset in rows:
-        # Create read model for object
-        obj_read = UploadedS3ObjectRead(**obj.model_dump())
-
-        # Create read model for asset, containing only this object
-        asset_read = AssetRead(
-            **asset.model_dump(exclude={"objects"}),
-            objects=[obj_read],
-        )
-
-        ret.append(
-            UploadedS3ObjectReadWithAsset(
-                **obj_read.model_dump(),
-                asset=asset_read,
-            )
-        )
-
-    return ret
-
-
 router.add_api_route(
     "/objects/search",
-    _search_objects,
+    search_objects,
     methods=["GET"],
     response_model=List[UploadedS3ObjectReadWithAsset],
     tags=[_TAG],
@@ -558,7 +157,7 @@ router.add_api_route(
 
 router.add_api_route(
     "/public/objects/search",
-    _search_objects,
+    search_objects,
     methods=["GET"],
     response_model=List[UploadedS3ObjectReadWithAsset],
     tags=[_TAG, Tags.PUBLIC.value],
@@ -588,7 +187,7 @@ async def _get_asset_object_profile(
             reason="Metadata platform service not configured"
         )
 
-    user_selector = _user_asset_visibility_selector(user=user)
+    user_selector = user_asset_visibility_selector(user=user)
     user_selector = user_selector if user_selector is not None else true()
 
     stmt = (
@@ -861,46 +460,9 @@ async def upload_object(
     _logger.debug("Ensuring user assets bucket exists: %s", user_bucket)
     await ensure_bucket(s3=s3, bucket=user_bucket)
 
-    _logger.debug("Creating multipart upload (object=%s)", obj_key)
-    multipart_upload = await s3.create_multipart_upload(Bucket=user_bucket, Key=obj_key)  # type: ignore
-
-    parts = []
-    part_number = 1
-    hash_object = hashlib.sha256()
-
-    while True:
-        chunk = await obj.read(_CHUNK_SIZE)
-
-        if not chunk:
-            break
-
-        hash_object.update(chunk)
-
-        part = await s3.upload_part(  # type: ignore
-            Bucket=user_bucket,
-            Key=obj_key,
-            PartNumber=part_number,
-            UploadId=multipart_upload["UploadId"],
-            Body=BytesIO(chunk),
-        )
-
-        parts.append({"PartNumber": part_number, "ETag": part["ETag"]})
-        part_number += 1
-
-    _logger.debug(
-        "Completing multipart upload (object=%s) (chunks=%s)", obj_key, len(parts)
+    result_s3_upload = await upload_file_multipart(
+        s3=s3, bucket=user_bucket, key=obj_key, file_obj=obj, chunk_size=_CHUNK_SIZE
     )
-
-    result_s3_upload = await s3.complete_multipart_upload(  # type: ignore
-        Bucket=user_bucket,
-        Key=obj_key,
-        UploadId=multipart_upload["UploadId"],
-        MultipartUpload={"Parts": parts},
-    )
-
-    sha256_hash = hash_object.hexdigest()
-
-    _logger.debug("SHA256 hash of object: %s", sha256_hash)
 
     uploaded_s3_object = UploadedS3Object(
         bucket=result_s3_upload["Bucket"],
@@ -910,7 +472,7 @@ async def upload_object(
         asset_id=the_asset.id,
         tags=parsed_tags,
         series_id=series_id,
-        sha256_hash=sha256_hash,
+        sha256_hash=result_s3_upload["SHA256"],
         proof_id=None,  # Add missing required field
         name=name,
         description=description,
@@ -1136,121 +698,3 @@ async def update_asset_object(
     await session.refresh(the_asset_object)
 
     return the_asset_object
-
-
-class AssetObjectProofCreationRequest(BaseModel):
-    object_key_or_id: Union[str, int]
-
-
-class AssetObjectProofCreationResponse(BaseModel):
-    task_id: Optional[int]
-    obj: Optional[UploadedS3Object]
-
-
-async def _find_enforce_s3obj(
-    object_key_or_id: Union[str, int],
-    session: AsyncSessionDep,
-    user: UserDep,
-    public_assets_allowed: bool = False,
-) -> UploadedS3Object:
-    s3object = await find_s3object_by_key_or_id(val=object_key_or_id, session=session)
-
-    if not s3object:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-
-    # Handle potential None asset relationship
-    if not s3object.asset:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
-
-    is_asset_owner = (
-        s3object.asset.username and s3object.asset.username == user.username
-    )
-
-    is_public = (
-        s3object.asset.access_level == AssetAccessLevels.PUBLIC
-        and public_assets_allowed
-    )
-
-    is_allowed = user.is_admin or is_asset_owner or is_public
-
-    if not is_allowed:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
-
-    return s3object
-
-
-@router.post("/proof", response_model=AssetObjectProofCreationResponse, tags=[_TAG])
-async def ensure_trust_proof(
-    *,
-    user: UserDep,
-    session: AsyncSessionDep,
-    settings: SettingsDep,
-    background_tasks: BackgroundTasks,
-    body: AssetObjectProofCreationRequest,
-):
-    if not settings.trust_service or not settings.trust_service.endpoint_url:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
-
-    s3object = await _find_enforce_s3obj(
-        object_key_or_id=body.object_key_or_id,
-        session=session,
-        user=user,
-        public_assets_allowed=False,
-    )
-
-    if s3object.proof_id:
-        return AssetObjectProofCreationResponse(task_id=None, obj=s3object)
-
-    task_id = await init_task(session=session, username_owner=user.username)
-
-    background_tasks.add_task(
-        create_proof_task,
-        task_id=str(task_id),  # Convert int to str as expected by the function
-        s3object_key_or_id=body.object_key_or_id,
-        requester_username=user.username,
-        user_did=None,
-        create_proof_url=settings.trust_service.url_create_proof(),
-    )
-
-    return AssetObjectProofCreationResponse(task_id=task_id, obj=None)
-
-
-@router.get("/proof/task/{task_id}", response_model=LongRunningTask, tags=[_TAG])
-async def get_user_did_task_result(
-    *, user: UserDep, session: AsyncSessionDep, task_id: int
-):
-    username_owner = None if user.is_admin else user.username
-
-    task = await get_task(
-        session=session, task_id=task_id, username_owner=username_owner
-    )
-
-    if not task:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-
-    return task
-
-
-@router.get("/proof/integrity", response_model=ProofVerificationResult, tags=[_TAG])
-async def verify_trust_proof(
-    *,
-    user: UserDep,
-    session: AsyncSessionDep,
-    settings: SettingsDep,
-    object_key_or_id: Union[str, int],
-):
-    if not settings.trust_service or not settings.trust_service.endpoint_url:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
-
-    s3object = await _find_enforce_s3obj(
-        object_key_or_id=object_key_or_id,
-        session=session,
-        user=user,
-        public_assets_allowed=True,
-    )
-
-    return await fetch_verify_proof(
-        session=session,
-        asset_obj_key=s3object.key,
-        get_proof_url=settings.trust_service.url_get_proof(),
-    )

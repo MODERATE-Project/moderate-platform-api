@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 import zstandard as zstd
 
-from moderate_api.notebooks.synthethic_load.model.data_manip import (
+from moderate_api.notebooks.synthetic_load.model.data_manip import (
     invert_min_max_scaler,
     revert_reshape_arr,
 )

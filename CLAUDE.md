@@ -227,7 +227,7 @@ moderate_api/
 │   └── visualization/   # Data visualizations (PyGWalker)
 ├── notebooks/           # Marimo notebooks for data analysis
 │   ├── exploration/     # Exploratory data analysis
-│   └── synthethic_load/ # Synthetic load generation (ML model)
+│   └── synthetic_load/ # Synthetic load generation (ML model)
 ├── object_storage.py    # S3/MinIO client management
 ├── message_queue.py     # RabbitMQ integration
 ├── long_running.py      # Background task management

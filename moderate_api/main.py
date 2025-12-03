@@ -21,30 +21,12 @@ from moderate_api.authz.token import decode_token
 from moderate_api.authz.user import get_user_optional
 from moderate_api.config import get_settings
 from moderate_api.db import DBEngine
-from moderate_api.enums import Prefixes
+from moderate_api.enums import Prefixes, Tokens
 from moderate_api.message_queue import declare_rabbit_entities, with_rabbit
 from moderate_api.notebooks import ALL_NOTEBOOKS
+from moderate_api.utils.router import raise_if_trailing_slashes
 
 _logger = logging.getLogger(__name__)
-
-
-def raise_if_trailing_slashes(the_app: FastAPI):
-    """Checks the app's routes for trailing slashes and exits if any are found.
-    https://github.com/tiangolo/fastapi/discussions/7298#discussioncomment-5135720"""
-
-    for route in the_app.routes:
-        if route.path.endswith("/"):
-            if route.path == "/":
-                continue
-
-            err_msg = (
-                "Aborting: paths may not end with a slash. Check route: {}".format(
-                    route
-                )
-            )
-
-            _logger.error(err_msg)
-            raise Exception(err_msg)
 
 
 @asynccontextmanager
@@ -125,9 +107,6 @@ app.include_router(
 raise_if_trailing_slashes(the_app=app)
 
 
-_COOKIE_TOKEN = "access_token"
-
-
 @app.middleware("http")
 async def notebook_auth_middleware(request: Request, call_next):
     """Middleware to check if the user is authenticated to access the notebooks."""
@@ -138,7 +117,7 @@ async def notebook_auth_middleware(request: Request, call_next):
 
     if is_notebook_request:
         try:
-            token_cookie = request.cookies.get(_COOKIE_TOKEN)
+            token_cookie = request.cookies.get(Tokens.ACCESS_TOKEN_COOKIE.value)
 
             if not token_cookie:
                 raise
@@ -175,7 +154,7 @@ async def token_cookie_middleware(request: Request, call_next):
 
     if user and user.is_enabled and token:
         response.set_cookie(
-            key=_COOKIE_TOKEN,
+            key=Tokens.ACCESS_TOKEN_COOKIE.value,
             value=token,
             httponly=True,
             secure=True,
