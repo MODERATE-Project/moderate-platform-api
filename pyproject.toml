@@ -60,6 +60,22 @@ black = "^24.4.0"
 pytest = "^8.3.0"
 pytest-asyncio = "^0.23.0"
 pyarrow = "^14.0.0"
+ruff = "^0.4.4"
+mypy = "^1.10.0"
+
+[tool.ruff]
+line-length = 79
+target-version = "py38"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "C4", "UP"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.9"
+strict = true
+ignore_missing_imports = true
+plugins = ["pydantic.mypy"]
 
 [build-system]
 requires = ["poetry-core"]

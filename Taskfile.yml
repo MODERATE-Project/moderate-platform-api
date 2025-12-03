@@ -70,6 +70,19 @@ tasks:
       - task: trust-up
       - docker compose -f {{.ROOT_DIR}}/docker-compose-dev.yml up -d --build
 
+  lint:
+    desc: Check code quality (black, ruff, mypy)
+    cmds:
+      - poetry run black --check moderate_api/ tests/
+      - poetry run ruff check moderate_api/ tests/
+      - poetry run mypy moderate_api/ tests/
+
+  format:
+    desc: Format code (black, ruff)
+    cmds:
+      - poetry run ruff check --fix moderate_api/ tests/
+      - poetry run black moderate_api/ tests/
+
   dev-up-gcs:
     desc: Start the development stack using GCS instead of the local MinIO
     requires:
