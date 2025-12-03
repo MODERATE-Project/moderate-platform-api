@@ -2,11 +2,12 @@ import logging
 import pprint
 
 import pytest
+from fastapi.testclient import TestClient
 
 _logger = logging.getLogger(__name__)
 
 
-def test_ping(client, access_token):
+def test_ping(client: TestClient, access_token: str) -> None:
     """Test the ping endpoint with authentication."""
 
     response = client.get("/ping", headers={"Authorization": f"Bearer {access_token}"})
@@ -23,7 +24,7 @@ def test_ping(client, access_token):
     [{"access_enabled": False}],
     indirect=True,
 )
-def test_ping_invalid_access_token(client, access_token):
+def test_ping_invalid_access_token(client: TestClient, access_token: str) -> None:
     """Test the ping endpoint with an unauthorized user."""
 
     response = client.get("/ping", headers={"Authorization": f"Bearer {access_token}"})
@@ -33,7 +34,7 @@ def test_ping_invalid_access_token(client, access_token):
     assert resp_json.get("user", None) is None
 
 
-def test_ping_no_access_token(client):
+def test_ping_no_access_token(client: TestClient) -> None:
     """Test the ping endpoint without an access token."""
 
     response = client.get("/ping")

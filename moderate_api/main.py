@@ -149,7 +149,7 @@ async def token_cookie_middleware(request: Request, call_next):
 
     try:
         token = request.headers.get("Authorization").split("Bearer")[1].strip()
-    except:
+    except Exception:
         token = None
 
     if user and user.is_enabled and token:

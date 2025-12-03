@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Response, status
 from pydantic import BaseModel
@@ -35,7 +35,7 @@ _TAG = "Access requests"
 _ENTITY = Entities.ACCESS_REQUEST
 
 
-async def build_selector(user: User, session: AsyncSession) -> List[BinaryExpression]:
+async def build_selector(user: User, session: AsyncSession) -> list[BinaryExpression]:
     return [
         or_(
             AccessRequest.requester_username == user.username,
@@ -46,7 +46,7 @@ async def build_selector(user: User, session: AsyncSession) -> List[BinaryExpres
 
 async def build_create_patch(
     user: User, session: AsyncSession
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     return {
         AccessRequest.requester_username.key: user.username,
     }
@@ -92,7 +92,7 @@ async def update_permission(
     return access_request
 
 
-@router.get("", response_model=List[AccessRequestRead], tags=[_TAG])
+@router.get("", response_model=list[AccessRequestRead], tags=[_TAG])
 async def query_access_requests(
     *,
     response: Response,
@@ -100,8 +100,8 @@ async def query_access_requests(
     session: AsyncSessionDep,
     offset: int = 0,
     limit: int = Query(default=100, le=100),
-    filters: Optional[str] = CrudFiltersQuery,
-    sorts: Optional[str] = CrudSortsQuery,
+    filters: str | None = CrudFiltersQuery,
+    sorts: str | None = CrudSortsQuery,
 ):
     user_selector = await build_selector(user=user, session=session)
 

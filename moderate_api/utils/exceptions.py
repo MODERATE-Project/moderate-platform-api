@@ -1,11 +1,11 @@
 """Standard HTTP exception helpers."""
 
-from typing import NoReturn, Optional
+from typing import NoReturn
 
 from fastapi import HTTPException, status
 
 
-def raise_not_found(detail: Optional[str] = None) -> NoReturn:
+def raise_not_found(detail: str | None = None) -> NoReturn:
     """Raise a 404 Not Found exception.
 
     Args:
@@ -17,7 +17,7 @@ def raise_not_found(detail: Optional[str] = None) -> NoReturn:
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
 
 
-def raise_forbidden(detail: Optional[str] = None) -> NoReturn:
+def raise_forbidden(detail: str | None = None) -> NoReturn:
     """Raise a 403 Forbidden exception.
 
     Args:
@@ -29,7 +29,7 @@ def raise_forbidden(detail: Optional[str] = None) -> NoReturn:
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
 
 
-def raise_service_unavailable(detail: Optional[str] = None) -> NoReturn:
+def raise_service_unavailable(detail: str | None = None) -> NoReturn:
     """Raise a 503 Service Unavailable exception.
 
     Args:
@@ -41,7 +41,7 @@ def raise_service_unavailable(detail: Optional[str] = None) -> NoReturn:
     raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=detail)
 
 
-def raise_bad_request(detail: Optional[str] = None) -> NoReturn:
+def raise_bad_request(detail: str | None = None) -> NoReturn:
     """Raise a 400 Bad Request exception.
 
     Args:
@@ -53,7 +53,7 @@ def raise_bad_request(detail: Optional[str] = None) -> NoReturn:
     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
 
 
-def raise_unauthorized(detail: Optional[str] = None) -> NoReturn:
+def raise_unauthorized(detail: str | None = None) -> NoReturn:
     """Raise a 401 Unauthorized exception.
 
     Args:

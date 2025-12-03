@@ -87,20 +87,21 @@ def pytest_configure():
             os.environ[key] = val
 
 
-def pytest_unconfigure():
+def pytest_unconfigure() -> None:
     """Restore the original environment variables."""
 
     _logger.debug("Restoring original environment variables")
 
     for key in _ENV_KEYS:
-        if _original_env.get(key) is None:
+        original_val = _original_env.get(key)
+        if original_val is None:
             os.environ.pop(key, None)
         else:
-            os.environ[key] = _original_env.get(key)
+            os.environ[key] = original_val
 
 
 @pytest.fixture
-def access_token(request):
+def access_token(request):  # type: ignore[no-untyped-def]
     now = int(time.time())
 
     try:
@@ -168,12 +169,12 @@ def access_token(request):
 
 
 @pytest.fixture()
-def client():
+def client():  # type: ignore[no-untyped-def]
     yield TestClient(app=app)
 
 
 @pytest_asyncio.fixture(autouse=True, scope="function")
-async def drop_all_tables():
+async def drop_all_tables() -> None:  # type: ignore[misc]
     try:
         yield
     finally:
@@ -200,7 +201,7 @@ async def drop_all_tables():
 
 
 @pytest_asyncio.fixture(autouse=True, scope="function")
-async def skip_if_db_offline():
+async def skip_if_db_offline() -> None:
     _logger.debug("Checking that database is online")
 
     if await is_db_online_async() is False:
@@ -208,15 +209,16 @@ async def skip_if_db_offline():
 
 
 @pytest_asyncio.fixture(scope="function")
-async def s3():
+async def s3():  # type: ignore[no-untyped-def]
     _logger.debug("Checking that S3 is online")
 
     try:
         settings = get_settings()
-        _logger.info("S3 settings:\n%s", settings.s3.json(indent=2))
+        if settings.s3:
+            _logger.info("S3 settings:\n%s", settings.s3.json(indent=2))
 
         async with with_s3(settings=settings) as s3:
             yield s3
-    except Exception as ex:
+    except Exception:
         _logger.info("S3 is offline", exc_info=True)
         pytest.skip("S3 is offline")

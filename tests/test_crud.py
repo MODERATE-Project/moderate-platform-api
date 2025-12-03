@@ -15,20 +15,20 @@ _logger = logging.getLogger(__name__)
 
 
 @pytest.mark.asyncio
-async def test_create_one(access_token):
+async def test_create_one(access_token):  # type: ignore[no-untyped-def]
     with TestClient(app) as client:
         assert create_asset(client, access_token)
 
 
 @pytest.mark.asyncio
-async def test_read_one(access_token):
+async def test_read_one(access_token):  # type: ignore[no-untyped-def]
     with TestClient(app) as client:
         asset_created = create_asset(client, access_token)
         assert read_asset(client, access_token, asset_created)
 
 
 @pytest.mark.asyncio
-async def test_update_one(access_token):
+async def test_update_one(access_token):  # type: ignore[no-untyped-def]
     with TestClient(app) as client:
         asset_created = create_asset(client, access_token)
         new_name = str(uuid.uuid4())
@@ -38,7 +38,7 @@ async def test_update_one(access_token):
 
 
 @pytest.mark.asyncio
-async def test_delete_one(access_token):
+async def test_delete_one(access_token):  # type: ignore[no-untyped-def]
     with TestClient(app) as client:
         asset_created = create_asset(client, access_token)
 
@@ -52,7 +52,7 @@ async def test_delete_one(access_token):
 
 
 @pytest.mark.asyncio
-async def test_read_many_with_filters(access_token):
+async def test_read_many_with_filters(access_token):  # type: ignore[no-untyped-def]
     with TestClient(app) as client:
         assets_created = [create_asset(client, access_token) for _ in range(5)]
         assets_selected = random.sample(assets_created, 3)
@@ -67,7 +67,7 @@ async def test_read_many_with_filters(access_token):
         _logger.debug("Query filters (JSON-encoded):\n%s", filters_json_str)
 
         response = client.get(
-            f"/asset",
+            "/asset",
             headers={"Authorization": f"Bearer {access_token}"},
             params={"filters": filters_json_str},
         )
@@ -76,11 +76,11 @@ async def test_read_many_with_filters(access_token):
         resp_json = response.json()
         _logger.debug("Response:\n%s", pprint.pformat(resp_json))
         assert len(resp_json) == len(assets_selected)
-        assert all([a["id"] in [r["id"] for r in resp_json] for a in assets_selected])
+        assert all(a["id"] in [r["id"] for r in resp_json] for a in assets_selected)
 
 
 @pytest.mark.asyncio
-async def test_read_many_with_sorts(access_token):
+async def test_read_many_with_sorts(access_token):  # type: ignore[no-untyped-def]
     with TestClient(app) as client:
         assets_created = [create_asset(client, access_token) for _ in range(10)]
 
@@ -92,7 +92,7 @@ async def test_read_many_with_sorts(access_token):
         sorts_json_str = json.dumps(sorts_list)
 
         response = client.get(
-            f"/asset",
+            "/asset",
             headers={"Authorization": f"Bearer {access_token}"},
             params={"sorts": sorts_json_str},
         )
@@ -102,4 +102,6 @@ async def test_read_many_with_sorts(access_token):
         _logger.debug("Response:\n%s", pprint.pformat(resp_json))
         assets_expected = sorted(assets_created, key=lambda a: (a["uuid"], a["name"]))
         assert len(resp_json) == len(assets_expected)
-        assert all([a["id"] == r["id"] for a, r in zip(assets_expected, resp_json)])
+        assert all(
+            a["id"] == r["id"] for a, r in zip(assets_expected, resp_json, strict=False)
+        )

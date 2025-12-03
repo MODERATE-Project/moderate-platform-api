@@ -14,7 +14,7 @@ _logger = logging.getLogger(__name__)
 
 
 @pytest.mark.asyncio
-async def test_regular_users_create_denied(access_token):
+async def test_regular_users_create_denied(access_token):  # type: ignore[no-untyped-def]
     with TestClient(app) as client:
         with pytest.raises(httpx.HTTPStatusError):
             create_user_meta(client, access_token)
@@ -26,13 +26,13 @@ async def test_regular_users_create_denied(access_token):
     indirect=True,
 )
 @pytest.mark.asyncio
-async def test_admins_create_allowed(access_token):
+async def test_admins_create_allowed(access_token):  # type: ignore[no-untyped-def]
     with TestClient(app) as client:
         created_user_meta = create_user_meta(client, access_token)
         assert created_user_meta
 
 
-_USERNAME = "test-user-{}".format(str(uuid.uuid4()))
+_USERNAME = f"test-user-{str(uuid.uuid4())}"
 
 
 @pytest.mark.parametrize(
@@ -41,7 +41,7 @@ _USERNAME = "test-user-{}".format(str(uuid.uuid4()))
     indirect=True,
 )
 @pytest.mark.asyncio
-async def test_regular_users_read_limited(access_token):
+async def test_regular_users_read_limited(access_token):  # type: ignore[no-untyped-def]
     with TestClient(app) as client:
         username_rand = str(uuid.uuid4())
 

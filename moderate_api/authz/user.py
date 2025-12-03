@@ -1,11 +1,10 @@
 import dataclasses
 import logging
 import pprint
-from typing import Dict, List, Optional, TypeVar, Union
+from typing import Annotated, Any, TypeVar
 
 import casbin
 from fastapi import Depends, HTTPException, Request, status
-from typing_extensions import Annotated
 
 from moderate_api.authz.enforcer import debug_enforcer, get_enforcer
 from moderate_api.authz.enums import TokenFields
@@ -19,8 +18,8 @@ _logger = logging.getLogger(__name__)
 
 @dataclasses.dataclass
 class User:
-    token_decoded: Dict
-    _settings: Settings = None
+    token_decoded: dict[str, Any]
+    _settings: Settings | None = None
     _enforcer: casbin.Enforcer = None
 
     @property
@@ -56,7 +55,7 @@ class User:
         return self.token_decoded[TokenFields.PREFERRED_USERNAME.value]
 
     @property
-    def roles(self) -> List[str]:
+    def roles(self) -> list[str]:
         roles = self.token_decoded.get(TokenFields.REALM_ACCESS.value, {}).get(
             TokenFields.ROLES.value, []
         )
@@ -78,7 +77,7 @@ class User:
     def is_admin(self) -> bool:
         return self.enforcer.has_role_for_user(self.username, self.settings.role_admin)
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "token": self.token_decoded,
             "is_admin": self.is_admin,
@@ -95,9 +94,7 @@ class User:
         if not self.enforcer.enforce(self.username, obj, act):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
 
-    def apply_admin_bypass(
-        self, value: T, admin_value: Optional[T] = None
-    ) -> Optional[T]:
+    def apply_admin_bypass(self, value: T, admin_value: T | None = None) -> T | None:
         """Apply admin bypass logic to a value.
 
         Returns admin_value if user is admin, otherwise returns value.
@@ -116,7 +113,7 @@ class User:
         """
         return admin_value if self.is_admin else value
 
-    def get_username_filter(self) -> Optional[str]:
+    def get_username_filter(self) -> str | None:
         """Get username filter for queries.
 
         Returns None for admins (no filter), username for regular users.
@@ -159,9 +156,7 @@ async def get_user(request: Request, settings: SettingsDep) -> User:
 UserDep = Annotated[User, Depends(get_user)]
 
 
-async def get_user_optional(
-    request: Request, settings: SettingsDep
-) -> Union[User, None]:
+async def get_user_optional(request: Request, settings: SettingsDep) -> User | None:
     """Build a User object from the JWT token in the request.
     Return None if the token is invalid or not present."""
 
@@ -171,4 +166,4 @@ async def get_user_optional(
         return None
 
 
-OptionalUserDep = Annotated[Union[User, None], Depends(get_user_optional)]
+OptionalUserDep = Annotated[User | None, Depends(get_user_optional)]

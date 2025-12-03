@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Dict, Optional
+from typing import Any
 
 from pydantic import BaseModel
 from sqlalchemy import Column
@@ -9,7 +9,9 @@ from sqlmodel import Field, SQLModel, select
 
 from moderate_api.authz import User
 from moderate_api.db import AsyncSessionDep
-from moderate_api.entities.access_request.models import valid_access_request_exists
+from moderate_api.entities.access_request.models import (
+    valid_access_request_exists,
+)
 from moderate_api.entities.asset.models import Asset, AssetAccessLevels
 from moderate_api.enums import WorkflowJobTypes
 from moderate_api.utils.factories import now_factory
@@ -17,35 +19,35 @@ from moderate_api.utils.factories import now_factory
 _DEFAULT_JOB_DEBOUNCE_SECS = 10
 
 
-class WorkflowJob(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
+class WorkflowJob(SQLModel, table=True):  # type: ignore[call-arg, misc]
+    id: int | None = Field(default=None, primary_key=True)
     job_type: WorkflowJobTypes
-    arguments: Optional[Dict] = Field(default=None, sa_column=Column(JSONB))
-    results: Optional[Dict] = Field(default=None, sa_column=Column(JSONB))
+    arguments: dict[str, Any] | None = Field(default=None, sa_column=Column(JSONB))
+    results: dict[str, Any] | None = Field(default=None, sa_column=Column(JSONB))
     created_at: datetime = Field(default_factory=now_factory, index=True)
-    finalised_at: Optional[datetime] = Field(default=None, index=True)
+    finalised_at: datetime | None = Field(default=None, index=True)
     creator_username: str
 
 
-class WorkflowJobRead(SQLModel):
+class WorkflowJobRead(SQLModel):  # type: ignore[misc]
     id: int
     job_type: WorkflowJobTypes
-    arguments: Optional[Dict]
-    results: Optional[Dict]
+    arguments: dict[str, Any] | None
+    results: dict[str, Any] | None
     created_at: datetime
-    finalised_at: Optional[datetime]
+    finalised_at: datetime | None
     creator_username: str
-    extended_results: Optional[Dict]
+    extended_results: dict[str, Any] | None
 
 
-class WorkflowJobCreate(SQLModel):
+class WorkflowJobCreate(SQLModel):  # type: ignore[misc]
     job_type: WorkflowJobTypes
-    arguments: Optional[Dict]
+    arguments: dict[str, Any] | None
 
 
-class WorkflowJobUpdate(SQLModel):
-    results: Dict
-    finalised_at: Optional[datetime]
+class WorkflowJobUpdate(SQLModel):  # type: ignore[misc]
+    results: dict[str, Any]
+    finalised_at: datetime | None
 
 
 class MatrixProfileArguments(BaseModel):
@@ -60,11 +62,11 @@ class MatrixProfileMessage(BaseModel):
     key: str
 
 
-ARGUMENTS_TYPE_MAP: Dict[str, BaseModel] = {
+ARGUMENTS_TYPE_MAP: dict[str, BaseModel] = {
     WorkflowJobTypes.MATRIX_PROFILE.value: MatrixProfileArguments,
 }
 
-MESSAGES_TYPE_MAP: Dict[str, BaseModel] = {
+MESSAGES_TYPE_MAP: dict[str, BaseModel] = {
     WorkflowJobTypes.MATRIX_PROFILE.value: MatrixProfileMessage,
 }
 

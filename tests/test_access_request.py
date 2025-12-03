@@ -16,13 +16,13 @@ _logger = logging.getLogger(__name__)
 
 
 @pytest.mark.asyncio
-async def test_create_one(access_token):
+async def test_create_one(access_token):  # type: ignore[no-untyped-def]
     with TestClient(app) as client:
         assert await create_access_request(client, access_token)
 
 
 @pytest.mark.asyncio
-async def test_relationship(access_token):
+async def test_relationship(access_token):  # type: ignore[no-untyped-def]
     with TestClient(app) as client:
         created_dict = await create_access_request(client, access_token)
 
@@ -35,7 +35,7 @@ async def test_relationship(access_token):
 
 
 @pytest.mark.asyncio
-async def test_approve_permission(access_token):
+async def test_approve_permission(access_token):  # type: ignore[no-untyped-def]
     with TestClient(app) as client:
         created_dict = await create_access_request(client, access_token)
         access_request_id = created_dict["id"]
@@ -80,7 +80,7 @@ async def test_approve_permission(access_token):
     indirect=True,
 )
 @pytest.mark.asyncio
-async def test_permission_access(access_token):
+async def test_permission_access(access_token):  # type: ignore[no-untyped-def]
     with TestClient(app) as client:
         created_dict = await create_access_request(client, access_token)
         access_request_id = created_dict["id"]
@@ -109,7 +109,7 @@ async def test_permission_access(access_token):
     indirect=True,
 )
 @pytest.mark.asyncio
-async def test_read_access(access_token):
+async def test_read_access(access_token):  # type: ignore[no-untyped-def]
     with TestClient(app) as client:
         created_dict = await create_access_request(client, access_token)
         access_request_id = created_dict["id"]

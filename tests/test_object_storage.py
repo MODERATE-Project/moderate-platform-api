@@ -26,19 +26,19 @@ _logger = logging.getLogger(__name__)
 
 
 @pytest.mark.asyncio
-async def test_s3_client_dep(s3):
+async def test_s3_client_dep(s3):  # type: ignore[no-untyped-def]
     res_buckets = await s3.list_buckets()
     _logger.info("Buckets:\n%s", pprint.pformat(res_buckets))
     assert "Buckets" in res_buckets
 
 
 @pytest.mark.asyncio
-async def test_upload_object(access_token):
+async def test_upload_object(access_token):  # type: ignore[no-untyped-def]
     upload_test_files(access_token)
 
 
 @pytest.mark.asyncio
-async def test_presigned_urls(access_token, s3):
+async def test_presigned_urls(access_token, s3):  # type: ignore[no-untyped-def]
     num_files = random.randint(2, 5)
     asset_id = upload_test_files(access_token, num_files=num_files)
 
@@ -52,13 +52,13 @@ async def test_presigned_urls(access_token, s3):
 
 
 @pytest.mark.asyncio
-async def test_download_route(access_token):
+async def test_download_route(access_token):  # type: ignore[no-untyped-def]
     num_files = random.randint(2, 5)
     asset_id = upload_test_files(access_token, num_files=num_files)
 
     with TestClient(app) as client:
         response = client.get(
-            "/asset/{}/download-urls".format(asset_id),
+            f"/asset/{asset_id}/download-urls",
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
@@ -77,7 +77,7 @@ async def _get_num_uploaded_objects() -> int:
 
 
 @pytest.mark.asyncio
-async def test_delete_asset_with_objects(access_token):
+async def test_delete_asset_with_objects(access_token):  # type: ignore[no-untyped-def]
     num_files = 2
     asset_id = upload_test_files(access_token, num_files=num_files)
     assert await _get_num_uploaded_objects() == num_files
@@ -94,7 +94,7 @@ async def test_delete_asset_with_objects(access_token):
 
 
 @pytest.mark.asyncio
-async def test_delete_object_from_asset(access_token):
+async def test_delete_object_from_asset(access_token):  # type: ignore[no-untyped-def]
     num_files = random.randint(2, 5)
     asset_id = upload_test_files(access_token, num_files=num_files)
 
@@ -123,7 +123,7 @@ async def test_delete_object_from_asset(access_token):
 
 
 @pytest.mark.asyncio
-async def test_upload_object_with_metadata(access_token):
+async def test_upload_object_with_metadata(access_token):  # type: ignore[no-untyped-def]
     tags_dict = {
         "uid": str(uuid.uuid4()),
         "dtime": datetime.datetime.now(datetime.timezone.utc).isoformat(),
@@ -165,7 +165,7 @@ def _get_file_hash(file_path):
 
 
 @pytest.mark.asyncio
-async def test_object_hashes(access_token):
+async def test_object_hashes(access_token):  # type: ignore[no-untyped-def]
     with ExitStack() as stack:
         client = stack.enter_context(TestClient(app))
         temp_csv_paths = []

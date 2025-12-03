@@ -1,22 +1,22 @@
 import hashlib
 import logging
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from io import BytesIO
-from typing import Any, AsyncGenerator, Dict
+from typing import Annotated, Any
 
 from aiobotocore.client import AioBaseClient
 from aiobotocore.session import get_session
 from botocore.config import Config
 from botocore.exceptions import ClientError
 from fastapi import Depends, UploadFile
-from typing_extensions import Annotated
 
 from moderate_api.config import Settings, SettingsDep
 
 _logger = logging.getLogger(__name__)
 
 
-async def ensure_bucket(s3: AioBaseClient, bucket: str):
+async def ensure_bucket(s3: AioBaseClient, bucket: str) -> None:
     try:
         _logger.debug("Checking if S3 bucket exists: %s", bucket)
         await s3.head_bucket(Bucket=bucket)
@@ -32,11 +32,11 @@ async def upload_file_multipart(
     key: str,
     file_obj: UploadFile,
     chunk_size: int = 16 * 1024**2,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Uploads a file to S3 using multipart upload and calculates SHA256 hash."""
 
     _logger.debug("Creating multipart upload (object=%s)", key)
-    multipart_upload = await s3.create_multipart_upload(Bucket=bucket, Key=key)  # type: ignore
+    multipart_upload = await s3.create_multipart_upload(Bucket=bucket, Key=key)
 
     parts = []
     part_number = 1
@@ -51,7 +51,7 @@ async def upload_file_multipart(
 
             hash_object.update(chunk)
 
-            part = await s3.upload_part(  # type: ignore
+            part = await s3.upload_part(
                 Bucket=bucket,
                 Key=key,
                 PartNumber=part_number,
@@ -66,7 +66,7 @@ async def upload_file_multipart(
             "Completing multipart upload (object=%s) (chunks=%s)", key, len(parts)
         )
 
-        result_s3_upload = await s3.complete_multipart_upload(  # type: ignore
+        result_s3_upload = await s3.complete_multipart_upload(
             Bucket=bucket,
             Key=key,
             UploadId=multipart_upload["UploadId"],
@@ -107,7 +107,10 @@ async def with_s3(settings: Settings) -> AsyncGenerator[AioBaseClient, None]:
         aws_secret_access_key=settings.s3.secret_key,
         use_ssl=settings.s3.use_ssl,
         # https://github.com/boto/boto3/issues/4400#issuecomment-2600742103
-        config=Config(request_checksum_calculation="when_required", response_checksum_validation="when_required")
+        config=Config(
+            request_checksum_calculation="when_required",
+            response_checksum_validation="when_required",
+        ),
     ) as s3:
         await ensure_bucket(s3=s3, bucket=settings.s3.bucket)
         yield s3

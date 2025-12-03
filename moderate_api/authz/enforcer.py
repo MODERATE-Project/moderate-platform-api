@@ -2,10 +2,10 @@ import contextlib
 import importlib.resources
 import logging
 import pprint
+from typing import Annotated
 
 import casbin
 from fastapi import Depends
-from typing_extensions import Annotated
 
 import moderate_api.authz
 

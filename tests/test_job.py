@@ -5,7 +5,6 @@ import pprint
 import random
 import uuid
 
-import aio_pika
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import select
@@ -50,7 +49,7 @@ async def _wait_for_matrix_profile_message(
     [{"is_admin": True}],
     indirect=True,
 )
-async def test_matrix_profile_workflow_job(access_token):
+async def test_matrix_profile_workflow_job(access_token):  # type: ignore[no-untyped-def]
     async with with_rabbit() as rabbit:
         if rabbit is None:
             pytest.skip()

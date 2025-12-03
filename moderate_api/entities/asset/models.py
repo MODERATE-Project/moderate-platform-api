@@ -1,7 +1,7 @@
 import enum
 import os
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional
 
 from pydantic import validator
 from sqlalchemy import Column, Index, Text, or_, select
@@ -12,6 +12,9 @@ from moderate_api.db import AsyncSessionDep, build_tsvector_computed
 from moderate_api.entities.crud import find_by_json_key, update_json_key
 from moderate_api.object_storage import S3ClientDep
 from moderate_api.utils.factories import now_factory, uuid_factory
+
+if TYPE_CHECKING:
+    from moderate_api.entities.access_request.models import AccessRequest
 
 
 class S3ObjectWellKnownMetaKeys(enum.Enum):
@@ -24,28 +27,28 @@ class AssetAccessLevels(enum.Enum):
     VISIBLE = "visible"
 
 
-class AssetBase(SQLModel):
+class AssetBase(SQLModel):  # type: ignore[misc]
     uuid: str = Field(default_factory=uuid_factory)
     name: str
-    description: Optional[str] = Field(default=None, sa_column=Column(Text))
-    meta: Optional[Dict] = Field(default=None, sa_column=Column(JSONB))
+    description: str | None = Field(default=None, sa_column=Column(Text))
+    meta: dict[str, Any] | None = Field(default=None, sa_column=Column(JSONB))
     created_at: datetime = Field(default_factory=now_factory, index=True)
 
 
-class UploadedS3ObjectBase(SQLModel):
+class UploadedS3ObjectBase(SQLModel):  # type: ignore[misc]
     key: str = Field(unique=True)
-    tags: Optional[Dict] = Field(default=None, sa_column=Column(JSONB))
+    tags: dict[str, Any] | None = Field(default=None, sa_column=Column(JSONB))
     created_at: datetime = Field(default_factory=now_factory, index=True)
-    series_id: Optional[str]
+    series_id: str | None
     sha256_hash: str
-    proof_id: Optional[str]
-    meta: Optional[Dict] = Field(default=None, sa_column=Column(JSONB))
-    name: Optional[str] = Field(default=None)
-    description: Optional[str] = Field(default=None, sa_column=Column(Text))
+    proof_id: str | None
+    meta: dict[str, Any] | None = Field(default=None, sa_column=Column(JSONB))
+    name: str | None = Field(default=None)
+    description: str | None = Field(default=None, sa_column=Column(Text))
 
 
 class UploadedS3Object(UploadedS3ObjectBase, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     bucket: str
     etag: str
     location: str
@@ -89,13 +92,13 @@ class UploadedS3Object(UploadedS3ObjectBase, table=True):
     __table_args__ = tuple(_targs)
 
 
-class Asset(AssetBase, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
+class Asset(AssetBase, table=True):  # type: ignore[call-arg, misc]
+    id: int | None = Field(default=None, primary_key=True)
     uuid: str = Field(default_factory=uuid_factory, unique=True)
-    username: Optional[str]
+    username: str | None
     access_level: AssetAccessLevels = Field(default=AssetAccessLevels.PRIVATE)
 
-    objects: List[UploadedS3Object] = Relationship(
+    objects: list[UploadedS3Object] = Relationship(
         back_populates="asset",
         sa_relationship_kwargs={"lazy": "selectin", "cascade": "delete"},
     )
@@ -108,7 +111,7 @@ class Asset(AssetBase, table=True):
         ),
     )
 
-    access_requests: List["AccessRequest"] = Relationship(  # type: ignore
+    access_requests: list["AccessRequest"] = Relationship(  # type: ignore
         back_populates="asset",
         sa_relationship_kwargs={"lazy": "selectin"},
     )
@@ -129,41 +132,41 @@ class Asset(AssetBase, table=True):
         arbitrary_types_allowed = True
 
 
-class UploadedS3ObjectRead(UploadedS3ObjectBase):
+class UploadedS3ObjectRead(UploadedS3ObjectBase):  # type: ignore[misc]
     id: int
 
 
-class UploadedS3ObjectUpdate(SQLModel):
-    tags: Optional[Dict]
-    meta: Optional[Dict]
-    name: Optional[str]
-    description: Optional[str]
+class UploadedS3ObjectUpdate(SQLModel):  # type: ignore[misc]
+    tags: dict[str, Any] | None
+    meta: dict[str, Any] | None
+    name: str | None
+    description: str | None
 
 
-class AssetCreate(AssetBase):
+class AssetCreate(AssetBase):  # type: ignore[misc]
     access_level: AssetAccessLevels = AssetAccessLevels.PRIVATE
     is_public_ownerless: bool = False
 
 
-class AssetRead(AssetBase):
+class AssetRead(AssetBase):  # type: ignore[misc]
     id: int
-    objects: List[UploadedS3ObjectRead]
+    objects: list[UploadedS3ObjectRead]
     access_level: AssetAccessLevels
-    username: Optional[str]
+    username: str | None
 
 
 class UploadedS3ObjectReadWithAsset(UploadedS3ObjectRead):
     asset: AssetRead
 
 
-class AssetUpdate(SQLModel):
-    name: Optional[str] = None
-    access_level: Optional[AssetAccessLevels] = None
+class AssetUpdate(SQLModel):  # type: ignore[misc]
+    name: str | None = None
+    access_level: AssetAccessLevels | None = None
 
 
 async def find_s3object_by_key_or_id(
-    val: Union[str, int], session: AsyncSessionDep
-) -> Optional[UploadedS3Object]:
+    val: str | int, session: AsyncSessionDep
+) -> UploadedS3Object | None:
     # Build SQLAlchemy column expressions - type checker may not recognize these as ColumnElement
     where_items = [UploadedS3Object.key == str(val)]  # type: ignore
 
@@ -175,7 +178,7 @@ async def find_s3object_by_key_or_id(
     # Use or_ with the column expressions
     stmt = select(UploadedS3Object).where(or_(*where_items))  # type: ignore
     result = await session.execute(stmt)
-    s3object: Optional[UploadedS3Object] = result.scalar_one_or_none()
+    s3object: UploadedS3Object | None = result.scalar_one_or_none()
     return s3object
 
 
@@ -189,8 +192,8 @@ async def get_s3object_size_mib(s3_object: UploadedS3Object, s3: S3ClientDep) ->
 
 
 async def find_s3object_pending_quality_check(
-    session: AsyncSessionDep, username_filter: Optional[str] = None
-) -> List[UploadedS3Object]:
+    session: AsyncSessionDep, username_filter: str | None = None
+) -> list[UploadedS3Object]:
     if username_filter:
         # Select Asset.id column specifically
         stmt = select(Asset.id).where(Asset.username == username_filter)  # type: ignore
@@ -214,7 +217,7 @@ async def find_s3object_pending_quality_check(
 
 
 async def update_s3object_quality_check_flag(
-    ids: List[int], session: AsyncSessionDep, value: bool
+    ids: list[int], session: AsyncSessionDep, value: bool
 ):
     return await update_json_key(
         sql_model=UploadedS3Object,
@@ -227,10 +230,10 @@ async def update_s3object_quality_check_flag(
 
 
 async def find_assets_for_objects(
-    object_ids: List[int],
+    object_ids: list[int],
     session: AsyncSessionDep,
-    username_filter: Optional[str] = None,
-) -> List[Asset]:
+    username_filter: str | None = None,
+) -> list[Asset]:
     stmt = (
         select(Asset).join(UploadedS3Object).where(UploadedS3Object.id.in_(object_ids))  # type: ignore
     )
@@ -245,17 +248,17 @@ async def find_assets_for_objects(
 
 
 async def filter_object_ids_by_username(
-    object_ids: List[int], session: AsyncSessionDep, username: str
-) -> List[int]:
+    object_ids: list[int], session: AsyncSessionDep, username: str
+) -> list[int]:
     allowed_assets = await find_assets_for_objects(
         object_ids=object_ids,
         session=session,
         username_filter=username,
     )
 
-    allowed_asset_object_ids = set(
-        [obj.id for asset in allowed_assets for obj in asset.objects]
-    )
+    allowed_asset_object_ids = {
+        obj.id for asset in allowed_assets for obj in asset.objects
+    }
 
     filtered_asset_object_ids = [
         obj_id for obj_id in object_ids if obj_id in allowed_asset_object_ids

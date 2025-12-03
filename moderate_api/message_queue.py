@@ -1,12 +1,12 @@
 import logging
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from typing import AsyncGenerator, Optional
+from typing import Annotated
 
 from aio_pika import connect_robust
 from aio_pika.abc import AbstractRobustChannel, AbstractRobustConnection
 from fastapi import Depends
-from typing_extensions import Annotated
 
 from moderate_api.config import get_settings
 from moderate_api.enums import WorkflowJobTypes
@@ -21,7 +21,7 @@ class Rabbit:
 
 
 @asynccontextmanager
-async def with_rabbit() -> AsyncGenerator[Optional[Rabbit], None]:
+async def with_rabbit() -> AsyncGenerator[Rabbit | None, None]:
     settings = get_settings()
 
     if not settings.rabbit_router_url:
@@ -32,15 +32,15 @@ async def with_rabbit() -> AsyncGenerator[Optional[Rabbit], None]:
 
         async with connection:
             channel = await connection.channel()
-            yield Rabbit(connection=connection, channel=channel)
+            yield Rabbit(connection=connection, channel=channel)  # type: ignore[arg-type]
 
 
-async def get_rabbit() -> AsyncGenerator[Optional[Rabbit], None]:
+async def get_rabbit() -> AsyncGenerator[Rabbit | None, None]:
     async with with_rabbit() as rabbit:
         yield rabbit
 
 
-RabbitDep = Annotated[Optional[Rabbit], Depends(get_rabbit)]
+RabbitDep = Annotated[Rabbit | None, Depends(get_rabbit)]
 
 
 async def declare_rabbit_entities(rabbit: Rabbit) -> None:

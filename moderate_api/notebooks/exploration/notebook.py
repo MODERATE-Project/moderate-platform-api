@@ -20,6 +20,7 @@ def __():
     import marimo as mo
     import polars as pl
     import requests
+
     return io, mo, os, pl, requests, tempfile, urllib
 
 
@@ -32,8 +33,8 @@ def __(mo):
 @app.cell
 def __(mo):
     form = mo.ui.text(full_width=True, placeholder="Paste your dataset URL here").form()
-    form
-    return form,
+    form  # noqa: B018
+    return (form,)
 
 
 @app.cell
@@ -68,7 +69,9 @@ def __(mo):
 
 @app.cell
 def __(mo):
-    mo.md(r"""Next, we try to guess the specific format of the dataset to select the correct DataFrame reader function.""")
+    mo.md(
+        r"""Next, we try to guess the specific format of the dataset to select the correct DataFrame reader function."""
+    )
     return
 
 
@@ -79,7 +82,7 @@ def __(os, pl, url, urllib):
             parsed_url = urllib.parse.urlparse(url)
             filename = parsed_url.path.split("/")[-1]
             file_extension = os.path.splitext(filename)[1]
-        except:
+        except Exception:
             return None
 
         read_functions = {
@@ -90,7 +93,8 @@ def __(os, pl, url, urllib):
         }
 
         return read_functions.get(file_extension, None)
-    return guess_reader_function,
+
+    return (guess_reader_function,)
 
 
 @app.cell
@@ -106,8 +110,8 @@ def __(mo, pl):
         label="Select the DataFrame reader function",
     )
 
-    reader_function_dropdown
-    return reader_function_dropdown,
+    reader_function_dropdown  # noqa: B018
+    return (reader_function_dropdown,)
 
 
 @app.cell
@@ -121,7 +125,7 @@ def __(guess_reader_function, mo, reader_function_dropdown):
             kind="warn",
         ),
     )
-    return read_function,
+    return (read_function,)
 
 
 @app.cell
@@ -146,8 +150,8 @@ def __(mo, read_function, temp_file):
             ],
         )
 
-    df
-    return df,
+    df  # noqa: B018
+    return (df,)
 
 
 @app.cell

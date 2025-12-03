@@ -16,15 +16,15 @@ def _():
         mo.md(
             """
             ## File Configuration
-            
+
             Please provide URLs for all three required files:
-            
+
             ### Pre-trained Model
             {model_url}
-            
+
             ### Test Data
             {test_data_url}
-            
+
             ### Training Data
             {train_data_url}
             """
@@ -102,7 +102,7 @@ def _(mo):
 
 @app.cell
 def _(files_form, mo):
-    files_form  # type: ignore
+    files_form  # noqa: B018
     return
 
 
@@ -465,7 +465,7 @@ def _(
             These comparisons help validate that the synthetic data captures not just statistical properties but also temporal dependencies present in real load profiles.
             """
                 ),
-                *[plot for plot in trend_plot_dict.values()],
+                *list(trend_plot_dict.values()),
             ]
         )
 

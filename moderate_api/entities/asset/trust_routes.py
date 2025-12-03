@@ -1,5 +1,4 @@
 import logging
-from typing import Optional, Union
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, status
 from pydantic import BaseModel
@@ -27,16 +26,16 @@ _TAG = "Data assets"
 
 
 class AssetObjectProofCreationRequest(BaseModel):
-    object_key_or_id: Union[str, int]
+    object_key_or_id: str | int
 
 
 class AssetObjectProofCreationResponse(BaseModel):
-    task_id: Optional[int]
-    obj: Optional[UploadedS3Object]
+    task_id: int | None
+    obj: UploadedS3Object | None
 
 
 async def _find_enforce_s3obj(
-    object_key_or_id: Union[str, int],
+    object_key_or_id: str | int,
     session: AsyncSessionDep,
     user: UserDep,
     public_assets_allowed: bool = False,
@@ -125,7 +124,7 @@ async def verify_trust_proof(
     user: UserDep,
     session: AsyncSessionDep,
     settings: SettingsDep,
-    object_key_or_id: Union[str, int],
+    object_key_or_id: str | int,
 ):
     if not settings.trust_service or not settings.trust_service.endpoint_url:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)

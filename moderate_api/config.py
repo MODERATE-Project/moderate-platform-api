@@ -1,9 +1,8 @@
 import logging
-from typing import List, Optional
+from typing import Annotated
 
 from fastapi import Depends
 from pydantic import BaseModel, BaseSettings
-from typing_extensions import Annotated
 
 _ENV_PREFIX = "MODERATE_API_"
 _ENV_NESTED_DELIMITER = "__"
@@ -29,7 +28,7 @@ class S3Model(BaseModel):
 class TrustService(BaseModel):
     endpoint_url: str  # Scheme, host and port without paths
 
-    def build_url(self, *parts: List[str]) -> str:
+    def build_url(self, *parts: str) -> str:
         return self.endpoint_url.strip("/") + "/" + "/".join(parts)
 
     def url_create_did(self) -> str:
@@ -46,7 +45,7 @@ class OpenMetadataService(BaseModel):
     endpoint_url: str  # Scheme, host and port without paths
     bearer_token: str
 
-    def build_url(self, *parts: List[str]) -> str:
+    def build_url(self, *parts: str) -> str:
         return self.endpoint_url.strip("/") + "/" + "/".join(parts)
 
     def url_search_query(self) -> str:
@@ -61,7 +60,7 @@ class Settings(BaseSettings):
         env_prefix = _ENV_PREFIX
         env_nested_delimiter = _ENV_NESTED_DELIMITER
 
-    s3: Optional[S3Model] = None
+    s3: S3Model | None = None
     oauth_names: OAuthNamesModel = OAuthNamesModel()
 
     openid_config_url: str = (
@@ -71,7 +70,7 @@ class Settings(BaseSettings):
     disable_token_verification: bool = False
     verbose_errors: bool = False
     max_objects_per_asset: int = 100
-    trust_service: Optional[TrustService] = None
+    trust_service: TrustService | None = None
     visualization_max_size_mib: float = 10.0
     visualization_expires_in_seconds: int = 1800
     response_total_count_header = "X-Total-Count"
@@ -80,8 +79,8 @@ class Settings(BaseSettings):
         "postgresql+asyncpg://postgres:postgres@localhost:5432/moderateapi/"
     )
 
-    open_metadata_service: Optional[OpenMetadataService] = None
-    rabbit_router_url: Optional[str] = None
+    open_metadata_service: OpenMetadataService | None = None
+    rabbit_router_url: str | None = None
 
     @property
     def role_admin(self) -> str:
@@ -94,7 +93,7 @@ class Settings(BaseSettings):
         )
 
 
-def get_settings():
+def get_settings() -> Settings:
     settings = Settings()
     return settings
 

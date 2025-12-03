@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Any
 
 from sqlalchemy import Column, Index, select
 from sqlalchemy.dialects.postgresql import JSONB
@@ -12,38 +12,38 @@ from moderate_api.utils.factories import now_factory
 _logger = logging.getLogger(__name__)
 
 
-class UserMetaBase(SQLModel):
-    meta: Optional[Dict] = Field(default=None, sa_column=Column(JSONB))
+class UserMetaBase(SQLModel):  # type: ignore[misc]
+    meta: dict[str, Any] | None = Field(default=None, sa_column=Column(JSONB))
 
 
-class UserMeta(UserMetaBase, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
+class UserMeta(UserMetaBase, table=True):  # type: ignore[call-arg, misc]
+    id: int | None = Field(default=None, primary_key=True)
     username: str = Field(unique=True)
     created_at: datetime = Field(default_factory=now_factory)
-    trust_did: Optional[str] = Field(default=None, unique=True)
+    trust_did: str | None = Field(default=None, unique=True)
 
     __table_args__ = (Index("ix_usermeta_meta", "meta", postgresql_using="gin"),)
 
 
-class UserMetaCreate(UserMetaBase):
+class UserMetaCreate(UserMetaBase):  # type: ignore[misc]
     username: str
-    trust_did: Optional[str]
+    trust_did: str | None
 
 
-class UserMetaRead(UserMetaBase):
+class UserMetaRead(UserMetaBase):  # type: ignore[misc]
     username: str
     created_at: datetime
-    trust_did: Optional[str]
+    trust_did: str | None
 
 
-class UserMetaUpdate(UserMetaBase):
+class UserMetaUpdate(UserMetaBase):  # type: ignore[misc]
     pass
 
 
 async def ensure_user_meta(username: str, session: AsyncSessionDep) -> UserMeta:
-    stmt = select(UserMeta).where(UserMeta.username == username)
+    stmt = select(UserMeta).where(UserMeta.username == username)  # type: ignore[arg-type]
     result = await session.execute(stmt)
-    user_meta: UserMeta = result.scalar_one_or_none()
+    user_meta: UserMeta | None = result.scalar_one_or_none()
 
     if not user_meta:
         _logger.info("Creating UserMeta for %s", username)
@@ -55,12 +55,10 @@ async def ensure_user_meta(username: str, session: AsyncSessionDep) -> UserMeta:
     return user_meta
 
 
-async def get_did_for_username(
-    username: str, session: AsyncSessionDep
-) -> Optional[str]:
-    stmt = select(UserMeta).where(UserMeta.username == username)
+async def get_did_for_username(username: str, session: AsyncSessionDep) -> str | None:
+    stmt = select(UserMeta).where(UserMeta.username == username)  # type: ignore[arg-type]
     result = await session.execute(stmt)
-    user_meta: UserMeta = result.scalar_one_or_none()
+    user_meta: UserMeta | None = result.scalar_one_or_none()
 
     if not user_meta or not user_meta.trust_did:
         _logger.info(f"User {username} not found or does not have a DID")

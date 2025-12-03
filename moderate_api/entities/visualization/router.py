@@ -1,6 +1,7 @@
 import logging
 import os
-from typing import Any, Callable, Dict, Optional
+from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -41,7 +42,7 @@ async def run_pygwalker_on_asset_object(
         le=1000000,
         description="Number of rows to sample when file exceeds maximum size",
     ),
-    sample_fraction: Optional[float] = Query(
+    sample_fraction: float | None = Query(
         default=None,
         ge=0.01,
         le=0.9,
@@ -126,16 +127,16 @@ async def run_pygwalker_on_asset_object(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error generating visualization: {str(e)}",
-        )
+        ) from e
 
 
 def _get_file_readers(
     size_in_mib: float,
     max_size_mib: float,
     sample_size: int,
-    sample_fraction: Optional[float] = None,
+    sample_fraction: float | None = None,
     random_seed: int = 42,
-) -> Dict[str, Callable[[str], pd.DataFrame]]:
+) -> dict[str, Callable[[str], pd.DataFrame]]:
     """
     Returns appropriate file readers based on file extension and size.
     For files larger than max_size_mib, returns readers that will sample
@@ -150,7 +151,7 @@ def _get_file_readers(
             ".parquet": pd.read_parquet,
         }
     else:
-        readers: Dict[str, Callable[[Any], pd.DataFrame]] = {}
+        readers: dict[str, Callable[[Any], pd.DataFrame]] = {}
 
         # CSV sampling function - simple for specific size, random for fraction
         def sample_csv(url: str) -> pd.DataFrame:

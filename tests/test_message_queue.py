@@ -13,7 +13,7 @@ _logger = logging.getLogger(__name__)
 
 
 @pytest.mark.asyncio
-async def test_broker_publish():
+async def test_broker_publish():  # type: ignore[no-untyped-def]
     async with with_rabbit() as rabbit:
         if rabbit is None:
             pytest.skip(_SKIP_REASON)
@@ -21,13 +21,13 @@ async def test_broker_publish():
         await declare_rabbit_entities(rabbit=rabbit)
 
         await rabbit.channel.default_exchange.publish(
-            message=aio_pika.Message(body="Hello Rabbit".encode()),
+            message=aio_pika.Message(body=b"Hello Rabbit"),
             routing_key=WorkflowJobTypes.MATRIX_PROFILE.value,
         )
 
 
 @pytest.mark.asyncio
-async def test_broker_ping(client, access_token):
+async def test_broker_ping(client, access_token):  # type: ignore[no-untyped-def]
     async with with_rabbit() as rabbit:
         if rabbit is None:
             pytest.skip(_SKIP_REASON)

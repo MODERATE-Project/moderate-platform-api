@@ -1,10 +1,11 @@
 import io
-from typing import Union
+from typing import Any
 
 import numpy as np
 import torch
 import torch.nn as nn
 import zstandard as zstd
+from numpy.typing import NDArray
 
 from moderate_api.notebooks.synthetic_load.model.data_manip import (
     invert_min_max_scaler,
@@ -16,21 +17,22 @@ FEATURE_RANGE = (-1, 1)
 
 
 class Generator(nn.Module):
-    def __init__(self, model):
-        super(Generator, self).__init__()
+    def __init__(self, model: Any) -> None:
+        super().__init__()
         # Handle both list of layers and already constructed Sequential
-        if isinstance(model, (list, tuple)):
+        if isinstance(model, list | tuple):
             self.model = nn.Sequential(*model)
         else:
             self.model = model
 
-    def forward(self, noise):
-        return self.model(noise)
+    def forward(self, noise: torch.Tensor) -> torch.Tensor:
+        output: torch.Tensor = self.model(noise)
+        return output
 
 
 def generate_data_from_saved_model(
-    modelStatePath: Union[str, io.BytesIO], n_profiles=None
-):
+    modelStatePath: str | io.BytesIO, n_profiles: int | None = None
+) -> NDArray[Any]:
     """
     Generate synthetic data from a saved model.
 
@@ -76,13 +78,13 @@ def generate_data_from_saved_model(
                         )
                     print("✅ Loaded uncompressed model file")
                 except Exception as e:
-                    raise ValueError(f"Failed to load model from BytesIO: {e}")
+                    raise ValueError(f"Failed to load model from BytesIO: {e}") from e
         else:
             raise ValueError(
                 "modelStatePath must be either a string path or io.BytesIO object"
             )
 
-        print(f"Successfully loaded model")
+        print("Successfully loaded model")
         print(f"📋 Available keys in model state: {list(modelState.keys())}")
 
         # Try to use the complete saved generator model if available
@@ -145,7 +147,7 @@ def generate_data_from_saved_model(
                     print(f"❌ Alternative approach also failed: {e2}")
                     raise Exception(
                         f"Could not load model - tried multiple approaches. Original error: {e}"
-                    )
+                    ) from e
 
         # Use n_profiles if specified, otherwise use the original profileCount
         profile_count = (

@@ -1,7 +1,7 @@
 import logging
 import pprint
 import urllib.parse
-from typing import Any, Dict, List, Union
+from typing import Any
 
 import httpx
 from pydantic import BaseModel, Field
@@ -41,7 +41,7 @@ class OMSearchHitsHit(BaseModel):
 
 class OMSearchHits(BaseModel):
     total: OMSearchHitsTotal
-    hits: List[OMSearchHitsHit]
+    hits: list[OMSearchHitsHit]
 
 
 class OMSearch(BaseModel):
@@ -53,7 +53,7 @@ async def _search_asset_object(
     endpoint_url: str,
     bearer_token: str,
     timeout_seconds: int = _DEFAULT_TIMEOUT_SECS,
-) -> Union[AssetObjectSearchResponse, None]:
+) -> AssetObjectSearchResponse | None:
     q = asset_object_key.replace("/", r"\/").replace("-", r"\-")
     params = {"q": q}
     headers = {"Authorization": f"Bearer {bearer_token}"}
@@ -72,7 +72,7 @@ async def _search_asset_object(
             resp.raise_for_status()
             resp_dict = resp.json()
         except Exception as exc:
-            raise RuntimeError("{}".format(resp.text)) from exc
+            raise RuntimeError(f"{resp.text}") from exc
 
     _logger.debug("Search response (q=%s):\n%s", q, pprint.pformat(resp_dict))
     search_result = OMSearch(**resp_dict)
@@ -119,9 +119,9 @@ async def _search_asset_object(
 
 async def search_asset_object(
     asset_object_key: str,
-    settings: Settings = None,
+    settings: Settings | None = None,
     timeout_seconds: int = _DEFAULT_TIMEOUT_SECS,
-) -> Union[AssetObjectSearchResponse, None]:
+) -> AssetObjectSearchResponse | None:
     settings = settings or get_settings()
 
     if (
@@ -147,7 +147,7 @@ class OMProfileColumn(BaseModel):
     dataType: str
     dataTypeDisplay: str
     fullyQualifiedName: str
-    profile: Dict[str, Any]
+    profile: dict[str, Any]
 
 
 class OMProfile(BaseModel):
@@ -155,8 +155,8 @@ class OMProfile(BaseModel):
     name: str
     fullyQualifiedName: str
     updatedAt: int
-    columns: List[OMProfileColumn]
-    profile: Dict[str, Any]
+    columns: list[OMProfileColumn]
+    profile: dict[str, Any]
     fileFormat: str
 
 
@@ -176,14 +176,14 @@ async def _get_asset_object_profile(
             resp.raise_for_status()
             resp_dict = resp.json()
         except Exception as exc:
-            raise RuntimeError("{}".format(resp.text)) from exc
+            raise RuntimeError(f"{resp.text}") from exc
 
     return OMProfile(**resp_dict)
 
 
 async def get_asset_object_profile(
     asset_object_fqn: str,
-    settings: Settings = None,
+    settings: Settings | None = None,
     timeout_seconds: int = _DEFAULT_TIMEOUT_SECS,
 ) -> OMProfile:
     settings = settings or get_settings()

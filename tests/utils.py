@@ -7,7 +7,7 @@ import tempfile
 import uuid
 from contextlib import ExitStack, contextmanager
 from io import BufferedReader
-from typing import Optional
+from typing import Any
 
 from fastapi.testclient import TestClient
 
@@ -21,7 +21,9 @@ from moderate_api.main import app
 _logger = logging.getLogger(__name__)
 
 
-def create_user_meta(the_client: TestClient, the_access_token: str, **kwargs) -> dict:
+def create_user_meta(
+    the_client: TestClient, the_access_token: str, **kwargs
+) -> dict[Any, Any]:
     create_kwargs = {
         "username": str(uuid.uuid4()),
         "trust_did": "did:web:trust",
@@ -47,7 +49,7 @@ def create_user_meta(the_client: TestClient, the_access_token: str, **kwargs) ->
 
 def read_user_meta(
     the_client: TestClient, the_access_token: str, the_user_meta: dict
-) -> dict:
+) -> dict[Any, Any]:
     user_meta_id = the_user_meta["id"]
 
     response = the_client.get(
@@ -64,9 +66,9 @@ def read_user_meta(
 def create_asset(
     the_client: TestClient,
     the_access_token: str,
-    the_uuid: Optional[str] = None,
-    asset_kwargs: Optional[dict] = None,
-) -> dict:
+    the_uuid: str | None = None,
+    asset_kwargs: dict | None = None,
+) -> dict[Any, Any]:
     the_uuid = the_uuid or str(uuid.uuid4())
     kwargs = {"name": str(uuid.uuid4()), "uuid": the_uuid}
     kwargs.update(asset_kwargs or {})
@@ -86,7 +88,9 @@ def create_asset(
     return resp_json
 
 
-def read_asset(the_client: TestClient, the_access_token: str, the_asset: dict) -> dict:
+def read_asset(
+    the_client: TestClient, the_access_token: str, the_asset: dict
+) -> dict[Any, Any]:
     asset_id = the_asset["id"]
 
     response = the_client.get(
@@ -108,8 +112,8 @@ def update_asset(
     the_access_token: str,
     the_asset: dict,
     new_name: str,
-    new_uuid: Optional[str] = None,
-) -> dict:
+    new_uuid: str | None = None,
+) -> dict[Any, Any]:
     asset_id = the_asset["id"]
     update_doc = {"name": new_name}
 
@@ -143,10 +147,10 @@ def delete_asset(the_client: TestClient, the_access_token: str, the_asset: dict)
 
 
 @contextmanager
-def temp_csv(num_cols: Optional[int] = None, num_rows: Optional[int] = None):
+def temp_csv(num_cols: int | None = None, num_rows: int | None = None):
     num_rows = num_rows or random.randint(200, 400)
     num_cols = num_cols or random.randint(100, 200)
-    abs_path = os.path.join(tempfile.gettempdir(), "{}.csv".format(str(uuid.uuid4())))
+    abs_path = os.path.join(tempfile.gettempdir(), f"{str(uuid.uuid4())}.csv")
 
     _logger.info(
         "Creating temp CSV file (rows=%s) (cols=%s): %s",
@@ -179,8 +183,8 @@ def post_upload_asset_object(
     the_asset: dict,
     the_access_token: str,
     fh: BufferedReader,
-    form: Optional[dict] = None,
-    upload_prefix: Optional[str] = None,
+    form: dict | None = None,
+    upload_prefix: str | None = None,
 ):
     upload_name = "{}-{}.csv".format(upload_prefix or "upload", str(uuid.uuid4()))
 
@@ -197,10 +201,10 @@ def post_upload_asset_object(
 
 def upload_test_files(
     the_access_token: str,
-    num_files: Optional[int] = 2,
-    form: Optional[dict] = None,
-    the_asset: Optional[dict] = None,
-    upload_prefix: Optional[str] = None,
+    num_files: int | None = 2,
+    form: dict | None = None,
+    the_asset: dict | None = None,
+    upload_prefix: str | None = None,
 ) -> str:
     with ExitStack() as stack:
         client = stack.enter_context(TestClient(app))
@@ -235,9 +239,9 @@ def upload_test_files(
 async def create_access_request(
     the_client: TestClient,
     the_access_token: str,
-    access_request_kwargs: Optional[dict] = None,
-    asset_id: Optional[int] = None,
-) -> dict:
+    access_request_kwargs: dict | None = None,
+    asset_id: int | None = None,
+) -> dict[Any, Any]:
     asset_id = asset_id or create_asset(the_client, the_access_token)["id"]
     random_requester_username = str(uuid.uuid4())
 
@@ -270,7 +274,7 @@ async def create_access_request(
 
 def read_access_request(
     the_client: TestClient, the_access_token: str, access_request_id: int
-) -> dict:
+) -> dict[Any, Any]:
     response = the_client.get(
         f"/request/{access_request_id}",
         headers={"Authorization": f"Bearer {the_access_token}"},

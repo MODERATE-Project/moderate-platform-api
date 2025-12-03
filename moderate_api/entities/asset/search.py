@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Union
+from typing import Any
 
 from fastapi import Query
 from pydantic import BaseModel
@@ -29,19 +29,19 @@ class AssetSearchResult(BaseModel):
     id: int
     uuid: str
     name: str
-    description: Optional[str]
-    meta: Optional[Dict]
+    description: str | None
+    meta: dict[str, Any] | None
     created_at: str
     access_level: AssetAccessLevels
-    username: Optional[str]
-    objects: List[UploadedS3ObjectRead]
+    username: str | None
+    objects: list[UploadedS3ObjectRead]
     match_type: str  # 'asset' or 'object' - indicates what matched the search
-    match_score: Optional[float] = None  # For future ranking improvements
+    match_score: float | None = None  # For future ranking improvements
 
 
 def user_asset_visibility_selector(
-    user: Union[User, None],
-) -> Union[BinaryExpression, None]:
+    user: User | None,
+) -> BinaryExpression | None:
     public_visibility_levels = [
         AssetAccessLevels.VISIBLE,
         AssetAccessLevels.PUBLIC,
@@ -60,13 +60,13 @@ def user_asset_visibility_selector(
 
 
 async def _query_search_assets(
-    user: Union[User, None],
+    user: User | None,
     session: AsyncSessionDep,
     query: str,
     limit: int,
     exclude_mine: bool,
-    where_constraint: Union[BinaryExpression, None],
-) -> List[AssetSearchResult]:
+    where_constraint: BinaryExpression | None,
+) -> list[AssetSearchResult]:
     """Search assets by name/description and return results with all their objects."""
     stmt = select(Asset).limit(limit)
 
@@ -81,7 +81,7 @@ async def _query_search_assets(
         stmt = stmt.where(where_constraint)
 
     if exclude_mine and user:
-        stmt = stmt.where(or_(Asset.username != user.username, Asset.username == None))  # type: ignore
+        stmt = stmt.where(or_(Asset.username != user.username, Asset.username.is_(None)))  # type: ignore
 
     result = await session.execute(stmt)
     assets = list(result.scalars().all())
@@ -120,13 +120,13 @@ async def _query_search_assets(
 
 
 async def _query_search_assets_from_objects(
-    user: Union[User, None],
+    user: User | None,
     session: AsyncSessionDep,
     query: str,
     limit: int,
     exclude_mine: bool,
-    asset_where_constraint: Union[BinaryExpression, None],
-) -> List[AssetSearchResult]:
+    asset_where_constraint: BinaryExpression | None,
+) -> list[AssetSearchResult]:
     """Search for assets by their object names/keys and return only matching objects."""
     if not query:
         return []
@@ -139,10 +139,10 @@ async def _query_search_assets_from_objects(
         stmt = stmt.where(asset_where_constraint)
 
     if exclude_mine and user:
-        stmt = stmt.where(or_(Asset.username != user.username, Asset.username == None))  # type: ignore
+        stmt = stmt.where(or_(Asset.username != user.username, Asset.username.is_(None)))  # type: ignore
 
     # Search in object names and keys (case-insensitive)
-    search_pattern = "%{}%".format(query.lower())
+    search_pattern = f"%{query.lower()}%"
 
     stmt = stmt.where(
         or_(  # type: ignore
@@ -167,8 +167,8 @@ async def _query_search_assets_from_objects(
     object_asset_pairs = list(result.all())
 
     # Group matching objects by asset
-    asset_objects_map: Dict[int, List[UploadedS3Object]] = {}
-    assets_map: Dict[int, Asset] = {}
+    asset_objects_map: dict[int, list[UploadedS3Object]] = {}
+    assets_map: dict[int, Asset] = {}
 
     for obj, asset in object_asset_pairs:
         if asset.id is None or obj.id is None:
@@ -243,7 +243,7 @@ async def _search_assets(
 
     # Combine results, avoiding duplicates but preserving the better match
     # Priority: asset matches (with all objects) > object matches (with filtered objects)
-    found_assets_map: Dict[int, AssetSearchResult] = {}
+    found_assets_map: dict[int, AssetSearchResult] = {}
 
     # First add asset matches (these get priority and include all objects)
     for asset_result in assets_by_name:
@@ -280,7 +280,7 @@ async def search_assets_wrapper(
     query: str = Query(default=None),
     limit: int = Query(default=20, le=100),
     exclude_mine: bool = Query(default=False),
-) -> List[AssetRead]:
+) -> list[AssetRead]:
     """Backward-compatible wrapper that converts AssetSearchResult to AssetRead."""
 
     search_results = await _search_assets(
@@ -332,14 +332,14 @@ def _apply_visibility_filters(
         stmt = stmt.where(
             or_(
                 Asset.username != user.username,
-                Asset.username == None,
+                Asset.username.is_(None),
             )
         )  # type: ignore
 
     return stmt
 
 
-def _apply_search_filter(stmt: Select, *, query: Optional[str]) -> Select:
+def _apply_search_filter(stmt: Select, *, query: str | None) -> Select:
     """Apply textual search across object and asset names."""
 
     if not query:
@@ -357,7 +357,7 @@ def _apply_search_filter(stmt: Select, *, query: Optional[str]) -> Select:
     )
 
 
-def _apply_format_filter(stmt: Select, *, file_format: Optional[str]) -> Select:
+def _apply_format_filter(stmt: Select, *, file_format: str | None) -> Select:
     """Limit objects to a subset of file extensions."""
 
     if not file_format:
@@ -379,7 +379,7 @@ def _apply_format_filter(stmt: Select, *, file_format: Optional[str]) -> Select:
     return stmt.where(or_(*format_conditions))  # type: ignore
 
 
-def _parse_date_filter(date_from: Optional[str]) -> Optional[datetime]:
+def _parse_date_filter(date_from: str | None) -> datetime | None:
     """Parse date_from query param into a naive UTC datetime."""
 
     if not date_from:
@@ -397,7 +397,7 @@ def _parse_date_filter(date_from: Optional[str]) -> Optional[datetime]:
     return parsed_date
 
 
-def _apply_date_filter(stmt: Select, *, date_from: Optional[str]) -> Select:
+def _apply_date_filter(stmt: Select, *, date_from: str | None) -> Select:
     """Apply created_at lower bound if provided."""
 
     parsed_date = _parse_date_filter(date_from)
@@ -443,7 +443,7 @@ async def search_objects(
     exclude_mine: bool = Query(default=False),
     file_format: str = Query(default=None),
     date_from: str = Query(default=None),
-) -> List[UploadedS3ObjectReadWithAsset]:
+) -> list[UploadedS3ObjectReadWithAsset]:
     """Search for objects (datasets) directly."""
 
     # Base query joining Object and Asset

@@ -1,7 +1,6 @@
 import logging
 import pprint
 from functools import wraps
-from typing import Optional, Union
 
 import httpx
 from fastapi.encoders import jsonable_encoder
@@ -86,9 +85,9 @@ async def create_did_task(
 async def create_proof_task(
     task_id: str,
     create_proof_url: str,
-    s3object_key_or_id: Union[str, int],
+    s3object_key_or_id: str | int,
     requester_username: str,
-    user_did: Optional[str] = None,
+    user_did: str | None = None,
     timeout_seconds: int = _TIMEOUT_SECS_HIGH,
 ):
     async with with_session() as session:
@@ -185,7 +184,7 @@ async def fetch_proof(
 
 class ProofVerificationResult(BaseModel):
     valid: bool
-    reason: Optional[str] = None
+    reason: str | None = None
 
 
 async def fetch_verify_proof(
@@ -225,9 +224,7 @@ async def fetch_verify_proof(
     if proof_resp.metadata_digest != expected_proof_digest:
         return ProofVerificationResult(
             valid=False,
-            reason="Proof digest obtained from Trust API ({}) does not match expected ({})".format(
-                proof_resp.metadata_digest, expected_proof_digest
-            ),
+            reason=f"Proof digest obtained from Trust API ({proof_resp.metadata_digest}) does not match expected ({expected_proof_digest})",
         )
 
     return ProofVerificationResult(valid=True)

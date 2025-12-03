@@ -1,6 +1,5 @@
 import logging
 from datetime import datetime
-from typing import Optional
 
 from sqlmodel import Field, Relationship, SQLModel, select
 
@@ -12,17 +11,17 @@ from moderate_api.utils.factories import now_factory
 _logger = logging.getLogger(__name__)
 
 
-class AccessRequestBase(SQLModel):
-    description: Optional[str]
+class AccessRequestBase(SQLModel):  # type: ignore[misc]
+    description: str | None
 
 
-class AccessRequest(AccessRequestBase, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
+class AccessRequest(AccessRequestBase, table=True):  # type: ignore[call-arg, misc]
+    id: int | None = Field(default=None, primary_key=True)
     requester_username: str
-    allowed: Optional[bool] = Field(default=None, nullable=True)
+    allowed: bool | None = Field(default=None, nullable=True)
     created_at: datetime = Field(default_factory=now_factory, index=True)
-    validated_at: Optional[datetime] = Field(default=None, nullable=True)
-    validator_username: Optional[str] = Field(default=None, nullable=True)
+    validated_at: datetime | None = Field(default=None, nullable=True)
+    validator_username: str | None = Field(default=None, nullable=True)
     asset_id: int = Field(foreign_key="asset.id")
 
     asset: Asset = Relationship(
@@ -31,21 +30,21 @@ class AccessRequest(AccessRequestBase, table=True):
     )
 
 
-class AccessRequestCreate(AccessRequestBase):
+class AccessRequestCreate(AccessRequestBase):  # type: ignore[misc]
     asset_id: int
 
 
-class AccessRequestRead(AccessRequestBase):
+class AccessRequestRead(AccessRequestBase):  # type: ignore[misc]
     id: int
     requester_username: str
-    allowed: Optional[bool]
+    allowed: bool | None
     created_at: datetime
-    validated_at: Optional[datetime]
-    validator_username: Optional[str]
+    validated_at: datetime | None
+    validator_username: str | None
     asset_id: int
 
 
-class AccessRequestUpdate(AccessRequestBase):
+class AccessRequestUpdate(AccessRequestBase):  # type: ignore[misc]
     pass
 
 
@@ -66,11 +65,11 @@ async def valid_access_request_exists(
         select(AccessRequest)
         .where(AccessRequest.requester_username == requester_username)
         .where(AccessRequest.asset_id == asset.id)
-        .where(AccessRequest.allowed == True)
-        .order_by(AccessRequest.validated_at.desc())
+        .where(AccessRequest.allowed.is_(True))  # type: ignore[union-attr]
+        .order_by(AccessRequest.validated_at.desc())  # type: ignore[union-attr]
         .limit(1)
     )
 
-    access_request: AccessRequest = result.scalars().first()
+    access_request: AccessRequest | None = result.scalars().first()
 
     return access_request is not None

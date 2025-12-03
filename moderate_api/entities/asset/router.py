@@ -2,11 +2,10 @@ import json
 import logging
 import os
 import uuid
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from fastapi import (
     APIRouter,
-    File,
     Form,
     HTTPException,
     Query,
@@ -77,7 +76,7 @@ _ENTITY = Entities.ASSET
 _CHUNK_SIZE = 16 * 1024**2
 
 
-async def build_selector(user: User, session: AsyncSession) -> List[BinaryExpression]:
+async def build_selector(user: User, session: AsyncSession) -> list[BinaryExpression]:
     # SQLAlchemy column expressions - type: ignore to handle type checker issues
     return [
         or_(  # type: ignore
@@ -89,7 +88,7 @@ async def build_selector(user: User, session: AsyncSession) -> List[BinaryExpres
 
 async def build_create_patch(
     user: User, session: AsyncSession
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     return {Asset.username.key: user.username}  # type: ignore
 
 
@@ -104,7 +103,7 @@ def build_object_key(obj: UploadFile, user: User) -> str:
 
     return os.path.join(
         f"{user.username}-assets",
-        "{}-{}{}".format(safe_name, str(uuid.uuid4()), ext),
+        f"{safe_name}-{str(uuid.uuid4())}{ext}",
     )
 
 
@@ -114,8 +113,8 @@ class AssetDownloadURL(BaseModel):
 
 
 async def get_asset_presigned_urls(
-    s3: S3ClientDep, asset: Asset, expiration_secs: Optional[int] = 3600
-) -> List[AssetDownloadURL]:
+    s3: S3ClientDep, asset: Asset, expiration_secs: int | None = 3600
+) -> list[AssetDownloadURL]:
     ret = []
 
     for s3_object in asset.objects:
@@ -134,7 +133,7 @@ router.add_api_route(
     "/search",
     search_assets_wrapper,
     methods=["GET"],
-    response_model=List[AssetRead],
+    response_model=list[AssetRead],
     tags=[_TAG],
 )
 
@@ -142,7 +141,7 @@ router.add_api_route(
     "/public/search",
     search_assets_wrapper,
     methods=["GET"],
-    response_model=List[AssetRead],
+    response_model=list[AssetRead],
     tags=[_TAG, Tags.PUBLIC.value],
 )
 
@@ -151,7 +150,7 @@ router.add_api_route(
     "/objects/search",
     search_objects,
     methods=["GET"],
-    response_model=List[UploadedS3ObjectReadWithAsset],
+    response_model=list[UploadedS3ObjectReadWithAsset],
     tags=[_TAG],
 )
 
@@ -159,14 +158,14 @@ router.add_api_route(
     "/public/objects/search",
     search_objects,
     methods=["GET"],
-    response_model=List[UploadedS3ObjectReadWithAsset],
+    response_model=list[UploadedS3ObjectReadWithAsset],
     tags=[_TAG, Tags.PUBLIC.value],
 )
 
 
 class AssetObjectProfileResponse(BaseModel):
-    profile: Optional[OMProfile] = None
-    reason: Optional[str] = None
+    profile: OMProfile | None = None
+    reason: str | None = None
 
 
 async def _get_asset_object_profile(
@@ -252,7 +251,7 @@ class ObjectPendingQuality(BaseModel):
 
 
 @router.get(
-    "/object/quality-check", response_model=List[ObjectPendingQuality], tags=[_TAG]
+    "/object/quality-check", response_model=list[ObjectPendingQuality], tags=[_TAG]
 )
 async def get_asset_objects_pending_quality(
     *,
@@ -274,12 +273,12 @@ async def get_asset_objects_pending_quality(
 
 
 class AssetObjectFlagQualityRequest(BaseModel):
-    asset_object_id: Union[List[int], int]
+    asset_object_id: list[int] | int
     pending_quality_check: bool
 
 
 class AssetObjectFlagQualityResponse(BaseModel):
-    asset_object_id: List[int]
+    asset_object_id: list[int]
 
 
 @router.post(
@@ -355,7 +354,7 @@ router.add_api_route(
     "/{id}/download-urls",
     _download_asset,
     methods=["GET"],
-    response_model=List[AssetDownloadURL],
+    response_model=list[AssetDownloadURL],
     tags=[_TAG],
 )
 
@@ -363,12 +362,12 @@ router.add_api_route(
     "/public/{id}/download-urls",
     _download_asset,
     methods=["GET"],
-    response_model=List[AssetDownloadURL],
+    response_model=list[AssetDownloadURL],
     tags=[_TAG, Tags.PUBLIC.value],
 )
 
 
-@router.get("/object", response_model=List[UploadedS3Object], tags=[_TAG])
+@router.get("/object", response_model=list[UploadedS3Object], tags=[_TAG])
 async def query_asset_objects(
     *,
     response: Response,
@@ -376,8 +375,8 @@ async def query_asset_objects(
     session: AsyncSessionDep,
     offset: int = 0,
     limit: int = Query(default=100, le=100),
-    filters: Optional[str] = CrudFiltersQuery,
-    sorts: Optional[str] = CrudSortsQuery,
+    filters: str | None = CrudFiltersQuery,
+    sorts: str | None = CrudSortsQuery,
 ):
     user_selector = await build_selector(user=user, session=session)
 
@@ -407,7 +406,7 @@ async def upload_object(
     id: int,
     s3: S3ClientDep,
     settings: SettingsDep,
-    obj: UploadFile = File(...),
+    obj: UploadFile,
     tags: str = Form(default=None),
     series_id: str = Form(default=None),
     name: str = Form(default=None),
@@ -421,15 +420,15 @@ async def upload_object(
     user_selector = await build_selector(user=user, session=session)
 
     # Parse tags from JSON string to dict
-    parsed_tags: Optional[Dict] = None
+    parsed_tags: dict[str, Any] | None = None
     if tags:
         try:
             parsed_tags = json.loads(tags)
         except Exception as ex:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Tags should be a valid JSON object: {}".format(ex),
-            )
+                detail=f"Tags should be a valid JSON object: {ex}",
+            ) from ex
 
     the_asset = await select_one(
         sql_model=Asset,
@@ -441,9 +440,7 @@ async def upload_object(
     if len(the_asset.objects) >= settings.max_objects_per_asset:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Asset already has {} objects, cannot upload more than {}".format(
-                len(the_asset.objects), settings.max_objects_per_asset
-            ),
+            detail=f"Asset already has {len(the_asset.objects)} objects, cannot upload more than {settings.max_objects_per_asset}",
         )
 
     obj_key = build_object_key(obj=obj, user=user)
@@ -515,8 +512,8 @@ async def _read_assets(
     session: AsyncSessionDep,
     offset: int = 0,
     limit: int = Query(default=100, le=100),
-    filters: Optional[str] = CrudFiltersQuery,
-    sorts: Optional[str] = CrudSortsQuery,
+    filters: str | None = CrudFiltersQuery,
+    sorts: str | None = CrudSortsQuery,
 ):
     """Query the catalog for assets."""
 
@@ -524,7 +521,7 @@ async def _read_assets(
         user_selector = await build_selector(user=user, session=session)
     else:
         # Use proper SQLAlchemy expression for public assets
-        user_selector: List[BinaryExpression] = [
+        user_selector: list[BinaryExpression] = [
             Asset.access_level == AssetAccessLevels.PUBLIC  # type: ignore
         ]
 
@@ -553,7 +550,7 @@ router.add_api_route(
     "",
     _read_assets,
     methods=["GET"],
-    response_model=List[AssetRead],
+    response_model=list[AssetRead],
     tags=[_TAG],
 )
 
@@ -561,7 +558,7 @@ router.add_api_route(
     "/public",
     _read_assets,
     methods=["GET"],
-    response_model=List[AssetRead],
+    response_model=list[AssetRead],
     tags=[_TAG, Tags.PUBLIC.value],
 )
 

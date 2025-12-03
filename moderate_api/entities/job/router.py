@@ -1,6 +1,7 @@
 import logging
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Union
+from typing import Any
 
 import aio_pika
 from fastapi import APIRouter, HTTPException, Query, Response, status
@@ -42,7 +43,7 @@ _TAG = "Workflow jobs"
 _ENTITY = Entities.WORKFLOW_JOB
 
 
-async def build_selector(user: User, session: AsyncSession) -> List[BinaryExpression]:
+async def build_selector(user: User, session: AsyncSession) -> list[BinaryExpression]:
     return [
         or_(
             WorkflowJob.creator_username == user.username,
@@ -52,7 +53,7 @@ async def build_selector(user: User, session: AsyncSession) -> List[BinaryExpres
 
 async def build_create_patch(
     user: User, session: AsyncSession
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     return {
         WorkflowJob.creator_username.key: user.username,
     }
@@ -61,7 +62,7 @@ async def build_create_patch(
 router = APIRouter()
 
 
-@router.get("", response_model=List[WorkflowJobRead], tags=[_TAG])
+@router.get("", response_model=list[WorkflowJobRead], tags=[_TAG])
 async def query_workflow_jobs(
     *,
     response: Response,
@@ -69,8 +70,8 @@ async def query_workflow_jobs(
     session: AsyncSessionDep,
     offset: int = 0,
     limit: int = Query(default=100, le=100),
-    filters: Optional[str] = CrudFiltersQuery,
-    sorts: Optional[str] = CrudSortsQuery,
+    filters: str | None = CrudFiltersQuery,
+    sorts: str | None = CrudSortsQuery,
 ):
     user_selector = await build_selector(user=user, session=session)
 
@@ -95,7 +96,7 @@ async def query_workflow_jobs(
 
 async def _add_matrix_profile_extended_results(
     workflow_job: WorkflowJob, s3: S3ClientDep, expiration_secs: int = 3600
-) -> Union[Dict, None]:
+) -> dict | None:
     if not workflow_job.results:
         return None
 
@@ -123,7 +124,7 @@ async def read_workflow_job(
     s3: S3ClientDep,
     session: AsyncSessionDep,
     id: int,
-    with_extended_results: Optional[str] = Query(default=None),
+    with_extended_results: str | None = Query(default=None),
 ):
     user_selector = await build_selector(user=user, session=session)
 
@@ -199,7 +200,7 @@ async def _build_matrix_profile_message(
     )
 
 
-_MESSAGE_BUILDERS_MAP: Dict[str, MessageBuilderType] = {
+_MESSAGE_BUILDERS_MAP: dict[str, MessageBuilderType] = {
     WorkflowJobTypes.MATRIX_PROFILE.value: _build_matrix_profile_message,
 }
 
@@ -235,11 +236,11 @@ async def create_workflow_job(
 
     try:
         job_args: BaseModel = args_model(**entity.arguments)
-    except ValidationError:
+    except ValidationError as err:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid arguments for job type.",
-        )
+        ) from err
 
     msg_builder = _MESSAGE_BUILDERS_MAP.get(entity.job_type.value)
 

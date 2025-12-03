@@ -24,7 +24,7 @@ _logger = logging.getLogger(__name__)
 
 
 @pytest.mark.asyncio
-async def test_unique_uuid(access_token):
+async def test_unique_uuid(access_token):  # type: ignore[no-untyped-def]
     with TestClient(app) as client:
         first_asset = create_asset(client, access_token)
 
@@ -36,7 +36,7 @@ async def test_unique_uuid(access_token):
 
 
 @pytest.mark.asyncio
-async def test_auto_uuid(access_token):
+async def test_auto_uuid(access_token):  # type: ignore[no-untyped-def]
     with TestClient(app) as client:
         asset = AssetCreate(name=str(uuid.uuid4()))
 
@@ -53,7 +53,7 @@ async def test_auto_uuid(access_token):
 
 
 @pytest.mark.asyncio
-async def test_asset_object_quality_check(access_token):
+async def test_asset_object_quality_check(access_token):  # type: ignore[no-untyped-def]
     asset_id = upload_test_files(access_token, num_files=4)
 
     async with with_session() as session:
@@ -86,7 +86,7 @@ async def test_asset_object_quality_check(access_token):
     indirect=True,
 )
 @pytest.mark.asyncio
-async def test_asset_object_quality_check_endpoints(access_token):
+async def test_asset_object_quality_check_endpoints(access_token):  # type: ignore[no-untyped-def]
     num_files = 4
     asset_id = upload_test_files(access_token, num_files=num_files)
 
@@ -139,7 +139,7 @@ async def test_asset_object_quality_check_endpoints(access_token):
 
 
 @pytest.mark.asyncio
-async def test_public_read_private_asset(access_token):
+async def test_public_read_private_asset(access_token):  # type: ignore[no-untyped-def]
     """Public anonymous users should not be able to read private assets."""
 
     asset_id = upload_test_files(access_token, num_files=random.randint(1, 4))

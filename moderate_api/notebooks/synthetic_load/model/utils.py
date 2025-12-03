@@ -1,9 +1,16 @@
+from typing import Any
+
 import numpy as np
 from numba import njit
+from numpy.typing import NDArray
 from scipy.stats import skew
 
 
-def compute_trends(arr, arr_dt, res=["hour", "day", "week", "month"]):
+def compute_trends(
+    arr: NDArray[Any], arr_dt: Any, res: list[str] | None = None
+) -> dict[str, NDArray[np.float32]]:
+    if res is None:
+        res = ["hour", "day", "week", "month"]
     trend_dict = {}
     groups = {}
     if "hour" in res:
@@ -19,12 +26,12 @@ def compute_trends(arr, arr_dt, res=["hour", "day", "week", "month"]):
         groupKeys = groups[key]
         sortedIdx = np.argsort(groupKeys)
         sortedKeys = groupKeys[sortedIdx]
-        boundaries = [0]
+        boundaries_list = [0]
         for idx in range(1, len(sortedKeys)):
             if sortedKeys[idx] != sortedKeys[idx - 1]:
-                boundaries.append(idx)
-        boundaries.append(len(sortedKeys))
-        boundaries = np.array(boundaries)
+                boundaries_list.append(idx)
+        boundaries_list.append(len(sortedKeys))
+        boundaries: NDArray[np.int_] = np.array(boundaries_list)
         groupCount = len(boundaries) - 1
         arr_trend = compute_group_stats(
             arr, sortedIdx, boundaries, groupCount, arr.shape[1]
@@ -33,8 +40,14 @@ def compute_trends(arr, arr_dt, res=["hour", "day", "week", "month"]):
     return trend_dict
 
 
-@njit
-def compute_group_stats(X, sortedIdx, boundaries, groupCount, colCount):
+@njit  # type: ignore[untyped-decorator]
+def compute_group_stats(
+    X: NDArray[Any],
+    sortedIdx: NDArray[Any],
+    boundaries: NDArray[Any],
+    groupCount: int,
+    colCount: int,
+) -> NDArray[np.float32]:
     out = np.empty((groupCount, 6), dtype=np.float32)
     for i in range(groupCount):
         start, end = boundaries[i], boundaries[i + 1]
@@ -106,7 +119,7 @@ def compute_group_stats(X, sortedIdx, boundaries, groupCount, colCount):
     return out
 
 
-def calc_features(arr, axis):
+def calc_features(arr: NDArray[Any], axis: int) -> NDArray[np.float32]:
     """
     Calculate statistical features of the input array along the specified axis.
     Handles NaN values and edge cases safely.

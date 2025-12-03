@@ -3,17 +3,26 @@ import logging
 import re
 import warnings
 from datetime import datetime
-from typing import Any, Dict, List, Literal, Optional, Type, TypeVar, Union, cast
+from typing import (
+    Any,
+    Literal,
+    TypeVar,
+)
 
 import arrow
 from fastapi import Query, Response
 from pydantic import BaseModel
-from sqlalchemy import Text, asc, cast as sql_cast, desc, func
+from sqlalchemy import Text, asc, desc, func
+from sqlalchemy import cast as sql_cast
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.attributes import InstrumentedAttribute, flag_modified
-from sqlalchemy.sql.elements import BinaryExpression, ColumnElement, UnaryExpression
+from sqlalchemy.sql.elements import (
+    BinaryExpression,
+    ColumnElement,
+    UnaryExpression,
+)
 from sqlmodel import SQLModel, select
 
 from moderate_api.authz import User
@@ -38,10 +47,10 @@ T = TypeVar("T", bound=BaseModel)
 
 
 def _models_from_json(
-    model_cls: Type[T],
+    model_cls: type[T],
     json_str: str,
-    positional_args: Optional[List[str]] = None,
-) -> List[T]:
+    positional_args: list[str] | None = None,
+) -> list[T]:
     """Helper function to parse a JSON string into a list of models."""
 
     parsed = json.loads(json_str)
@@ -54,18 +63,16 @@ def _models_from_json(
 
     _logger.debug("JSON CRUD filters: %s", parsed)
 
-    ret: List[T] = []
+    ret: list[T] = []
 
     for item in parsed:
         if isinstance(item, list) and positional_args:
-            model_kwargs = dict(zip(positional_args, item))
+            model_kwargs = dict(zip(positional_args, item, strict=False))
             ret.append(model_cls(**model_kwargs))
         elif isinstance(item, dict):
             ret.append(model_cls(**item))
         else:
-            raise ValueError(
-                "Unsupported {} format: {}".format(CrudFilter.__name__, item)
-            )
+            raise ValueError(f"Unsupported {CrudFilter.__name__} format: {item}")
 
     return ret
 
@@ -79,7 +86,7 @@ class CrudSort(BaseModel):
     order: Literal["asc", "desc"]
 
     @classmethod
-    def from_json(cls, json_str: str) -> List["CrudSort"]:
+    def from_json(cls, json_str: str) -> list["CrudSort"]:
         positional_args = ["field", "order"]
 
         try:
@@ -90,7 +97,7 @@ class CrudSort(BaseModel):
             _logger.debug("Failed to parse JSON-encoded CRUD sorters", exc_info=True)
             raise_bad_request(detail=str(ex))
 
-    def get_expression(self, model: Type[SQLModel]) -> UnaryExpression:
+    def get_expression(self, model: type[SQLModel]) -> UnaryExpression[Any]:  # type: ignore[type-arg]
         if self.order == "asc":
             return asc(getattr(model, self.field))
         elif self.order == "desc":
@@ -99,12 +106,12 @@ class CrudSort(BaseModel):
             raise ValueError(f"Unsupported order: {self.order}")
 
 
-def _parse_value(val: Any) -> Union[datetime, int, float, str, bool, List]:
+def _parse_value(val: Any) -> datetime | int | float | str | bool | list[Any]:
     """Helper function to parse a string into a value of the appropriate type."""
 
     try:
         if re.match(_REGEX_LIST, val):
-            return json.loads(f"[{val}]")
+            return json.loads(f"[{val}]")  # type: ignore[no-any-return]
     except (TypeError, json.JSONDecodeError):
         pass
 
@@ -149,10 +156,10 @@ class CrudFilter(BaseModel):
 
     field: str
     operator: str
-    value: Union[str, int, float, None]
+    value: str | int | float | None
 
     @classmethod
-    def from_json(cls, json_str: str) -> List["CrudFilter"]:
+    def from_json(cls, json_str: str) -> list["CrudFilter"]:
         positional_args = ["field", "operator", "value"]
 
         try:
@@ -164,7 +171,7 @@ class CrudFilter(BaseModel):
             raise_bad_request(detail=str(ex))
 
     @property
-    def parsed_value(self) -> Union[datetime, int, float, str, bool, List, None]:
+    def parsed_value(self) -> datetime | int | float | str | bool | list | None:
         if self.value is None:
             return None
 
@@ -175,7 +182,7 @@ class CrudFilter(BaseModel):
         else:
             return ret
 
-    def get_expression(self, model: Type[SQLModel]) -> BinaryExpression:
+    def get_expression(self, model: type[SQLModel]) -> BinaryExpression:  # type: ignore[type-arg]
         mappers = {
             "eq": _map_eq,
             "ne": _map_ne,
@@ -194,47 +201,47 @@ class CrudFilter(BaseModel):
         return mappers[self.operator](model, self)
 
 
-def _map_eq(model: Type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression:
+def _map_eq(model: type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression:  # type: ignore[type-arg]
     return getattr(model, crud_filter.field) == crud_filter.parsed_value
 
 
-def _map_ne(model: Type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression:
+def _map_ne(model: type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression:  # type: ignore[type-arg]
     return getattr(model, crud_filter.field) != crud_filter.parsed_value
 
 
-def _map_lt(model: Type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression:
+def _map_lt(model: type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression:  # type: ignore[type-arg]
     return getattr(model, crud_filter.field) < crud_filter.parsed_value
 
 
-def _map_gt(model: Type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression:
+def _map_gt(model: type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression:  # type: ignore[type-arg]
     return getattr(model, crud_filter.field) > crud_filter.parsed_value
 
 
-def _map_lte(model: Type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression:
+def _map_lte(model: type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression:  # type: ignore[type-arg]
     return getattr(model, crud_filter.field) <= crud_filter.parsed_value
 
 
-def _map_gte(model: Type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression:
+def _map_gte(model: type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression:  # type: ignore[type-arg]
     return getattr(model, crud_filter.field) >= crud_filter.parsed_value
 
 
-def _map_in(model: Type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression:
+def _map_in(model: type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression:  # type: ignore[type-arg]
     return getattr(model, crud_filter.field).in_(crud_filter.parsed_value)
 
 
-def _map_nin(model: Type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression:
+def _map_nin(model: type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression:  # type: ignore[type-arg]
     return getattr(model, crud_filter.field).notin_(crud_filter.parsed_value)
 
 
 def _map_contains(
-    model: Type[SQLModel], crud_filter: CrudFilter
+    model: type[SQLModel], crud_filter: CrudFilter
 ) -> ColumnElement[bool]:
     return sql_cast(getattr(model, crud_filter.field), Text).match(
         str(crud_filter.parsed_value)
     )
 
 
-def _primary_key(sql_model: Type[SQLModel]) -> str:
+def _primary_key(sql_model: type[SQLModel]) -> str:
     for column in sql_model.__table__.primary_key:
         return column.name
     # Fallback for models without explicit primary key
@@ -242,7 +249,7 @@ def _primary_key(sql_model: Type[SQLModel]) -> str:
 
 
 async def set_response_count_header(
-    response: Response, sql_model: Type[SQLModel], session: AsyncSession
+    response: Response, sql_model: type[SQLModel], session: AsyncSession
 ) -> None:
     stmt = select(func.count()).select_from(sql_model)
     result = await session.execute(stmt)
@@ -255,10 +262,10 @@ async def create_one(
     *,
     user: User,
     entity: Entities,
-    sql_model: Type[SQLModel],
+    sql_model: type[SQLModel],
     session: AsyncSession,
     entity_create: SQLModel,
-    entity_create_patch: Optional[Dict[str, Any]] = None,
+    entity_create_patch: dict[str, Any] | None = None,
 ):
     """Reusable helper function to create a new entity."""
 
@@ -274,26 +281,26 @@ async def create_one(
 async def read_many(
     *,
     entity: Entities,
-    sql_model: Type[SQLModel],
+    sql_model: type[SQLModel],
     session: AsyncSession,
-    user: Optional[User] = None,
+    user: User | None = None,
     offset: int = 0,
     limit: int = 100,
-    user_selector: Optional[List[BinaryExpression]] = None,
-    json_filters: Optional[str] = None,
-    json_sorts: Optional[str] = None,
-    select_in_load: Optional[List[InstrumentedAttribute]] = None,
+    user_selector: list[BinaryExpression] | None = None,
+    json_filters: str | None = None,
+    json_sorts: str | None = None,
+    select_in_load: list[InstrumentedAttribute] | None = None,
 ):
     """Reusable helper function to read many entities."""
 
     if user:
         user.enforce_raise(obj=entity.value, act=Actions.READ.value)
 
-    crud_filters: List[CrudFilter] = (
+    crud_filters: list[CrudFilter] = (
         CrudFilter.from_json(json_filters) if json_filters else []
     )
 
-    crud_sorts: List[CrudSort] = CrudSort.from_json(json_sorts) if json_sorts else []
+    crud_sorts: list[CrudSort] = CrudSort.from_json(json_sorts) if json_sorts else []
 
     statement = select(sql_model).offset(offset).limit(limit)
 
@@ -328,11 +335,11 @@ async def read_many(
 
 
 async def select_one(
-    sql_model: Type[SQLModel],
+    sql_model: type[SQLModel],
     entity_id: int,
     session: AsyncSession,
-    user_selector: Optional[List[BinaryExpression]] = None,
-    select_in_load: Optional[List[InstrumentedAttribute]] = None,
+    user_selector: list[BinaryExpression] | None = None,
+    select_in_load: list[InstrumentedAttribute] | None = None,
 ) -> SQLModel:
     statement = select(sql_model).where(
         getattr(sql_model, _primary_key(sql_model)) == entity_id
@@ -360,11 +367,11 @@ async def read_one(
     *,
     user: User,
     entity: Entities,
-    sql_model: Type[SQLModel],
+    sql_model: type[SQLModel],
     session: AsyncSession,
     entity_id: int,
-    user_selector: Optional[List[BinaryExpression]] = None,
-    select_in_load: Optional[List[InstrumentedAttribute]] = None,
+    user_selector: list[BinaryExpression] | None = None,
+    select_in_load: list[InstrumentedAttribute] | None = None,
 ):
     """Reusable helper function to read one entity."""
 
@@ -384,11 +391,11 @@ async def update_one(
     *,
     user: User,
     entity: Entities,
-    sql_model: Type[SQLModel],
+    sql_model: type[SQLModel],
     session: AsyncSession,
     entity_id: int,
     entity_update: SQLModel,
-    user_selector: Optional[List[BinaryExpression]] = None,
+    user_selector: list[BinaryExpression] | None = None,
 ):
     """Reusable helper function to update one entity."""
 
@@ -418,10 +425,10 @@ async def delete_one(
     *,
     user: User,
     entity: Entities,
-    sql_model: Type[SQLModel],
+    sql_model: type[SQLModel],
     session: AsyncSession,
     entity_id: int,
-    user_selector: Optional[List[BinaryExpression]] = None,
+    user_selector: list[BinaryExpression] | None = None,
 ):
     """Reusable helper function to delete one entity."""
 
@@ -442,13 +449,13 @@ async def delete_one(
 
 
 async def find_by_json_key(
-    sql_model: Type[SQLModel],
+    sql_model: type[SQLModel],
     session: AsyncSession,
     json_column: str,
     json_key: str,
     json_value: Any,
-    selector: Optional[List[BinaryExpression]] = None,
-) -> List[SQLModel]:
+    selector: list[BinaryExpression] | None = None,
+) -> list[SQLModel]:
     stmt = select(sql_model).filter(
         getattr(sql_model, json_column)[json_key] == sql_cast(json_value, JSONB)
     )
@@ -462,9 +469,9 @@ async def find_by_json_key(
 
 
 async def update_json_key(
-    sql_model: Type[SQLModel],
+    sql_model: type[SQLModel],
     session: AsyncSession,
-    primary_keys: Union[List[int], int],
+    primary_keys: list[int] | int,
     json_column: str,
     json_key: str,
     json_value: Any,
@@ -511,7 +518,7 @@ with warnings.catch_warnings():
             "for additional context and to view the list of available operators. "
             "Also, note that not all operators are supported for every field."
         ),
-        example="`{}`".format(_example_crud_filters),
+        example=f"`{_example_crud_filters}`",
         examples=[_example_crud_filters],
     )
 
@@ -523,6 +530,6 @@ with warnings.catch_warnings():
             'or an object, like `{"field": field, "order": order}`. '
             "The direction can be either `asc` or `desc`."
         ),
-        example="`{}`".format(_example_crud_sorts),
+        example=f"`{_example_crud_sorts}`",
         examples=[_example_crud_sorts],
     )

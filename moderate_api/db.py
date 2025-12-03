@@ -1,16 +1,18 @@
 import logging
 import sys
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator, List
+from typing import Annotated
 
-import sqlalchemy.types as types
 from fastapi import Depends
 from sqlalchemy import Computed
-from sqlalchemy.dialects.postgresql import TSVECTOR
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    create_async_engine,
+)
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
-from typing_extensions import Annotated
 
 from moderate_api.config import get_settings
 
@@ -58,7 +60,7 @@ class DBEngine:
 @asynccontextmanager
 async def with_session() -> AsyncGenerator[AsyncSession, None]:
     engine = DBEngine.instance()
-    async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)  # type: ignore[call-overload]
     _logger.debug("Initialized session factory: %s", async_session)
 
     async with async_session() as session:
@@ -73,6 +75,6 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
 AsyncSessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 
-def build_tsvector_computed(columns: List[str], language: str = "english") -> Computed:
+def build_tsvector_computed(columns: list[str], language: str = "english") -> Computed:
     columns_part = " || ' ' || ".join(columns)
     return Computed(f"to_tsvector('{language}', {columns_part})", persisted=True)

@@ -1,6 +1,6 @@
 import io
 import zipfile
-from typing import Any, Optional, Union
+from typing import Any
 
 import requests
 
@@ -12,9 +12,9 @@ def download_file(
     title: str = "Downloading file",
     completion_title: str = "Download complete",
     completion_subtitle: str = "In-memory file",
-    max_size_mb: Optional[float] = 100,
+    max_size_mb: float | None = 100,
     decompress_zip: bool = False,
-) -> Union[io.BytesIO, dict[str, io.BytesIO]]:
+) -> io.BytesIO | dict[str, io.BytesIO]:
     """This function downloads a file using a URL from a Marimo form, showing a progress bar during download.
     The file is downloaded in chunks and stored in memory.
 

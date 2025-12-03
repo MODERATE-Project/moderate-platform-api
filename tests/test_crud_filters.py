@@ -1,7 +1,6 @@
 import json
 import random
 from datetime import datetime
-from typing import Optional
 
 import arrow
 import pytest
@@ -16,10 +15,10 @@ from moderate_api.entities.crud import CrudFilter
 
 
 class ModelTest(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     name: str
-    limit: Optional[int] = None
-    dttm: Optional[datetime] = Field(sa_column=DateTime(timezone=True))
+    limit: int | None = None
+    dttm: datetime | None = Field(sa_column=DateTime(timezone=True))
 
 
 async def _exec(async_session, crud_filter: CrudFilter):
@@ -30,7 +29,7 @@ async def _exec(async_session, crud_filter: CrudFilter):
 
 
 @pytest.mark.asyncio
-async def test_crud_filters():
+async def test_crud_filters():  # type: ignore[no-untyped-def]
     """Test the CRUD filters."""
 
     item_1 = ModelTest(name="Item 1", limit=10)
@@ -70,7 +69,7 @@ async def test_crud_filters():
     )
 
     assert len(results) == 2
-    assert all([result[0].model_dump() != item_1.model_dump() for result in results])
+    assert all(result[0].model_dump() != item_1.model_dump() for result in results)
 
     results = await _exec(
         async_session,
@@ -90,7 +89,7 @@ async def test_crud_filters():
     )
 
     assert len(results) == 2
-    assert all([result[0].model_dump() != item_2.model_dump() for result in results])
+    assert all(result[0].model_dump() != item_2.model_dump() for result in results)
 
     results = await _exec(
         async_session,
@@ -119,7 +118,7 @@ async def test_crud_filters():
     )
 
     assert len(results) == 2
-    assert all([result[0].model_dump() != item_2.model_dump() for result in results])
+    assert all(result[0].model_dump() != item_2.model_dump() for result in results)
 
     results = await _exec(
         async_session,
@@ -133,7 +132,7 @@ async def test_crud_filters():
 
 
 @pytest.mark.asyncio
-async def test_parse_values():
+async def test_parse_values():  # type: ignore[no-untyped-def]
     """Test that values contained in the filter are parsed correctly to the proper type."""
 
     item_1 = ModelTest(name="Item 1", limit=10)
@@ -171,7 +170,7 @@ async def test_parse_values():
     assert len(results_numbers) == 2
 
     assert all(
-        [result[0].model_dump() != item_2.model_dump() for result in results_numbers]
+        result[0].model_dump() != item_2.model_dump() for result in results_numbers
     )
 
     with pytest.raises(sqlalchemy.exc.ProgrammingError):
@@ -198,7 +197,7 @@ async def test_parse_values():
 
 
 @pytest.mark.asyncio
-async def test_parse_datetimes():
+async def test_parse_datetimes():  # type: ignore[no-untyped-def]
     """Test that datetime filters are parsed correctly."""
 
     now = arrow.utcnow().naive

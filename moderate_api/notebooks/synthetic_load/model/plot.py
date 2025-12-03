@@ -1,9 +1,12 @@
+from typing import Any
+
 import matplotlib
 
 matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
-import numpy as np
+from matplotlib.figure import Figure
+from numpy.typing import NDArray
 
 features = [
     "means",
@@ -20,11 +23,11 @@ features = [
 
 
 def plot_distrib(
-    arr_real,
-    arr_synth,
-    xlabel="electricity consumption [kW]",
-    ylabel="frequency of values occuring",
-):
+    arr_real: NDArray[Any],
+    arr_synth: NDArray[Any],
+    xlabel: str = "electricity consumption [kW]",
+    ylabel: str = "frequency of values occuring",
+) -> Figure:
     fig = plt.figure(figsize=(7, 5))
     plt.hist(
         arr_real.flatten(),
@@ -52,8 +55,13 @@ def plot_distrib(
 
 
 def plot_stat(
-    arr_featureReal, arr_featureSynth, ax, title, arr_featureThird=None, descrFontSize=7
-):
+    arr_featureReal: NDArray[Any],
+    arr_featureSynth: NDArray[Any],
+    ax: Any,
+    title: str,
+    arr_featureThird: NDArray[Any] | None = None,
+    descrFontSize: int = 7,
+) -> None:
     # Prepare data arrays and labels
     data_arrays = [arr_featureReal, arr_featureSynth]
     labels = ["train", "synthetic"]
@@ -123,7 +131,11 @@ def plot_stat(
         )
 
 
-def plot_stats(arr_featuresReal, arr_featuresSynth, arr_featuresThird=None):
+def plot_stats(
+    arr_featuresReal: NDArray[Any],
+    arr_featuresSynth: NDArray[Any],
+    arr_featuresThird: NDArray[Any] | None = None,
+) -> Figure:
     fig, axes = plt.subplots(nrows=3, ncols=3, figsize=(20, 15.5))
     axes = axes.flatten()
     for idx, ax in enumerate(axes):
@@ -149,7 +161,11 @@ def plot_stats(arr_featuresReal, arr_featuresSynth, arr_featuresThird=None):
     return fig
 
 
-def plot_mean_trends(trendReal_dict, trendSynth_dict, trendThird_dict=None):
+def plot_mean_trends(
+    trendReal_dict: dict[str, NDArray[Any]],
+    trendSynth_dict: dict[str, NDArray[Any]],
+    trendThird_dict: dict[str, NDArray[Any]] | None = None,
+) -> dict[str, Figure]:
     trendPlot_dict = {}
     stats = ["mean", "std", "median", "min", "max", "skew"]
     # Order must align with `compute_group_stats`!

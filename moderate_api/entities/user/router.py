@@ -1,7 +1,14 @@
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Response, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    HTTPException,
+    Query,
+    Response,
+    status,
+)
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import BinaryExpression
@@ -37,7 +44,7 @@ _ENTITY = Entities.USER
 _logger = logging.getLogger(__name__)
 
 
-async def build_selector(user: User, session: AsyncSession) -> List[BinaryExpression]:
+async def build_selector(user: User, session: AsyncSession) -> list[BinaryExpression]:
     return [
         or_(
             UserMeta.username == user.username,
@@ -47,7 +54,7 @@ async def build_selector(user: User, session: AsyncSession) -> List[BinaryExpres
 
 async def build_create_patch(
     user: User, session: AsyncSession
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     return {}
 
 
@@ -70,7 +77,7 @@ async def create_user_meta(
     )
 
 
-@router.get("", response_model=List[UserMetaRead], tags=[_TAG])
+@router.get("", response_model=list[UserMetaRead], tags=[_TAG])
 async def query_user_meta(
     *,
     response: Response,
@@ -78,8 +85,8 @@ async def query_user_meta(
     session: AsyncSessionDep,
     offset: int = 0,
     limit: int = Query(default=100, le=100),
-    filters: Optional[str] = CrudFiltersQuery,
-    sorts: Optional[str] = CrudSortsQuery,
+    filters: str | None = CrudFiltersQuery,
+    sorts: str | None = CrudSortsQuery,
 ):
     user_selector = await build_selector(user=user, session=session)
 
@@ -152,8 +159,8 @@ class UserDIDCreationRequest(BaseModel):
 
 
 class UserDIDCreationResponse(BaseModel):
-    task_id: Optional[int]
-    user_meta: Optional[UserMetaRead]
+    task_id: int | None
+    user_meta: UserMetaRead | None
 
 
 @router.post("/did", response_model=UserDIDCreationResponse, tags=[_TAG])

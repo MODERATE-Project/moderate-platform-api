@@ -1,5 +1,5 @@
 import logging
-from typing import Dict
+from typing import Any
 
 import httpx
 import jwt
@@ -16,29 +16,31 @@ _CACHE_MAXSIZE = 128
 _logger = logging.getLogger(__name__)
 
 
-async def _fetch_json(url: str) -> Dict:
+async def _fetch_json(url: str) -> dict[str, Any]:
     async with httpx.AsyncClient() as client:
         _logger.debug("GET JSON: %s", url)
         response = await client.get(url)
-        return response.json()
+        return response.json()  # type: ignore[no-any-return]
 
 
-@cached(cache=TTLCache(ttl=_CACHE_TTL_SECONDS, maxsize=_CACHE_MAXSIZE))
-async def _fetch_jwks(openid_config_url: str) -> Dict:
+@cached(cache=TTLCache(ttl=_CACHE_TTL_SECONDS, maxsize=_CACHE_MAXSIZE))  # type: ignore[misc]
+async def _fetch_jwks(openid_config_url: str) -> dict[str, Any]:
     _logger.info("Fetching OpenID configuration from: %s", openid_config_url)
     openid_config = await _fetch_json(openid_config_url)
     jwks_uri = openid_config["jwks_uri"]
     return await _fetch_json(jwks_uri)
 
 
-async def _get_signing_key(alg: str, jwks: Dict, kid: str):
+async def _get_signing_key(alg: str, jwks: dict[str, Any], kid: str) -> Any:
     for key in jwks["keys"]:
         if key["kid"] == kid:
             jwk = {k: key[k] for k in ("kty", "kid", "use", "n", "e")}
             return get_default_algorithms()[alg].from_jwk(jwk)
 
 
-async def decode_token(token: str, settings: Settings, leeway: int = 30) -> Dict:
+async def decode_token(
+    token: str, settings: Settings, leeway: int = 30
+) -> dict[str, Any]:
     header = jwt.get_unverified_header(token)
     alg = header["alg"]
 
@@ -66,17 +68,17 @@ async def decode_token(token: str, settings: Settings, leeway: int = 30) -> Dict
         token_decoded = jwt.decode(
             token,
             algorithms=[alg],
-            key=signing_key,
+            key=signing_key,  # type: ignore[arg-type]
             options=options,
         )
     except Exception as ex:
         _logger.warning("Token verification failed: %s", ex)
         raise
 
-    return token_decoded
+    return token_decoded  # type: ignore[no-any-return]
 
 
-async def get_request_token(request: Request, settings: Settings) -> Dict:
+async def get_request_token(request: Request, settings: Settings) -> dict[str, Any]:
     auth_token = request.headers.get("Authorization")
 
     if not auth_token:

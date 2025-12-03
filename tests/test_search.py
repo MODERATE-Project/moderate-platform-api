@@ -30,7 +30,7 @@ _KWARGS_LIST = [
 
 
 @pytest.mark.asyncio
-async def test_asset_tsvector_column(access_token):
+async def test_asset_tsvector_column(access_token):  # type: ignore[no-untyped-def]
     with TestClient(app) as client:
         assets = [
             create_asset(
@@ -56,7 +56,7 @@ async def test_asset_tsvector_column(access_token):
 
 
 @pytest.mark.asyncio
-async def test_asset_search_endpoint(access_token):
+async def test_asset_search_endpoint(access_token):  # type: ignore[no-untyped-def]
     with TestClient(app) as client:
         assets = [
             create_asset(

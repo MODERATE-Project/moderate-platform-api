@@ -1,7 +1,9 @@
-import numpy as np
+from typing import Any
+
+from numpy.typing import NDArray
 
 
-def revert_reshape_arr(arr: np.ndarray) -> np.ndarray:
+def revert_reshape_arr(arr: NDArray[Any]) -> NDArray[Any]:
     """
     Reverts the operation of `reshape_arr`.
     """
@@ -10,13 +12,15 @@ def revert_reshape_arr(arr: np.ndarray) -> np.ndarray:
 
 
 def invert_min_max_scaler(
-    arr_scaled: np.ndarray, arr_minMax: np.ndarray, featureRange: tuple[int, int]
-) -> np.ndarray:
+    arr_scaled: NDArray[Any],
+    arr_minMax: NDArray[Any],
+    featureRange: tuple[int, int],
+) -> NDArray[Any]:
     """
     Reverts the operation of `min_max_scaler`.
     """
     valMin, valMax = arr_minMax[0], arr_minMax[1]
-    arr = (arr_scaled - featureRange[0]) * (valMax - valMin) / (
+    arr: NDArray[Any] = (arr_scaled - featureRange[0]) * (valMax - valMin) / (
         featureRange[1] - featureRange[0]
     ) + valMin
     return arr
