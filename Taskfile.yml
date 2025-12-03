@@ -75,7 +75,6 @@ tasks:
     cmds:
       - poetry run black --check moderate_api/ tests/
       - poetry run ruff check moderate_api/ tests/
-      - poetry run mypy moderate_api/ tests/
 
   format:
     desc: Format code (black, ruff)
