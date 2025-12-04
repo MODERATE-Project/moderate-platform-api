@@ -32,6 +32,8 @@ import { buildKeycloakAuthProvider } from "./auth-provider/keycloak";
 import { useRefreshToken } from "./auth-provider/utils";
 import { DevelopmentBanner } from "./components/DevelopmentBanner";
 import { FooterLinks } from "./components/FooterLinks";
+import { GlobalErrorBoundary } from "./components/GlobalErrorBoundary";
+import { GlobalErrorListener } from "./components/GlobalErrorListener";
 import { HeaderMegaMenu } from "./components/HeaderMegaMenu";
 import { Catalogue } from "./pages/Catalogue";
 import { Homepage } from "./pages/Homepage";
@@ -161,88 +163,91 @@ function App() {
           >
             <Global styles={{ body: { WebkitFontSmoothing: "auto" } }} />
             <NotificationsProvider position="top-right">
-              <DevtoolsProvider>
-                <Refine
-                  dataProvider={dataProvider(getBaseApiUrl())}
-                  notificationProvider={useNotificationProvider}
-                  routerProvider={routerBindings}
-                  authProvider={authProvider}
-                  i18nProvider={i18nProvider}
-                  resources={[
-                    {
-                      name: ResourceNames.ASSET,
-                      list: "/assets",
-                      create: "/assets/create",
-                      edit: "/assets/edit/:id",
-                      show: "/assets/show/:id",
-                      meta: {
-                        canDelete: true,
-                        icon: <IconBox />,
+              <GlobalErrorBoundary>
+                <GlobalErrorListener />
+                <DevtoolsProvider>
+                  <Refine
+                    dataProvider={dataProvider(getBaseApiUrl())}
+                    notificationProvider={useNotificationProvider}
+                    routerProvider={routerBindings}
+                    authProvider={authProvider}
+                    i18nProvider={i18nProvider}
+                    resources={[
+                      {
+                        name: ResourceNames.ASSET,
+                        list: "/assets",
+                        create: "/assets/create",
+                        edit: "/assets/edit/:id",
+                        show: "/assets/show/:id",
+                        meta: {
+                          canDelete: true,
+                          icon: <IconBox />,
+                        },
                       },
-                    },
-                  ]}
-                  options={{
-                    syncWithLocation: true,
-                    warnWhenUnsavedChanges: true,
-                    useNewQueryKeys: true,
-                    projectId: "moderate-platform-ui",
-                    title: {
-                      text: "MODERATE Platform",
-                    },
-                  }}
-                >
-                  <Routes>
-                    <Route element={<TokenRouteParent />}>
-                      <Route element={<HeaderContainerRouteParent />}>
-                        <Route path="/assets">
-                          <Route path="create" element={<AssetCreate />} />
-                          <Route path="edit/:id" element={<AssetEdit />} />
-                          <Route path="show/:id" element={<AssetShow />} />
-                        </Route>
-                        <Route path="/workflows">
-                          <Route
-                            path="exploratory"
-                            element={<NotebookExploratory />}
-                          />
-                          <Route
-                            path="synthetic-load"
-                            element={<NotebookSyntheticLoad />}
-                          />
-                          <Route
-                            path="matrix-profile"
-                            element={<MatrixProfileWorkflow />}
-                          />
-                        </Route>
-                        <Route path="/catalogue" element={<Catalogue />} />
-                      </Route>
-                      <Route element={<HeaderFluidContainerRouteParent />}>
-                        <Route path="" element={<Homepage />} />
-                        <Route path="/assets">
-                          <Route index element={<AssetList />} />
-                          <Route path=":id/objects">
+                    ]}
+                    options={{
+                      syncWithLocation: true,
+                      warnWhenUnsavedChanges: true,
+                      useNewQueryKeys: true,
+                      projectId: "moderate-platform-ui",
+                      title: {
+                        text: "MODERATE Platform",
+                      },
+                    }}
+                  >
+                    <Routes>
+                      <Route element={<TokenRouteParent />}>
+                        <Route element={<HeaderContainerRouteParent />}>
+                          <Route path="/assets">
+                            <Route path="create" element={<AssetCreate />} />
+                            <Route path="edit/:id" element={<AssetEdit />} />
+                            <Route path="show/:id" element={<AssetShow />} />
+                          </Route>
+                          <Route path="/workflows">
                             <Route
-                              path="show/:objectId"
-                              element={<AssetObjectShow />}
+                              path="exploratory"
+                              element={<NotebookExploratory />}
                             />
                             <Route
-                              path="explore/:objectId"
-                              element={<AssetObjectExploratoryDashboard />}
+                              path="synthetic-load"
+                              element={<NotebookSyntheticLoad />}
+                            />
+                            <Route
+                              path="matrix-profile"
+                              element={<MatrixProfileWorkflow />}
                             />
                           </Route>
+                          <Route path="/catalogue" element={<Catalogue />} />
                         </Route>
+                        <Route element={<HeaderFluidContainerRouteParent />}>
+                          <Route path="" element={<Homepage />} />
+                          <Route path="/assets">
+                            <Route index element={<AssetList />} />
+                            <Route path=":id/objects">
+                              <Route
+                                path="show/:objectId"
+                                element={<AssetObjectShow />}
+                              />
+                              <Route
+                                path="explore/:objectId"
+                                element={<AssetObjectExploratoryDashboard />}
+                              />
+                            </Route>
+                          </Route>
+                        </Route>
+                        <Route element={<AuthenticatedGuardRouteParent />}>
+                          <Route path="/login" element={<Login />} />
+                        </Route>
+                        <Route path="*" element={<ErrorComponent />} />
                       </Route>
-                      <Route element={<AuthenticatedGuardRouteParent />}>
-                        <Route path="/login" element={<Login />} />
-                      </Route>
-                      <Route path="*" element={<ErrorComponent />} />
-                    </Route>
-                  </Routes>
-                  <RefineKbar />
-                  <UnsavedChangesNotifier />
-                  <DocumentTitleHandler />
-                </Refine>
-                <DevtoolsPanel />
-              </DevtoolsProvider>
+                    </Routes>
+                    <RefineKbar />
+                    <UnsavedChangesNotifier />
+                    <DocumentTitleHandler />
+                  </Refine>
+                  <DevtoolsPanel />
+                </DevtoolsProvider>
+              </GlobalErrorBoundary>
             </NotificationsProvider>
           </MantineProvider>
         </ColorSchemeProvider>
