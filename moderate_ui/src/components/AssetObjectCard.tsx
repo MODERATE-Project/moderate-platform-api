@@ -1,19 +1,14 @@
 import {
   Badge,
   Box,
-  Button,
   Card,
   Group,
   Stack,
   Text,
   Tooltip,
+  useMantineTheme,
 } from "@mantine/core";
-import {
-  IconBox,
-  IconClock,
-  IconExternalLink,
-  IconLockAccess,
-} from "@tabler/icons-react";
+import { IconBox, IconClock } from "@tabler/icons-react";
 import React, { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
@@ -31,6 +26,7 @@ export const AssetObjectCard: React.FC<{
   maxHeight?: boolean;
 }> = ({ asset, assetObject, maxHeight }) => {
   const { t } = useTranslation();
+  const theme = useMantineTheme();
 
   const [assetModel, assetObjectModel] = useMemo(() => {
     const assetModel = new AssetModel(asset);
@@ -41,43 +37,8 @@ export const AssetObjectCard: React.FC<{
     return [assetModel, assetObjectModel];
   }, [asset, assetObject]);
 
-  const features = useMemo(() => {
-    return [
-      {
-        label: t("catalogue.card.asset", "Asset"),
-        value: assetModel.data.name,
-        icon: IconBox,
-      },
-      {
-        label: t("catalogue.card.createdAt", "Uploaded"),
-        value: assetObjectModel.createdAt.toLocaleString(),
-        icon: IconClock,
-      },
-      {
-        label: t("catalogue.card.accessLevel", "Access level"),
-        value: (
-          <Tooltip
-            label={t(
-              ACCESS_LEVEL_TOOLTIP_KEYS[assetModel.data.access_level],
-              ACCESS_LEVEL_TOOLTIPS[assetModel.data.access_level],
-            )}
-            multiline
-            withArrow
-          >
-            <Box sx={{ cursor: "help", display: "inline-block" }}>
-              <Badge
-                color={ACCESS_LEVEL_COLORS[assetModel.data.access_level]}
-                variant="light"
-              >
-                {assetModel.data.access_level}
-              </Badge>
-            </Box>
-          </Tooltip>
-        ),
-        icon: IconLockAccess,
-      },
-    ];
-  }, [t, assetModel, assetObjectModel]);
+  const accessLevelColor = ACCESS_LEVEL_COLORS[assetModel.data.access_level];
+  const borderColor = theme.colors[accessLevelColor][6];
 
   return (
     <Card
@@ -86,45 +47,99 @@ export const AssetObjectCard: React.FC<{
       radius="md"
       withBorder
       h={maxHeight ? "100%" : undefined}
+      component={Link}
+      to={routes.assetObjectShow(asset.id, assetObject.id)}
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        transition: "transform 200ms ease, box-shadow 200ms ease",
+        borderTop: `4px solid ${borderColor}`,
+        "&:hover": {
+          transform: "translateY(-4px)",
+          boxShadow: theme.shadows.xl,
+        },
+        textDecoration: "none",
+        color: "inherit",
+      }}
     >
-      <Group position="apart" mb="xs">
-        <Text weight={500} truncate>
-          {assetObjectModel.humanName}
-        </Text>
-        {assetObjectModel.format && (
-          <Badge color="pink" variant="light">
-            {assetObjectModel.format.toUpperCase()}
+      <Group position="apart" align="flex-start" mb="xs" noWrap>
+        <Stack spacing={4} style={{ flex: 1, minWidth: 0 }}>
+          <Group spacing="xs" noWrap align="center">
+            <Text
+              weight={600}
+              size="lg"
+              truncate
+              title={assetObjectModel.humanName}
+              style={{ lineHeight: 1.2 }}
+            >
+              {assetObjectModel.humanName}
+            </Text>
+            {assetObjectModel.format && (
+              <Badge color="gray" variant="outline" size="xs" radius="sm">
+                {assetObjectModel.format.toUpperCase()}
+              </Badge>
+            )}
+          </Group>
+        </Stack>
+
+        <Tooltip
+          label={t(
+            ACCESS_LEVEL_TOOLTIP_KEYS[assetModel.data.access_level],
+            ACCESS_LEVEL_TOOLTIPS[assetModel.data.access_level],
+          )}
+          multiline
+          withArrow
+          withinPortal
+        >
+          <Badge color={accessLevelColor} variant="light" size="sm">
+            {assetModel.data.access_level}
           </Badge>
-        )}
+        </Tooltip>
       </Group>
-      <Button
-        variant="light"
-        leftIcon={<IconExternalLink size="1em" />}
-        fullWidth
-        mt="md"
+
+      <Text
+        size="sm"
+        color="dimmed"
+        lineClamp={3}
         mb="md"
-        radius="md"
-        target="_blank"
-        component={Link}
-        to={routes.assetObjectShow(asset.id, assetObject.id)}
+        sx={{ flex: 1 }}
+        title={assetObjectModel.description}
       >
-        {t("catalogue.card.view", "View details")}
-      </Button>
-      <Stack spacing="xs">
-        {features.map((feature, idx) => (
-          <Group spacing="md" position="left" key={idx}>
-            <Group spacing="xs" noWrap>
-              <feature.icon size="1rem" />
-              <Text color="dimmed" size="sm">
-                {feature.label}
-              </Text>
-            </Group>
-            <Text size="sm" truncate>
-              {feature.value}
+        {assetObjectModel.description ||
+          t("common.noDescription", "No description available")}
+      </Text>
+
+      <Box
+        sx={(theme) => ({
+          borderTop: `1px solid ${
+            theme.colorScheme === "dark"
+              ? theme.colors.dark[4]
+              : theme.colors.gray[2]
+          }`,
+          paddingTop: theme.spacing.sm,
+          marginTop: "auto",
+        })}
+      >
+        <Stack spacing={4}>
+          <Group spacing="xs" noWrap>
+            <IconBox size="0.9rem" style={{ opacity: 0.5 }} />
+            <Text
+              size="xs"
+              color="dimmed"
+              truncate
+              title={assetModel.data.name}
+            >
+              {assetModel.data.name}
             </Text>
           </Group>
-        ))}
-      </Stack>
+          <Group spacing="xs" noWrap>
+            <IconClock size="0.9rem" style={{ opacity: 0.5 }} />
+            <Text size="xs" color="dimmed">
+              {assetObjectModel.createdAt.toLocaleDateString()}
+            </Text>
+          </Group>
+        </Stack>
+      </Box>
     </Card>
   );
 };
