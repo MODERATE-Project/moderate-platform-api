@@ -121,5 +121,13 @@
   "assetObject": {
     "label": "Asset Objects",
     "aboutDescription": "<b>Asset Objects</b> are the dataset files that are logically grouped under the umbrella of a given <i>Asset</i>. For example, the same <i>Asset</i> may have two <b>Asset Objects</b> representing the same dataset in different file formats."
+  },
+  "catalogue": {
+    "instructions": "Use the filters below to search for datasets. You can group files by their parent asset or view them individually.",
+    "help": {
+      "groupByAsset": "Enable this to group individual files (objects) under their parent dataset entity.",
+      "includeMine": "Toggle this to view private datasets you have uploaded, in addition to public ones.",
+      "fileFormat": "Filter results to show only specific file types (e.g., CSV, JSON)."
+    }
   }
 }

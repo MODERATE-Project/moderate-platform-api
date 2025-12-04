@@ -1,10 +1,13 @@
 import {
+  ActionIcon,
   Alert,
   Box,
   Button,
   Grid,
   Group,
   LoadingOverlay,
+  Paper,
+  Popover,
   Select,
   Stack,
   Switch,
@@ -16,6 +19,7 @@ import { useNotification } from "@refinedev/core";
 import {
   IconDatabaseSearch,
   IconFolders,
+  IconHelp,
   IconMoodSad,
   IconSearch,
   IconSortDescending,
@@ -43,6 +47,19 @@ const PAGE_SIZE_OPTIONS = [
 
 // Common file formats for the dropdown
 const COMMON_FORMATS = ["csv", "json", "parquet", "xlsx", "xls"];
+
+const ContextHelp: React.FC<{ text: string }> = ({ text }) => (
+  <Popover width={200} position="bottom" withArrow shadow="md">
+    <Popover.Target>
+      <ActionIcon variant="transparent" color="gray" size="sm" ml={4}>
+        <IconHelp size={16} />
+      </ActionIcon>
+    </Popover.Target>
+    <Popover.Dropdown>
+      <Text size="xs">{text}</Text>
+    </Popover.Dropdown>
+  </Popover>
+);
 
 export const Catalogue: React.FC = () => {
   const { t } = useTranslation();
@@ -227,172 +244,203 @@ export const Catalogue: React.FC = () => {
           </Text>
         </Stack>
       </Group>
-      <Group mt="xl" position="left">
-        <TextInput
-          style={{ flexGrow: 0.88 }}
-          size="lg"
-          radius="md"
-          icon={<IconSearch size={14} />}
-          placeholder={t("catalogue.placeholder", "Search query")}
-          value={searchQuery}
-          onChange={(event) => setSearchQuery(event.currentTarget.value)}
-        />
-        <Button
-          variant="light"
-          size="lg"
-          radius="md"
-          uppercase
-          style={{ flexGrow: 0.12 }}
-          onClick={onSearch}
-        >
-          {t("catalogue.button", "Search")}
-        </Button>
-      </Group>
-      <Group mt="md" position="apart">
-        <Group spacing="lg">
-          <Switch
-            checked={includeMine}
-            onChange={(event) => {
-              const newValue = event.currentTarget.checked;
-              setIncludeMine(newValue);
-              localStorage.setItem(INCLUDE_MINE_STORAGE_KEY, String(newValue));
-              setTouched(true);
-              performSearch(
-                searchQuery,
-                newValue,
-                sortBy,
-                undefined,
-                fileFormatFilter,
-                dateFilter,
-              );
-            }}
-            label={
-              <Group spacing="xs">
-                <IconUser size={16} />
-                <Text>
-                  {t("catalogue.includeMine", "Include my own datasets")}
-                </Text>
-              </Group>
-            }
-          />
-          <Switch
-            checked={groupByAsset}
-            onChange={(event) => {
-              const newValue = event.currentTarget.checked;
-              setGroupByAsset(newValue);
-              localStorage.setItem(
-                GROUP_BY_ASSET_STORAGE_KEY,
-                String(newValue),
-              );
-            }}
-            label={
-              <Group spacing="xs">
-                <IconFolders size={16} />
-                <Text>{t("catalogue.groupByAsset", "Group by asset")}</Text>
-              </Group>
-            }
-          />
-          <Select
-            placeholder={t("catalogue.fileFormat", "File format")}
-            data={[
-              { value: "", label: t("catalogue.allFormats", "All formats") },
-              ...formatOptions,
-            ]}
-            value={fileFormatFilter || ""}
-            onChange={(val) => {
-              const newFormat = val || null;
-              setFileFormatFilter(newFormat);
-              localStorage.setItem(
-                FILE_FORMAT_FILTER_STORAGE_KEY,
-                newFormat || "",
-              );
-              if (assets) {
-                setTouched(true);
-              }
-            }}
-            size="sm"
+      <Paper shadow="xs" p="md" mt="xl" withBorder radius="md">
+        <Group position="left">
+          <TextInput
+            style={{ flexGrow: 0.88 }}
+            size="lg"
             radius="md"
-            clearable
-            style={{ width: 140 }}
+            icon={<IconSearch size={14} />}
+            placeholder={t("catalogue.placeholder", "Search query")}
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.currentTarget.value)}
           />
+          <Button
+            variant="light"
+            size="lg"
+            radius="md"
+            uppercase
+            style={{ flexGrow: 0.12 }}
+            onClick={onSearch}
+          >
+            {t("catalogue.button", "Search")}
+          </Button>
         </Group>
-        <Group spacing="xs">
-          <Text size="sm" color="dimmed">
-            {t("catalogue.sortBy", "Sort by")}:
-          </Text>
-          <Select
-            data={[
-              { value: "date", label: t("catalogue.sort.date", "Date") },
-              { value: "name", label: t("catalogue.sort.name", "Name") },
-              { value: "format", label: t("catalogue.sort.format", "Format") },
-            ]}
-            value={sortBy}
-            onChange={(val) => {
-              const newSort = val || "date";
-              setSortBy(newSort);
-              if (assets) {
+        <Group mt="md" position="apart">
+          <Group spacing="lg">
+            <Switch
+              checked={includeMine}
+              onChange={(event) => {
+                const newValue = event.currentTarget.checked;
+                setIncludeMine(newValue);
+                localStorage.setItem(
+                  INCLUDE_MINE_STORAGE_KEY,
+                  String(newValue),
+                );
                 setTouched(true);
+                performSearch(
+                  searchQuery,
+                  newValue,
+                  sortBy,
+                  undefined,
+                  fileFormatFilter,
+                  dateFilter,
+                );
+              }}
+              label={
+                <Group spacing={4}>
+                  <IconUser size={16} />
+                  <Text>
+                    {t("catalogue.includeMine", "Include my own datasets")}
+                  </Text>
+                  <ContextHelp
+                    text={t(
+                      "catalogue.help.includeMine",
+                      "Toggle this to view private datasets you have uploaded, in addition to public ones.",
+                    )}
+                  />
+                </Group>
               }
-            }}
-            icon={<IconSortDescending size={14} />}
-            size="sm"
-            radius="md"
-          />
-          <Text size="sm" color="dimmed" ml="md">
-            {t("catalogue.dateFilter", "Upload date")}:
-          </Text>
-          <Select
-            data={[
-              {
-                value: "always",
-                label: t("catalogue.dateFilter.always", "Always"),
-              },
-              {
-                value: "last_week",
-                label: t("catalogue.dateFilter.lastWeek", "Last week"),
-              },
-              {
-                value: "last_month",
-                label: t("catalogue.dateFilter.lastMonth", "Last month"),
-              },
-            ]}
-            value={dateFilter}
-            onChange={(val) => {
-              const newDateFilter =
-                (val as "always" | "last_week" | "last_month") || "always";
-              setDateFilter(newDateFilter);
-              localStorage.setItem(DATE_FILTER_STORAGE_KEY, newDateFilter);
-              if (assets) {
-                setTouched(true);
+            />
+            <Switch
+              checked={groupByAsset}
+              onChange={(event) => {
+                const newValue = event.currentTarget.checked;
+                setGroupByAsset(newValue);
+                localStorage.setItem(
+                  GROUP_BY_ASSET_STORAGE_KEY,
+                  String(newValue),
+                );
+              }}
+              label={
+                <Group spacing={4}>
+                  <IconFolders size={16} />
+                  <Text>{t("catalogue.groupByAsset", "Group by asset")}</Text>
+                  <ContextHelp
+                    text={t(
+                      "catalogue.help.groupByAsset",
+                      "Enable this to group individual files (objects) under their parent dataset entity.",
+                    )}
+                  />
+                </Group>
               }
-            }}
-            size="sm"
-            radius="md"
-            style={{ width: 120 }}
-          />
-          <Text size="sm" color="dimmed" ml="md">
-            {t("catalogue.maxResults", "Max results")}:
-          </Text>
-          <Select
-            data={PAGE_SIZE_OPTIONS}
-            value={pageSize.toString()}
-            onChange={(val) => {
-              const newPageSize = val ? parseInt(val, 10) : DEFAULT_PAGE_SIZE;
-              setPageSize(newPageSize);
-              localStorage.setItem(
-                PAGE_SIZE_STORAGE_KEY,
-                newPageSize.toString(),
-              );
-              if (assets) {
-                setTouched(true);
-              }
-            }}
-            size="sm"
-            radius="md"
-            style={{ width: 80 }}
-          />
+            />
+            <Group spacing={4}>
+              <Select
+                placeholder={t("catalogue.fileFormat", "File format")}
+                data={[
+                  {
+                    value: "",
+                    label: t("catalogue.allFormats", "All formats"),
+                  },
+                  ...formatOptions,
+                ]}
+                value={fileFormatFilter || ""}
+                onChange={(val) => {
+                  const newFormat = val || null;
+                  setFileFormatFilter(newFormat);
+                  localStorage.setItem(
+                    FILE_FORMAT_FILTER_STORAGE_KEY,
+                    newFormat || "",
+                  );
+                  if (assets) {
+                    setTouched(true);
+                  }
+                }}
+                size="sm"
+                radius="md"
+                clearable
+                style={{ width: 140 }}
+              />
+              <ContextHelp
+                text={t(
+                  "catalogue.help.fileFormat",
+                  "Filter results to show only specific file types (e.g., CSV, JSON).",
+                )}
+              />
+            </Group>
+          </Group>
+          <Group spacing="xs">
+            <Text size="sm" color="dimmed">
+              {t("catalogue.sortBy", "Sort by")}:
+            </Text>
+            <Select
+              data={[
+                { value: "date", label: t("catalogue.sort.date", "Date") },
+                { value: "name", label: t("catalogue.sort.name", "Name") },
+                {
+                  value: "format",
+                  label: t("catalogue.sort.format", "Format"),
+                },
+              ]}
+              value={sortBy}
+              onChange={(val) => {
+                const newSort = val || "date";
+                setSortBy(newSort);
+                if (assets) {
+                  setTouched(true);
+                }
+              }}
+              icon={<IconSortDescending size={14} />}
+              size="sm"
+              radius="md"
+            />
+            <Text size="sm" color="dimmed" ml="md">
+              {t("catalogue.dateFilter", "Upload date")}:
+            </Text>
+            <Select
+              data={[
+                {
+                  value: "always",
+                  label: t("catalogue.dateFilter.always", "Always"),
+                },
+                {
+                  value: "last_week",
+                  label: t("catalogue.dateFilter.lastWeek", "Last week"),
+                },
+                {
+                  value: "last_month",
+                  label: t("catalogue.dateFilter.lastMonth", "Last month"),
+                },
+              ]}
+              value={dateFilter}
+              onChange={(val) => {
+                const newDateFilter =
+                  (val as "always" | "last_week" | "last_month") || "always";
+                setDateFilter(newDateFilter);
+                localStorage.setItem(DATE_FILTER_STORAGE_KEY, newDateFilter);
+                if (assets) {
+                  setTouched(true);
+                }
+              }}
+              size="sm"
+              radius="md"
+              style={{ width: 120 }}
+            />
+            <Text size="sm" color="dimmed" ml="md">
+              {t("catalogue.maxResults", "Max results")}:
+            </Text>
+            <Select
+              data={PAGE_SIZE_OPTIONS}
+              value={pageSize.toString()}
+              onChange={(val) => {
+                const newPageSize = val ? parseInt(val, 10) : DEFAULT_PAGE_SIZE;
+                setPageSize(newPageSize);
+                localStorage.setItem(
+                  PAGE_SIZE_STORAGE_KEY,
+                  newPageSize.toString(),
+                );
+                if (assets) {
+                  setTouched(true);
+                }
+              }}
+              size="sm"
+              radius="md"
+              style={{ width: 80 }}
+            />
+          </Group>
         </Group>
-      </Group>
+      </Paper>
       {assets !== undefined && assets.length > 0 && (
         <Stack mt="xl">
           {numResults !== undefined && (
