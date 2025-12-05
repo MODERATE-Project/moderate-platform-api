@@ -10,7 +10,7 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { useTranslate } from "@refinedev/core";
-import { IconCheck, IconCopy } from "@tabler/icons-react";
+import { IconCheck, IconCopy, IconInfoCircle } from "@tabler/icons-react";
 import _ from "lodash";
 import React from "react";
 import { AssetAccessLevel } from "../api/types";
@@ -149,7 +149,8 @@ export const KeyValuesStack: React.FC<{
   obj: { [key: string]: any };
   fields?: string[];
   omitFields?: string[];
-}> = ({ obj, fields, omitFields = ["id"] }) => {
+  fieldHelp?: { [key: string]: string };
+}> = ({ obj, fields, omitFields = ["id"], fieldHelp }) => {
   const entries = Object.entries(obj).filter(([key]) => {
     if (fields && !fields.includes(key)) {
       return false;
@@ -175,9 +176,31 @@ export const KeyValuesStack: React.FC<{
           {entries.map(([key, value]) => (
             <tr key={key}>
               <td width="35%" style={{ verticalAlign: "top" }}>
-                <Text weight={500} color="dimmed" size="sm">
-                  {_.startCase(key.replace(/_/g, " "))}
-                </Text>
+                <Group spacing={6} noWrap>
+                  <Text weight={500} color="dimmed" size="sm">
+                    {_.startCase(key.replace(/_/g, " "))}
+                  </Text>
+                  {fieldHelp && fieldHelp[key] && (
+                    <Tooltip
+                      label={fieldHelp[key]}
+                      multiline
+                      width={250}
+                      withArrow
+                      position="top-start"
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          cursor: "help",
+                          opacity: 0.6,
+                        }}
+                      >
+                        <IconInfoCircle size={16} />
+                      </div>
+                    </Tooltip>
+                  )}
+                </Group>
               </td>
               <td style={{ verticalAlign: "top" }}>
                 <RenderedValue value={value} theKey={key} />

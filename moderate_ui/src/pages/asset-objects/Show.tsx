@@ -1,12 +1,16 @@
 import {
+  Anchor,
+  Box,
+  Breadcrumbs,
   Button,
+  Card,
   Group,
   LoadingOverlay,
-  Paper,
   Stack,
   Tabs,
   Text,
-  Title,
+  ThemeIcon,
+  Tooltip,
 } from "@mantine/core";
 import { useKeycloak } from "@react-keycloak/web";
 import {
@@ -21,9 +25,11 @@ import {
   IconChartAreaLine,
   IconCheck,
   IconClipboard,
+  IconDatabase,
   IconDownload,
   IconFileCheck,
   IconFileText,
+  IconHome,
   IconReportSearch,
   IconTable,
 } from "@tabler/icons-react";
@@ -172,8 +178,10 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
         ),
         type: "success",
       });
+
+      await queryResult.refetch();
     },
-    [assetModel, assetObjectModel, open, t],
+    [assetModel, assetObjectModel, open, t, queryResult],
   );
 
   const handleDownload = useCallback(() => {
@@ -213,6 +221,49 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
     );
   }, [check, open, t]);
 
+  const breadcrumbs = useMemo(() => {
+    if (!assetModel || !assetObjectModel) return [];
+
+    return [
+      {
+        title: t("dashboard.title", "Home"),
+        href: routes.home(),
+        icon: <IconHome size={14} />,
+      },
+      {
+        title: t("assets.assets", "Assets"),
+        href: routes.assetList(),
+        icon: <IconDatabase size={14} />,
+      },
+      {
+        title: assetModel.data.name,
+        href: routes.assetShow(assetModel.data.id),
+      },
+      { title: assetObjectModel.humanName, href: null },
+    ].map((item, index) =>
+      item.href ? (
+        <Anchor
+          component={Link}
+          to={item.href}
+          key={index}
+          size="sm"
+          sx={{ display: "flex", alignItems: "center", gap: 4 }}
+        >
+          {item.icon} {item.title}
+        </Anchor>
+      ) : (
+        <Text
+          key={index}
+          size="sm"
+          color="dimmed"
+          sx={{ display: "flex", alignItems: "center", gap: 4 }}
+        >
+          {item.icon} {item.title}
+        </Text>
+      ),
+    );
+  }, [assetModel, assetObjectModel, t]);
+
   return (
     <>
       <LoadingOverlay visible={isLoading || isUpdatingName} overlayBlur={2} />
@@ -238,25 +289,45 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
         />
       )}
       {!!assetObjectModel && !!assetModel && (
-        <Stack>
-          <EditableTitle
-            title={assetObjectModel.humanName}
-            onSave={handleNameUpdate}
-            isOwner={isOwner}
-          />
-          <Text color="dimmed">
-            {t("assetObjects.partOfAsset", "This dataset is part of")}{" "}
-            <Text component="span" fw={800}>
-              {assetModel.data.name}
-            </Text>
-          </Text>
-          <Paper p="md">
-            <Stack>
-              <Group position="apart">
-                <Title order={4}>
-                  {t("assetObjects.datasetDetails", "Dataset details")}
-                </Title>
-                <Group position="right">
+        <Stack spacing="xl">
+          {/* Header Section */}
+          <Stack spacing="xs">
+            <Breadcrumbs separator="→" mb="xs">
+              {breadcrumbs}
+            </Breadcrumbs>
+
+            <Group position="apart" align="flex-start">
+              <Box>
+                <Group align="center" spacing="xs">
+                  <ThemeIcon size="lg" variant="light" color="blue">
+                    <IconTable size={20} />
+                  </ThemeIcon>
+                  <EditableTitle
+                    title={assetObjectModel.humanName}
+                    onSave={handleNameUpdate}
+                    isOwner={isOwner}
+                  />
+                </Group>
+
+                <Text color="dimmed" size="sm" mt={4} ml={42}>
+                  {t("assetObjects.partOfAsset", "Part of asset")}:{" "}
+                  <Anchor
+                    component={Link}
+                    to={routes.assetShow(assetModel.data.id)}
+                    weight={500}
+                  >
+                    {assetModel.data.name}
+                  </Anchor>
+                </Text>
+              </Box>
+
+              <Group spacing="sm">
+                <Tooltip
+                  label={t(
+                    "assetObjects.actions.explore",
+                    "Explore data in new tab",
+                  )}
+                >
                   <Button
                     component={Link}
                     to={routes.assetObjectExplore(
@@ -264,26 +335,39 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
                       assetObjectModel.data.id,
                     )}
                     target="_blank"
-                    variant="light"
-                    leftIcon={<IconReportSearch size="1.3em" />}
+                    variant="default"
+                    leftIcon={<IconReportSearch size={18} />}
                   >
                     {t("assetObjects.actions.explore", "Explore")}
                   </Button>
+                </Tooltip>
+
+                <Tooltip
+                  label={t("assetObjects.actions.download", "Download file")}
+                >
                   <Button
-                    variant="light"
-                    leftIcon={<IconDownload size="1.3em" />}
+                    variant="default"
+                    leftIcon={<IconDownload size={18} />}
                     onClick={handleDownload}
                   >
                     {t("assetObjects.actions.download", "Download")}
                   </Button>
+                </Tooltip>
+
+                <Tooltip
+                  label={t(
+                    "assetObjects.actions.copyDownloadUrl",
+                    "Copy download URL",
+                  )}
+                >
                   <Button
-                    variant="light"
-                    color={clipboard.copied ? "green" : "teal"}
+                    variant="default"
+                    color={clipboard.copied ? "green" : "gray"}
                     leftIcon={
                       clipboard.copied ? (
-                        <IconCheck size="1.3em" />
+                        <IconCheck size={18} />
                       ) : (
-                        <IconClipboard size="1.3em" />
+                        <IconClipboard size={18} />
                       )
                     }
                     onClick={handleCopyUrl}
@@ -292,41 +376,52 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
                   >
                     {t("assetObjects.actions.copyDownloadUrl", "Copy URL")}
                   </Button>
+                </Tooltip>
+
+                <Tooltip
+                  label={t(
+                    "assetObjects.actions.verifyIntegrity",
+                    "Verify data integrity",
+                  )}
+                >
                   <Button
                     variant="light"
                     color="green"
-                    leftIcon={<IconFileCheck size="1.3em" />}
+                    leftIcon={<IconFileCheck size={18} />}
                     onClick={handleCheckIntegrity}
                   >
                     {t(
                       "assetObjects.actions.verifyIntegrity",
-                      "Verify integrity",
+                      "Verify Integrity",
                     )}
                   </Button>
-                </Group>
+                </Tooltip>
               </Group>
-              <Tabs defaultValue="description">
-                <Tabs.List>
-                  <Tabs.Tab
-                    value="description"
-                    icon={<IconFileText size={14} />}
-                  >
-                    {t("assetObjects.description", "Description")}
-                  </Tabs.Tab>
+            </Group>
+          </Stack>
 
-                  <Tabs.Tab value="metadata" icon={<IconTable size={14} />}>
-                    {t("assetObjects.metadata", "Metadata")}
-                  </Tabs.Tab>
+          {/* Main Content */}
+          <Card withBorder p="lg" radius="md" shadow="sm">
+            <Tabs defaultValue="description" keepMounted={false}>
+              <Tabs.List>
+                <Tabs.Tab value="description" icon={<IconFileText size={16} />}>
+                  {t("assetObjects.description", "Description")}
+                </Tabs.Tab>
 
-                  <Tabs.Tab
-                    value="profile"
-                    icon={<IconChartAreaLine size={14} />}
-                  >
-                    {t("assetObjects.profile", "Profile")}
-                  </Tabs.Tab>
-                </Tabs.List>
+                <Tabs.Tab value="metadata" icon={<IconTable size={16} />}>
+                  {t("assetObjects.metadata", "Metadata")}
+                </Tabs.Tab>
 
-                <Tabs.Panel value="description" pt="md">
+                <Tabs.Tab
+                  value="profile"
+                  icon={<IconChartAreaLine size={16} />}
+                >
+                  {t("assetObjects.profile", "Profile")}
+                </Tabs.Tab>
+              </Tabs.List>
+
+              <Box pt="xl">
+                <Tabs.Panel value="description">
                   <AssetObjectDescriptionTab
                     assetObjectModel={assetObjectModel}
                     isOwner={isOwner}
@@ -334,19 +429,19 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
                   />
                 </Tabs.Panel>
 
-                <Tabs.Panel value="metadata" pt="md">
+                <Tabs.Panel value="metadata">
                   <AssetObjectMetadataTab assetObjectModel={assetObjectModel} />
                 </Tabs.Panel>
 
-                <Tabs.Panel value="profile" pt="md">
+                <Tabs.Panel value="profile">
                   <AssetObjectProfileTab
                     isLoading={isProfileLoading}
                     profile={profile}
                   />
                 </Tabs.Panel>
-              </Tabs>
-            </Stack>
-          </Paper>
+              </Box>
+            </Tabs>
+          </Card>
         </Stack>
       )}
     </>
