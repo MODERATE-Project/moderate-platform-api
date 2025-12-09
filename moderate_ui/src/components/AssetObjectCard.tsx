@@ -8,7 +8,7 @@ import {
   Tooltip,
   useMantineTheme,
 } from "@mantine/core";
-import { IconBox, IconClock } from "@tabler/icons-react";
+import { IconBox, IconClock, IconFile } from "@tabler/icons-react";
 import React, { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
@@ -19,6 +19,11 @@ import {
   ACCESS_LEVEL_TOOLTIPS,
 } from "../utils/accessLevel";
 import { routes } from "../utils/routes";
+
+function stripHtml(html: string): string {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  return doc.body.textContent || "";
+}
 
 export const AssetObjectCard: React.FC<{
   asset: Asset;
@@ -63,24 +68,15 @@ export const AssetObjectCard: React.FC<{
       }}
     >
       <Group position="apart" align="flex-start" mb="xs" noWrap>
-        <Stack spacing={4} style={{ flex: 1, minWidth: 0 }}>
-          <Group spacing="xs" noWrap align="center">
-            <Text
-              weight={600}
-              size="lg"
-              truncate
-              title={assetObjectModel.humanName}
-              style={{ lineHeight: 1.2 }}
-            >
-              {assetObjectModel.humanName}
-            </Text>
-            {assetObjectModel.format && (
-              <Badge color="gray" variant="outline" size="xs" radius="sm">
-                {assetObjectModel.format.toUpperCase()}
-              </Badge>
-            )}
-          </Group>
-        </Stack>
+        <Text
+          weight={600}
+          size="lg"
+          truncate
+          title={assetObjectModel.humanName}
+          style={{ lineHeight: 1.2, flex: 1, minWidth: 0 }}
+        >
+          {assetObjectModel.humanName}
+        </Text>
 
         <Tooltip
           label={t(
@@ -103,10 +99,15 @@ export const AssetObjectCard: React.FC<{
         lineClamp={3}
         mb="md"
         sx={{ flex: 1 }}
-        title={assetObjectModel.description}
+        title={
+          assetObjectModel.description
+            ? stripHtml(assetObjectModel.description)
+            : undefined
+        }
       >
-        {assetObjectModel.description ||
-          t("common.noDescription", "No description available")}
+        {assetObjectModel.description
+          ? stripHtml(assetObjectModel.description)
+          : t("common.noDescription", "No description available")}
       </Text>
 
       <Box
@@ -138,6 +139,14 @@ export const AssetObjectCard: React.FC<{
               {assetObjectModel.createdAt.toLocaleDateString()}
             </Text>
           </Group>
+          {assetObjectModel.format && (
+            <Group spacing="xs" noWrap>
+              <IconFile size="0.9rem" style={{ opacity: 0.5 }} />
+              <Badge color="gray" variant="outline" size="xs" radius="sm">
+                {assetObjectModel.format.toUpperCase()}
+              </Badge>
+            </Group>
+          )}
         </Stack>
       </Box>
     </Card>
