@@ -228,7 +228,7 @@ export async function updateAssetObject({
 }: {
   assetId: string | number;
   objectId: string | number;
-  updateBody: { [k: string]: string | { [k: string]: any } };
+  updateBody: { [k: string]: string | { [k: string]: any } | null };
 }): Promise<{ [k: string]: any }> {
   const url = buildApiUrl(
     "asset",

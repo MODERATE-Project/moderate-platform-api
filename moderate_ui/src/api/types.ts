@@ -62,8 +62,11 @@ export interface Asset {
   uuid: string;
 }
 
+// Regex to parse S3 object keys in the format:
+// {bucket}/{slugified-filename}-{uuid}.{extension}
+// The bucket may contain email-like usernames with @ and other special chars
 const REGEX_ASSET_OBJECT_KEY =
-  /^([\w.-]+)\/([\w.-]+)-([\w]{8}-[\w]{4}-[\w]{4}-[\w]{4}-[\w]{12})\.(\w+)$/;
+  /^([^/]+)\/(.+)-([\w]{8}-[\w]{4}-[\w]{4}-[\w]{4}-[\w]{12})\.(\w+)$/;
 
 export class AssetObjectModel {
   data: AssetObject;
@@ -88,20 +91,26 @@ export class AssetObjectModel {
   }
 
   get humanName(): string {
+    // Priority 1: Use explicit name field if set by user
     if (this.data.name) {
       return this.data.name;
     }
 
     const parsedKey = this.parsedKey;
 
+    // Priority 2: Fallback to raw key if parsing fails
     if (parsedKey === undefined) {
       return this.data.key;
     }
 
-    return parsedKey.filename
+    // Priority 3: Convert slugified filename to title case with extension
+    // e.g., "office-temperate-hourly" -> "Office Temperate Hourly.csv"
+    const titleCaseName = parsedKey.filename
       .split("-")
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
       .join(" ");
+
+    return `${titleCaseName}.${parsedKey.ext}`;
   }
 
   get description(): string | undefined {

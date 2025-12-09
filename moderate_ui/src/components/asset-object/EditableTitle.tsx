@@ -10,15 +10,21 @@ import { useTranslate } from "@refinedev/core";
 import { IconCheck, IconX } from "@tabler/icons-react";
 import React, { useState } from "react";
 
-const useStyles = createStyles(() => ({
+const useStyles = createStyles((theme) => ({
   editableTitle: {
     cursor: "pointer",
     "&:hover": {
       opacity: 0.4,
     },
   },
-  titleInput: {
-    width: "100%",
+  titleInputWrapper: {
+    flex: 1,
+    minWidth: 400,
+    maxWidth: 600,
+    [theme.fn.smallerThan("sm")]: {
+      minWidth: 250,
+      maxWidth: "100%",
+    },
   },
 }));
 
@@ -86,9 +92,9 @@ export const EditableTitle: React.FC<EditableTitleProps> = ({
           onChange={(e) => setEditedTitle(e.target.value)}
           onKeyDown={handleKeyDown}
           autoFocus
-          classNames={{ input: classes.titleInput }}
+          className={classes.titleInputWrapper}
         />
-        <Group spacing={4}>
+        <Group spacing={4} noWrap>
           <Button
             compact
             variant="subtle"

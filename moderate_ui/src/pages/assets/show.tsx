@@ -85,7 +85,11 @@ export const AssetShow: React.FC<IResourceComponentsProps> = () => {
         </Box>
       )}
       {asset && asset?.getObjects().length > 0 ? (
-        <AssetObjectsTable asset={asset} onDeleted={onRecordChanged} />
+        <AssetObjectsTable
+          asset={asset}
+          onDeleted={onRecordChanged}
+          onRenamed={onRecordChanged}
+        />
       ) : (
         <Alert
           p="xs"
