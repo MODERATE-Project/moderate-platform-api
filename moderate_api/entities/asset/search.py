@@ -412,8 +412,15 @@ def _apply_sorting(stmt: Select, *, sort: str) -> Select:
     """Apply the requested ordering strategy."""
 
     if sort == "name":
+        # Extract filename from key: "bucket/filename-uuid.ext" -> "filename-uuid.ext"
+        # We use split_part to get the part after the first slash.
+        # This matches the frontend logic which displays the filename part of the key
+        # (formatted) when the name is null.
+        filename_from_key = func.split_part(UploadedS3Object.key, '/', 2)
+
         sort_col = func.coalesce(  # type: ignore
             UploadedS3Object.name,
+            func.nullif(filename_from_key, ''),
             UploadedS3Object.key,
         )
         return stmt.order_by(asc(sort_col))
