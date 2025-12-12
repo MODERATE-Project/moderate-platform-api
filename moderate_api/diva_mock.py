@@ -5,6 +5,7 @@ DIVA's validation behavior without requiring actual DIVA services.
 """
 
 import logging
+from datetime import datetime
 import random
 import time
 from typing import ClassVar
@@ -120,6 +121,8 @@ class MockDivaClient(DivaClient):
     async def get_validation_results(
         self,
         dataset_id: str,
+        expected_rows: int | None = None,
+        start_time: datetime | None = None,
     ) -> ValidationResult:
         """Simulate fetching validation results.
 
@@ -128,6 +131,11 @@ class MockDivaClient(DivaClient):
 
         Args:
             dataset_id: Dataset identifier
+
+        Args:
+            dataset_id: Dataset identifier
+            expected_rows: Expected total rows (ignored in mock, kept for parity)
+            start_time: Timestamp when validation was requested
 
         Returns:
             ValidationResult with current status and entries
@@ -171,8 +179,16 @@ class MockDivaClient(DivaClient):
             else ValidationStatus.IN_PROGRESS
         )
 
-        result = ValidationResult.from_entries(entries, status=status, is_mock=True)
-        result.processed_rows = state.processed_rows
+        result = ValidationResult.from_entries(
+            entries,
+            status=status,
+            is_mock=True,
+            last_requested_at=start_time,
+            processed_rows=min(
+                state.processed_rows,
+                expected_rows if expected_rows is not None else state.processed_rows,
+            ),
+        )
 
         return result
 
