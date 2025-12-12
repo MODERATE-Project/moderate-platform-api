@@ -1,5 +1,6 @@
 import {
   Anchor,
+  Badge,
   Box,
   Breadcrumbs,
   Button,
@@ -266,6 +267,18 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
     );
   }, [assetModel, assetObjectModel, t]);
 
+  const formatColorMapper: Record<string, string> = useMemo(
+    () => ({
+      csv: "grape",
+      json: "violet",
+      xlsx: "teal",
+      xls: "green",
+      pdf: "lime",
+      parquet: "orange",
+    }),
+    [],
+  );
+
   return (
     <>
       <LoadingOverlay visible={isLoading || isUpdatingName} overlayBlur={2} />
@@ -309,6 +322,25 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
                     onSave={handleNameUpdate}
                     isOwner={isOwner}
                   />
+                  {assetObjectModel.format && (
+                    <Tooltip
+                      label={t("assetObjects.fileFormat", "File format")}
+                      withArrow
+                    >
+                      <Badge
+                        size="lg"
+                        radius="sm"
+                        ml="sm"
+                        variant="light"
+                        color={
+                          formatColorMapper[assetObjectModel.format] || "gray"
+                        }
+                        sx={{ textTransform: "uppercase", cursor: "default" }}
+                      >
+                        {assetObjectModel.format}
+                      </Badge>
+                    </Tooltip>
+                  )}
                 </Group>
 
                 <Text color="dimmed" size="sm" mt={4} ml={42}>
