@@ -64,7 +64,7 @@ class DivaSettings(BaseModel):
     basic_auth_user: str | None = None
     basic_auth_password: str | None = None
     ingestion_topic: str = "data-ingestion-trigger"
-    supported_extensions: list[str] = ["csv", "json", "parquet"]
+    supported_extensions: list[str] = ["csv"]
     request_timeout: int = 30
     presigned_url_ttl: int = 3600  # 1 hour default
 

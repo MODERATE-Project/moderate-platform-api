@@ -109,6 +109,14 @@ export const AssetObjectDataQualityTab: React.FC<
             "validation.unsupportedMessage",
             "Data quality validation is only available for tabular data formats.",
           )}
+          {fileExtension && (
+            <Text span ml={4}>
+              {t(
+                "validation.currentFormatUnuspported",
+                `The current file format (.${fileExtension}) is not supported.`,
+              )}
+            </Text>
+          )}
         </Text>
         <Text size="sm" mt="xs" color="dimmed">
           {t("validation.supportedFormats", "Supported formats:")}{" "}
