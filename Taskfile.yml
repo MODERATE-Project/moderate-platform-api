@@ -82,6 +82,28 @@ tasks:
       - poetry run ruff check --fix moderate_api/ tests/
       - poetry run black moderate_api/ tests/
 
+  ui-lint:
+    desc: Check UI code quality (eslint, prettier)
+    dir: "{{.ROOT_DIR}}/moderate_ui"
+    cmds:
+      - npm run lint
+      - npm run format:check
+
+  ui-format:
+    desc: Format UI code (prettier, eslint)
+    dir: "{{.ROOT_DIR}}/moderate_ui"
+    cmds:
+      - npm run format
+      - npm run lint:fix
+
+  format-lint-all:
+    desc: Format and lint all code (black, ruff, eslint, prettier)
+    cmds:
+      - task: lint
+      - task: format
+      - task: ui-lint
+      - task: ui-format
+
   dev-up-gcs:
     desc: Start the development stack using GCS instead of the local MinIO
     requires:

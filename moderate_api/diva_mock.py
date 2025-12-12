@@ -5,9 +5,9 @@ DIVA's validation behavior without requiring actual DIVA services.
 """
 
 import logging
-from datetime import datetime
 import random
 import time
+from datetime import datetime
 from typing import ClassVar
 
 from moderate_api.config import DivaSettings
