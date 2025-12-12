@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 class S3ObjectWellKnownMetaKeys(enum.Enum):
     PENDING_QUALITY_CHECK = "pending_quality_check"
     LAST_VALIDATION_REQUEST = "last_validation_request"
+    LATEST_VALIDATION_DATASET_ID = "latest_validation_dataset_id"
     ROW_COUNT = "row_count"
 
 

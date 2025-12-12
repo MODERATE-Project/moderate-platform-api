@@ -128,17 +128,23 @@ class DivaClient:
         if settings.basic_auth_user and settings.basic_auth_password:
             self._auth = (settings.basic_auth_user, settings.basic_auth_password)
 
-    def generate_dataset_id(self, asset_id: int, object_id: int) -> str:
+    def generate_dataset_id(
+        self, asset_id: int, object_id: int, unique_suffix: str | None = None
+    ) -> str:
         """Generate a deterministic dataset ID for DIVA.
 
         Args:
             asset_id: Asset ID
             object_id: Asset object ID
+            unique_suffix: Optional unique suffix (e.g. timestamp or UUID) to ensure uniqueness
 
         Returns:
             Deterministic dataset ID string
         """
-        return f"moderate-asset-{asset_id}-object-{object_id}"
+        base_id = f"moderate-asset-{asset_id}-object-{object_id}"
+        if unique_suffix:
+            return f"{base_id}-{unique_suffix}"
+        return base_id
 
     def is_supported_extension(self, filename: str) -> bool:
         """Check if file extension is supported for validation.

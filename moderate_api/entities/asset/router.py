@@ -922,8 +922,11 @@ async def start_validation(
         ExpiresIn=settings.diva.presigned_url_ttl,
     )
 
-    # Generate dataset ID and publish to DIVA
-    dataset_id = diva.generate_dataset_id(asset_id=id, object_id=object_id)
+    # Generate unique dataset ID (using timestamp to prevent collisions)
+    timestamp_suffix = str(int(datetime.utcnow().timestamp()))
+    dataset_id = diva.generate_dataset_id(
+        asset_id=id, object_id=object_id, unique_suffix=timestamp_suffix
+    )
 
     try:
         await diva.publish_for_validation(
@@ -931,7 +934,8 @@ async def start_validation(
             dataset_id=dataset_id,
         )
 
-        # Update last requested timestamp
+        # Update last requested timestamp and dataset ID
+        # We perform updates sequentially
         await update_json_key(
             sql_model=UploadedS3Object,
             session=session,
@@ -939,6 +943,14 @@ async def start_validation(
             json_column="meta",
             json_key=S3ObjectWellKnownMetaKeys.LAST_VALIDATION_REQUEST.value,
             json_value=datetime.utcnow().isoformat(),
+        )
+        await update_json_key(
+            sql_model=UploadedS3Object,
+            session=session,
+            primary_keys=[object_id],
+            json_column="meta",
+            json_key=S3ObjectWellKnownMetaKeys.LATEST_VALIDATION_DATASET_ID.value,
+            json_value=dataset_id,
         )
     except Exception as exc:
         _logger.error(
@@ -1021,7 +1033,10 @@ async def _get_validation_status(
     expected_rows = int(row_count) if row_count is not None else None
 
     # Fetch validation results from DIVA
-    dataset_id = diva.generate_dataset_id(asset_id=id, object_id=object_id)
+    # Use the stored dataset ID if available (newer runs), otherwise fallback to legacy ID
+    dataset_id = meta.get(S3ObjectWellKnownMetaKeys.LATEST_VALIDATION_DATASET_ID.value)
+    if not dataset_id:
+        dataset_id = diva.generate_dataset_id(asset_id=id, object_id=object_id)
 
     try:
         validation_result = await diva.get_validation_results(
