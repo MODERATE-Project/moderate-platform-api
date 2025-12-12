@@ -1,31 +1,42 @@
 import {
+  Badge,
   Box,
   Button,
   Card,
   Container,
   createStyles,
-  Card as MantineCard,
+  Group,
   SimpleGrid,
   Stack,
   Text,
   ThemeIcon,
   Title,
+  Card as MantineCard,
 } from "@mantine/core";
 import { useIsAuthenticated } from "@refinedev/core";
 import {
   IconBolt,
-  IconBox,
+  IconDatabase,
   IconExternalLink,
-  IconFileSearch,
-  IconFlask,
+  IconFileAnalytics,
+  IconGraph,
   IconLock,
-  IconTimeline,
+  IconTools,
 } from "@tabler/icons-react";
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { usePing } from "../api/ping";
 
 const useStyles = createStyles((theme) => ({
+  wrapper: {
+    paddingTop: theme.spacing.xl * 2,
+    paddingBottom: theme.spacing.xl * 2,
+    background:
+      theme.colorScheme === "dark"
+        ? theme.colors.dark[8]
+        : theme.colors.gray[0],
+    minHeight: "100vh",
+  },
   logo: {
     display: "flex",
     justifyContent: "center",
@@ -33,60 +44,83 @@ const useStyles = createStyles((theme) => ({
   },
   sectionHeading: {
     textAlign: "center",
-    marginBottom: theme.spacing.xs,
-    fontWeight: 800,
+    marginBottom: theme.spacing.sm,
+    fontWeight: 900,
+    fontSize: 42,
     letterSpacing: -1,
+    color: theme.colorScheme === "dark" ? theme.white : theme.colors.dark[9],
+    [`@media (max-width: ${theme.breakpoints.sm}px)`]: {
+      fontSize: 32,
+    },
   },
   sectionSubtitle: {
     textAlign: "center",
-    color: theme.colors.gray[7],
-    marginBottom: theme.spacing.xl,
+    color:
+      theme.colorScheme === "dark"
+        ? theme.colors.dark[1]
+        : theme.colors.gray[6],
+    marginBottom: theme.spacing.xl * 2,
     fontSize: theme.fontSizes.lg,
+    maxWidth: 700,
+    marginLeft: "auto",
+    marginRight: "auto",
+    lineHeight: 1.6,
   },
   featureGrid: {
-    marginTop: theme.spacing.xl,
-    marginBottom: theme.spacing.xl * 1.5,
+    marginBottom: theme.spacing.xl * 2,
   },
   card: {
-    transition: "transform 120ms ease, box-shadow 120ms ease",
+    transition: "all 0.3s ease",
     cursor: "pointer",
-    boxShadow: theme.shadows.sm,
-    borderRadius: theme.radius.lg,
-    "&:hover": {
-      transform: "translateY(-6px) scale(1.03)",
-      boxShadow: theme.shadows.xl,
-    },
+    backgroundColor:
+      theme.colorScheme === "dark" ? theme.colors.dark[6] : theme.white,
+    border: `1px solid ${
+      theme.colorScheme === "dark" ? theme.colors.dark[5] : theme.colors.gray[2]
+    }`,
+    height: "100%",
     display: "flex",
     flexDirection: "column",
-    alignItems: "center",
-    textAlign: "center",
-    padding: theme.spacing.lg,
-    background:
-      theme.colorScheme === "dark" ? theme.colors.dark[6] : theme.white,
-    [`@media (min-width: ${theme.breakpoints.lg}px)`]: {
-      minHeight: 260,
+    padding: theme.spacing.xl,
+    "&:hover": {
+      transform: "translateY(-5px)",
+      boxShadow: theme.shadows.lg,
+      borderColor: theme.colors.blue[6],
     },
   },
-  cardIcon: {
+  cardHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
     marginBottom: theme.spacing.md,
+  },
+  cardIcon: {
+    width: 50,
+    height: 50,
   },
   cardTitle: {
     fontWeight: 700,
-    fontSize: theme.fontSizes.xl,
+    fontSize: theme.fontSizes.lg,
     marginBottom: theme.spacing.xs,
-    marginTop: 0,
+    color: theme.colorScheme === "dark" ? theme.white : theme.colors.dark[8],
   },
   cardDescription: {
     color:
       theme.colorScheme === "dark"
-        ? theme.colors.dark[1]
-        : theme.colors.gray[7],
+        ? theme.colors.dark[2]
+        : theme.colors.gray[6],
     fontSize: theme.fontSizes.md,
     lineHeight: 1.6,
-    marginBottom: 0,
+    flexGrow: 1,
+  },
+  cardFooter: {
+    marginTop: theme.spacing.md,
+    display: "flex",
+    alignItems: "center",
+    color: theme.colors.blue[6],
+    fontWeight: 600,
+    fontSize: theme.fontSizes.sm,
   },
   mainSiteButton: {
-    marginTop: theme.spacing.xl * 1.5,
     display: "flex",
     justifyContent: "center",
   },
@@ -96,63 +130,57 @@ const useStyles = createStyles((theme) => ({
     left: 0,
     width: "100%",
     height: "100%",
-    background: "rgba(255,255,255,0.5)",
+    background:
+      theme.colorScheme === "dark"
+        ? "rgba(0, 0, 0, 0.7)"
+        : "rgba(255, 255, 255, 0.7)",
+    backdropFilter: "blur(3px)",
     zIndex: 10,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    flexDirection: "column",
-    textAlign: "center",
-    color: theme.colors.dark[7],
-    textShadow: "0 1px 6px rgba(0,0,0,0.10)",
   },
   overlayCard: {
-    background:
-      theme.colorScheme === "dark"
-        ? theme.colors.dark[5]
-        : theme.colors.gray[0],
-    borderRadius: theme.radius.lg,
-    boxShadow: theme.shadows.lg,
-    border: `1.5px solid ${
-      theme.colorScheme === "dark" ? theme.colors.dark[4] : theme.colors.gray[3]
-    }`,
-    minWidth: 320,
     maxWidth: 400,
+    width: "100%",
     margin: theme.spacing.md,
-    color: theme.colors.dark[7],
+    textAlign: "center",
   },
 }));
 
 const features = [
   {
-    icon: IconBox,
+    icon: IconDatabase,
     iconColor: "blue",
     titleKey: "home.feature.assets.title",
-    defaultTitle: "Datasets (Assets)",
+    defaultTitle: "Dataset Catalogue",
     descKey: "home.feature.assets.desc",
     defaultDesc:
-      "Browse, upload, and manage building-related datasets. Share and discover valuable data for research and innovation.",
-    link: "/assets",
+      "Browse and manage building-related datasets. Upload and share your data to facilitate research and innovation.",
+    link: "/catalogue",
+    isExternal: false,
   },
   {
-    icon: IconFileSearch,
+    icon: IconFileAnalytics,
     iconColor: "teal",
     titleKey: "home.feature.exploration.title",
     defaultTitle: "Data Exploration",
     descKey: "home.feature.exploration.desc",
     defaultDesc:
-      "Explore, filter, and visualize datasets to uncover insights and trends in building data.",
+      "Visualize trends, filter datasets, and explore data with interactive tools.",
     link: "/workflows/exploratory",
+    isExternal: false,
   },
   {
-    icon: IconTimeline,
+    icon: IconGraph,
     iconColor: "grape",
     titleKey: "home.feature.matrix.title",
     defaultTitle: "Matrix Profile",
     descKey: "home.feature.matrix.desc",
     defaultDesc:
-      "Detect anomalies and patterns in time series data for building performance and monitoring.",
+      "Analyze time-series data with advanced algorithms. Detect anomalies, motifs, and patterns to optimize building performance.",
     link: "/workflows/matrix-profile",
+    isExternal: false,
   },
   {
     icon: IconBolt,
@@ -161,18 +189,20 @@ const features = [
     defaultTitle: "Synthetic Load Generation",
     descKey: "home.feature.synthetic.desc",
     defaultDesc:
-      "Generate synthetic load profiles for simulation, testing, and energy modeling.",
+      "Generate synthetic load profiles for simulations and energy modeling.",
     link: "/workflows/synthetic-load",
+    isExternal: false,
   },
   {
-    icon: IconFlask,
+    icon: IconTools,
     iconColor: "violet",
     titleKey: "home.feature.catalogue.title",
     defaultTitle: "Tools & Services Catalogue",
     descKey: "home.feature.catalogue.desc",
     defaultDesc:
-      "Explore experimental tools and services in the MODERATE ecosystem.",
+      "Discover the full MODERATE ecosystem. Access a curated list of experimental tools and services designed for energy professionals.",
     link: "https://moderate-project.github.io/moderate-docs/tools-and-services/",
+    isExternal: true,
   },
 ];
 
@@ -184,8 +214,8 @@ export const Homepage: React.FC = () => {
   const isAuthenticated = data?.authenticated;
 
   return (
-    <Box style={{ position: "relative" }} pt="lg" pb="lg">
-      <Container size="md">
+    <Box className={classes.wrapper}>
+      <Container size="lg" style={{ position: "relative" }}>
         <div className={classes.logo}>
           <img
             src="/images/moderate-logo-collapsed.png"
@@ -193,21 +223,23 @@ export const Homepage: React.FC = () => {
             alt="MODERATE logo"
           />
         </div>
+
         <Title order={1} className={classes.sectionHeading}>
           MODERATE Platform
         </Title>
         <Text className={classes.sectionSubtitle}>
           {t(
             "home.goal",
-            "The MODERATE platform is an ecosystem for datasets, tools, and models related to buildings.",
+            "The MODERATE platform is an ecosystem for building-related data, tools, and models. Connect with resources for your energy efficiency projects.",
           )}
         </Text>
+
         <SimpleGrid
           cols={3}
           spacing="xl"
           breakpoints={[
-            { maxWidth: 1200, cols: 2 },
-            { maxWidth: 800, cols: 1 },
+            { maxWidth: 1024, cols: 2 },
+            { maxWidth: 768, cols: 1 },
           ]}
           className={classes.featureGrid}
         >
@@ -217,62 +249,92 @@ export const Homepage: React.FC = () => {
               className={classes.card}
               component="a"
               href={feature.link}
-              target={feature.link.startsWith("http") ? "_blank" : undefined}
-              rel={
-                feature.link.startsWith("http")
-                  ? "noopener noreferrer"
-                  : undefined
-              }
-              withBorder
-              shadow="md"
+              target={feature.isExternal ? "_blank" : undefined}
+              rel={feature.isExternal ? "noopener noreferrer" : undefined}
+              radius="lg"
             >
-              <ThemeIcon
-                size={56}
-                radius="xl"
-                variant="light"
-                color={feature.iconColor}
-                className={classes.cardIcon}
-              >
-                <feature.icon size={32} />
-              </ThemeIcon>
+              <div className={classes.cardHeader}>
+                <ThemeIcon
+                  size={48}
+                  radius="md"
+                  variant="light"
+                  color={feature.iconColor}
+                  className={classes.cardIcon}
+                >
+                  <feature.icon size={28} stroke={1.5} />
+                </ThemeIcon>
+                {feature.isExternal && (
+                  <Badge variant="outline" color="gray" size="sm">
+                    External
+                  </Badge>
+                )}
+              </div>
+
               <Text className={classes.cardTitle}>
                 {t(feature.titleKey, feature.defaultTitle)}
               </Text>
+
               <Text className={classes.cardDescription}>
                 {t(feature.descKey, feature.defaultDesc)}
               </Text>
+
+              <Group className={classes.cardFooter} spacing={4}>
+                <Text size="sm">
+                  {feature.isExternal ? "Visit Resource" : "Get Started"}
+                </Text>
+                {feature.isExternal ? (
+                  <IconExternalLink size={16} />
+                ) : (
+                  <IconExternalLink
+                    size={16}
+                    style={{ transform: "rotate(45deg)" }}
+                  />
+                )}
+              </Group>
             </Card>
           ))}
         </SimpleGrid>
+
         <div className={classes.mainSiteButton}>
           <Button
             component="a"
             href="https://moderate-project.eu/"
             target="_blank"
-            size="lg"
-            variant="default"
-            leftIcon={<IconExternalLink />}
+            size="md"
+            variant="outline"
+            color="gray"
+            radius="xl"
+            rightIcon={<IconExternalLink size={16} />}
+            styles={{ root: { borderWidth: 2 } }}
           >
-            {t("home.catalogue", "Visit our main site for more information")}
+            {t("home.catalogue", "Visit Project Website")}
           </Button>
         </div>
+
         {!isLoading && !isAuthenticated && (
           <div className={classes.overlay}>
-            <MantineCard className={classes.overlayCard} shadow="lg" withBorder>
-              <Stack align="center" spacing="md" p="lg">
-                <ThemeIcon size={48} radius="xl" color="blue" variant="light">
-                  <IconLock size={28} />
+            <MantineCard
+              className={classes.overlayCard}
+              shadow="xl"
+              radius="lg"
+            >
+              <Stack align="center" spacing="md" p="md">
+                <ThemeIcon
+                  size={60}
+                  radius="xl"
+                  color="blue"
+                  variant="light"
+                  style={{ marginBottom: 8 }}
+                >
+                  <IconLock size={32} />
                 </ThemeIcon>
                 <Title order={3}>
-                  {t(
-                    "home.overlay.title",
-                    "Please log in to access the platform",
-                  )}
+                  {t("home.overlay.title", "Platform Access Restricted")}
                 </Title>
-                <Text color="dimmed">
+                <Text color="dimmed" size="sm">
                   {t(
                     "home.overlay.desc",
-                    "During the development phase, the MODERATE platform is only accessible to registered users",
+                    "The MODERATE platform is currently in development phase and accessible to registered users only. Please log in to continue.",
                   )}
                 </Text>
               </Stack>

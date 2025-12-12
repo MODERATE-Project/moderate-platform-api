@@ -99,10 +99,10 @@ tasks:
   format-lint-all:
     desc: Format and lint all code (black, ruff, eslint, prettier)
     cmds:
-      - task: lint
       - task: format
-      - task: ui-lint
+      - task: lint
       - task: ui-format
+      - task: ui-lint
 
   dev-up-gcs:
     desc: Start the development stack using GCS instead of the local MinIO
