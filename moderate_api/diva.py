@@ -5,6 +5,7 @@ This module provides the client interface for integrating with the DIVA
 """
 
 import logging
+from datetime import datetime
 from enum import Enum
 from typing import Any
 
@@ -69,6 +70,9 @@ class ValidationResult(BaseModel):
     is_mock: bool = Field(
         default=False, description="Whether these results are from a mock service"
     )
+    last_requested_at: datetime | None = Field(
+        default=None, description="Timestamp when validation was last requested"
+    )
 
     @classmethod
     def from_entries(
@@ -76,6 +80,7 @@ class ValidationResult(BaseModel):
         entries: list[ValidationEntry],
         status: ValidationStatus = ValidationStatus.COMPLETE,
         is_mock: bool = False,
+        last_requested_at: datetime | None = None,
     ) -> "ValidationResult":
         """Create ValidationResult from a list of entries."""
         total_valid = sum(e.valid for e in entries)
@@ -90,6 +95,7 @@ class ValidationResult(BaseModel):
             total_fail=total_fail,
             overall_pass_rate=overall_pass_rate,
             is_mock=is_mock,
+            last_requested_at=last_requested_at,
         )
 
 

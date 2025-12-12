@@ -42,6 +42,7 @@ export interface ValidationResult {
   error_message?: string;
   processed_rows?: number;
   is_mock?: boolean;
+  last_requested_at?: string;
 }
 
 /**
@@ -50,6 +51,14 @@ export interface ValidationResult {
 export interface StartValidationResponse {
   dataset_id: string;
   message: string;
+}
+
+/**
+ * Response from row count endpoint.
+ */
+export interface AssetObjectRowCountResponse {
+  row_count: number | null;
+  estimated: boolean;
 }
 
 /**
@@ -124,6 +133,27 @@ export async function getValidationStatus({
  */
 export async function getSupportedExtensions(): Promise<string[]> {
   const url = buildApiUrl("asset", "validation", "supported-extensions");
+  const response = await axios.get(url);
+  return response.data;
+}
+
+/**
+ * Get row count for an asset object.
+ */
+export async function getAssetObjectRowCount({
+  assetId,
+  objectId,
+}: {
+  assetId: string | number;
+  objectId: string | number;
+}): Promise<AssetObjectRowCountResponse> {
+  const url = buildApiUrl(
+    "asset",
+    assetId.toString(),
+    "object",
+    objectId.toString(),
+    "row-count",
+  );
   const response = await axios.get(url);
   return response.data;
 }

@@ -5,14 +5,13 @@ import {
   Group,
   Loader,
   Paper,
-  Progress,
   Skeleton,
   Stack,
   Text,
   ThemeIcon,
   Title,
 } from "@mantine/core";
-import { useTranslate } from "@refinedev/core";
+import { useNotification, useTranslate } from "@refinedev/core";
 import {
   IconAlertTriangle,
   IconCheck,
@@ -22,8 +21,12 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import React, { useEffect, useState } from "react";
-import { getSupportedExtensions } from "../../api/validation";
+import {
+  getAssetObjectRowCount,
+  getSupportedExtensions,
+} from "../../api/validation";
 import { useAssetObjectValidation } from "../../hooks";
+import { catchErrorAndShow } from "../../utils";
 import { ValidationResultsTable } from "./ValidationResultsTable";
 
 interface AssetObjectDataQualityTabProps {
@@ -61,7 +64,9 @@ export const AssetObjectDataQualityTab: React.FC<
   AssetObjectDataQualityTabProps
 > = ({ assetId, objectId, fileExtension, usePublicEndpoint }) => {
   const t = useTranslate();
+  const { open } = useNotification();
   const [supportedExtensions, setSupportedExtensions] = useState<string[]>([]);
+  const [rowCount, setRowCount] = useState<number | null>(null);
 
   const { status, isLoading, isPolling, startValidation, refreshStatus } =
     useAssetObjectValidation({
@@ -70,7 +75,7 @@ export const AssetObjectDataQualityTab: React.FC<
       usePublicEndpoint,
     });
 
-  // Fetch supported extensions on mount
+  // Fetch supported extensions and row count on mount
   useEffect(() => {
     getSupportedExtensions()
       .then(setSupportedExtensions)
@@ -78,7 +83,13 @@ export const AssetObjectDataQualityTab: React.FC<
         // Default supported extensions if API fails
         setSupportedExtensions(["csv", "json", "parquet"]);
       });
-  }, []);
+
+    getAssetObjectRowCount({ assetId, objectId })
+      .then((res) => setRowCount(res.row_count))
+      .catch((err) => {
+        catchErrorAndShow(open, undefined, err);
+      });
+  }, [assetId, objectId, open]);
 
   // Check if file type is supported
   const isSupported = supportedExtensions.includes(
@@ -156,8 +167,13 @@ export const AssetObjectDataQualityTab: React.FC<
     );
   }
 
-  // In progress state
-  if (status?.status === "in_progress") {
+  // Results state (in progress or complete)
+  if (status?.status === "in_progress" || status?.status === "complete") {
+    const statusBadge = getOverallStatusBadge(status.overall_pass_rate);
+    const lastRequestedDate = status.last_requested_at
+      ? new Date(status.last_requested_at).toLocaleString()
+      : undefined;
+
     return (
       <Stack spacing="md">
         {status.is_mock && (
@@ -172,48 +188,148 @@ export const AssetObjectDataQualityTab: React.FC<
             )}
           </Alert>
         )}
+
         <Paper p="md" withBorder>
-          <Group position="apart" mb="sm">
-            <Group spacing="sm">
-              <Loader size="sm" />
-              <Text weight={500}>
-                {t("validation.inProgressTitle", "Validation in Progress")}
-              </Text>
+          <Group position="apart">
+            <Group spacing="md">
+              <ThemeIcon
+                size={48}
+                radius="xl"
+                color={statusBadge.color}
+                variant="light"
+              >
+                {status.overall_pass_rate >= 95 ? (
+                  <IconCheck size={24} />
+                ) : status.overall_pass_rate >= 80 ? (
+                  <IconAlertTriangle size={24} />
+                ) : (
+                  <IconX size={24} />
+                )}
+              </ThemeIcon>
+              <Stack spacing={4}>
+                <Group spacing="sm">
+                  <Title order={4}>
+                    {t("validation.resultsTitle", "Validation Results")}
+                  </Title>
+                  <Badge color={statusBadge.color} variant="filled">
+                    {statusBadge.label}
+                  </Badge>
+                  {isPolling && (
+                    <Badge
+                      color="blue"
+                      variant="light"
+                      leftSection={<Loader size={10} />}
+                    >
+                      {t("validation.updating", "Updating")}
+                    </Badge>
+                  )}
+                </Group>
+
+                <Group spacing="xl">
+                  <Text size="sm" color="dimmed">
+                    {t("validation.lastRequested", "Last requested:")}
+                    <Text span weight={500} ml={4}>
+                      {lastRequestedDate || "-"}
+                    </Text>
+                  </Text>
+
+                  <Text size="sm" color="dimmed">
+                    {t("validation.overallPassRate", "Pass rate:")}
+                    <Text span weight={600} ml={4}>
+                      {status.overall_pass_rate.toFixed(2)}%
+                    </Text>
+                  </Text>
+                </Group>
+              </Stack>
             </Group>
-            <Badge
-              color="blue"
-              variant="light"
-              leftSection={<Loader size={12} />}
+
+            <Button
+              variant="subtle"
+              leftIcon={<IconRefresh size={18} />}
+              onClick={refreshStatus}
+              loading={isLoading}
             >
-              {isPolling
-                ? t("validation.polling", "Updating...")
-                : t("validation.processing", "Processing")}
-            </Badge>
+              {t("validation.refreshButton", "Refresh")}
+            </Button>
           </Group>
 
-          {status.processed_rows !== undefined && (
-            <Stack spacing="xs">
-              <Progress value={100} animate color="blue" />
-              <Text size="sm" color="dimmed">
-                {t("validation.processedRows", "Processed rows:")}{" "}
-                {status.processed_rows?.toLocaleString() || 0}
-              </Text>
-            </Stack>
-          )}
+          {/* Stats row */}
+          <Group mt="xl" spacing="xl" position="apart">
+            <Group spacing="xl">
+              <Stack spacing={0}>
+                <Text size="xs" color="dimmed" transform="uppercase">
+                  {t("validation.totalValid", "Valid")}
+                </Text>
+                <Text size="lg" weight={600} color="green">
+                  {status.total_valid.toLocaleString()}
+                </Text>
+              </Stack>
+              <Stack spacing={0}>
+                <Text size="xs" color="dimmed" transform="uppercase">
+                  {t("validation.totalFail", "Failed")}
+                </Text>
+                <Text
+                  size="lg"
+                  weight={600}
+                  color={status.total_fail > 0 ? "red" : "dimmed"}
+                >
+                  {status.total_fail.toLocaleString()}
+                </Text>
+              </Stack>
+              <Stack spacing={0}>
+                <Text size="xs" color="dimmed" transform="uppercase">
+                  {t("validation.rulesChecked", "Rules Checked")}
+                </Text>
+                <Text size="lg" weight={600}>
+                  {status.entries.length}
+                </Text>
+              </Stack>
+            </Group>
+
+            <Group spacing="xl" align="flex-end">
+              {rowCount !== null && (
+                <Stack spacing={0} align="flex-end">
+                  <Text size="xs" color="dimmed" transform="uppercase">
+                    {t("validation.totalRows", "Total Rows")}
+                  </Text>
+                  <Text size="lg" weight={600}>
+                    {rowCount.toLocaleString()}
+                  </Text>
+                </Stack>
+              )}
+              {status.processed_rows !== undefined && (
+                <Stack spacing={0} align="flex-end">
+                  <Text size="xs" color="dimmed" transform="uppercase">
+                    {t("validation.processedRows", "Processed")}
+                  </Text>
+                  <Text size="lg" weight={600}>
+                    {status.processed_rows.toLocaleString()}
+                  </Text>
+                </Stack>
+              )}
+            </Group>
+          </Group>
         </Paper>
 
-        {/* Show partial results while processing */}
-        {status.entries.length > 0 && (
-          <Stack spacing="sm">
-            <Text size="sm" color="dimmed">
-              {t(
-                "validation.partialResults",
-                "Partial results (updating live):",
-              )}
-            </Text>
-            <ValidationResultsTable entries={status.entries} />
-          </Stack>
-        )}
+        {/* Results table */}
+        <Stack spacing="sm">
+          <Title order={5}>
+            {t("validation.detailedResults", "Detailed Results")}
+          </Title>
+          <ValidationResultsTable entries={status.entries} />
+        </Stack>
+
+        {/* Re-validate button */}
+        <Group position="center" mt="md">
+          <Button
+            variant="light"
+            leftIcon={<IconShieldCheck size={18} />}
+            onClick={startValidation}
+            loading={isLoading}
+          >
+            {t("validation.revalidateButton", "Re-validate")}
+          </Button>
+        </Group>
       </Stack>
     );
   }
@@ -243,126 +359,6 @@ export const AssetObjectDataQualityTab: React.FC<
           {t("validation.retryButton", "Retry Validation")}
         </Button>
       </Alert>
-    );
-  }
-
-  // Complete state
-  if (status?.status === "complete") {
-    const statusBadge = getOverallStatusBadge(status.overall_pass_rate);
-
-    return (
-      <Stack spacing="md">
-        {status.is_mock && (
-          <Alert
-            icon={<IconAlertTriangle size={24} />}
-            title={t("validation.mockTitle", "Demonstration Mode")}
-            color="orange"
-          >
-            {t(
-              "validation.mockMessage",
-              "This validation is running in demonstration mode using simulated data. The results shown are for illustration purposes only.",
-            )}
-          </Alert>
-        )}
-        {/* Summary header */}
-        <Paper p="md" withBorder>
-          <Group position="apart">
-            <Group spacing="md">
-              <ThemeIcon
-                size={48}
-                radius="xl"
-                color={statusBadge.color}
-                variant="light"
-              >
-                {status.overall_pass_rate >= 95 ? (
-                  <IconCheck size={24} />
-                ) : status.overall_pass_rate >= 80 ? (
-                  <IconAlertTriangle size={24} />
-                ) : (
-                  <IconX size={24} />
-                )}
-              </ThemeIcon>
-              <Stack spacing={4}>
-                <Group spacing="sm">
-                  <Title order={4}>
-                    {t("validation.completeTitle", "Validation Complete")}
-                  </Title>
-                  <Badge color={statusBadge.color} variant="filled">
-                    {statusBadge.label}
-                  </Badge>
-                </Group>
-                <Text size="sm" color="dimmed">
-                  {t("validation.overallPassRate", "Overall pass rate:")}
-                  <Text span weight={600} ml={4}>
-                    {status.overall_pass_rate.toFixed(2)}%
-                  </Text>
-                </Text>
-              </Stack>
-            </Group>
-
-            <Button
-              variant="subtle"
-              leftIcon={<IconRefresh size={18} />}
-              onClick={refreshStatus}
-              loading={isLoading}
-            >
-              {t("validation.refreshButton", "Refresh")}
-            </Button>
-          </Group>
-
-          {/* Stats row */}
-          <Group mt="md" spacing="xl">
-            <Stack spacing={0}>
-              <Text size="xs" color="dimmed" transform="uppercase">
-                {t("validation.totalValid", "Valid")}
-              </Text>
-              <Text size="lg" weight={600} color="green">
-                {status.total_valid.toLocaleString()}
-              </Text>
-            </Stack>
-            <Stack spacing={0}>
-              <Text size="xs" color="dimmed" transform="uppercase">
-                {t("validation.totalFail", "Failed")}
-              </Text>
-              <Text
-                size="lg"
-                weight={600}
-                color={status.total_fail > 0 ? "red" : "dimmed"}
-              >
-                {status.total_fail.toLocaleString()}
-              </Text>
-            </Stack>
-            <Stack spacing={0}>
-              <Text size="xs" color="dimmed" transform="uppercase">
-                {t("validation.rulesChecked", "Rules Checked")}
-              </Text>
-              <Text size="lg" weight={600}>
-                {status.entries.length}
-              </Text>
-            </Stack>
-          </Group>
-        </Paper>
-
-        {/* Results table */}
-        <Stack spacing="sm">
-          <Title order={5}>
-            {t("validation.detailedResults", "Detailed Results")}
-          </Title>
-          <ValidationResultsTable entries={status.entries} />
-        </Stack>
-
-        {/* Re-validate button */}
-        <Group position="center" mt="md">
-          <Button
-            variant="light"
-            leftIcon={<IconShieldCheck size={18} />}
-            onClick={startValidation}
-            loading={isLoading}
-          >
-            {t("validation.revalidateButton", "Re-validate")}
-          </Button>
-        </Group>
-      </Stack>
     );
   }
 

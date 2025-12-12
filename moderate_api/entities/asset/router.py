@@ -1,9 +1,12 @@
 import json
 import logging
 import os
+import tempfile
 import uuid
+from datetime import datetime
 from typing import Any
 
+import polars as pl
 from fastapi import (
     APIRouter,
     Form,
@@ -32,6 +35,7 @@ from moderate_api.entities.asset.models import (
     AssetCreate,
     AssetRead,
     AssetUpdate,
+    S3ObjectWellKnownMetaKeys,
     UploadedS3Object,
     UploadedS3ObjectRead,
     UploadedS3ObjectReadWithAsset,
@@ -54,6 +58,7 @@ from moderate_api.entities.crud import (
     read_one,
     select_one,
     set_response_count_header,
+    update_json_key,
     update_one,
 )
 from moderate_api.enums import Actions, Entities, Tags
@@ -129,6 +134,34 @@ async def get_asset_presigned_urls(
         ret.append(AssetDownloadURL(key=s3_object.key, download_url=download_url))
 
     return ret
+
+
+def _get_row_count_local(file_path: str, key: str) -> int:
+    """Count rows in a local file using Polars."""
+    lower_key = key.lower()
+    try:
+        if lower_key.endswith(".csv"):
+            return pl.scan_csv(file_path).select(pl.len()).collect().item()
+        elif lower_key.endswith(".parquet"):
+            return pl.scan_parquet(file_path).select(pl.len()).collect().item()
+        elif lower_key.endswith(".json"):
+            # read_json reads the whole file, but it's robust for standard JSON arrays
+            return pl.read_json(file_path).height
+        elif lower_key.endswith(".jsonl") or lower_key.endswith(".ndjson"):
+            return pl.scan_ndjson(file_path).select(pl.len()).collect().item()
+        else:
+            raise ValueError(f"Unsupported file extension: {key}")
+    except Exception as e:
+        _logger.warning("Failed to count rows for %s: %s", key, e)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Could not count rows for file type: {e}",
+        ) from e
+
+
+class AssetObjectRowCountResponse(BaseModel):
+    row_count: int | None
+    estimated: bool
 
 
 router.add_api_route(
@@ -350,6 +383,93 @@ async def _download_asset(
     return await get_asset_presigned_urls(
         s3=s3, asset=asset, expiration_secs=expiration_secs
     )
+
+
+@router.get(
+    "/{id}/object/{object_id}/row-count",
+    response_model=AssetObjectRowCountResponse,
+    tags=[_TAG],
+    summary="Get or calculate row count for an asset object",
+)
+async def get_asset_object_row_count(
+    *,
+    user: UserDep,
+    session: AsyncSessionDep,
+    s3: S3ClientDep,
+    id: int,
+    object_id: int,
+):
+    """Retrieves the row count for an asset object.
+
+    If the count is cached in metadata, it returns it immediately.
+    Otherwise, it downloads the file, calculates the count, updates the metadata,
+    and returns it.
+    """
+    user_selector = await build_selector(user=user, session=session)
+
+    # Verify access and get object
+    the_asset = await read_one(
+        user=user,
+        entity=_ENTITY,
+        sql_model=Asset,
+        session=session,
+        entity_id=id,
+        user_selector=user_selector,
+    )
+
+    if not the_asset:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    select_object = select(UploadedS3Object).where(
+        UploadedS3Object.id == object_id,
+        UploadedS3Object.asset_id == id,
+    )
+    result_object = await session.execute(select_object)
+    the_object = result_object.scalar_one_or_none()
+
+    if not the_object:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    # Check cache
+    meta = the_object.meta or {}
+    cached_count = meta.get(S3ObjectWellKnownMetaKeys.ROW_COUNT.value)
+
+    if cached_count is not None:
+        return AssetObjectRowCountResponse(row_count=int(cached_count), estimated=False)
+
+    # Calculate
+    try:
+        with tempfile.NamedTemporaryFile() as tmp:
+            _logger.info("Downloading object %s to count rows", the_object.key)
+            response = await s3.get_object(Bucket=the_object.bucket, Key=the_object.key)
+            async with response["Body"] as stream:
+                # Read the content and write to file
+                body_content = await stream.read()
+                tmp.write(body_content)
+                tmp.flush()
+
+            row_count = _get_row_count_local(tmp.name, the_object.key)
+
+            # Update cache
+            await update_json_key(
+                sql_model=UploadedS3Object,
+                session=session,
+                primary_keys=[the_object.id],
+                json_column="meta",
+                json_key=S3ObjectWellKnownMetaKeys.ROW_COUNT.value,
+                json_value=row_count,
+            )
+
+            return AssetObjectRowCountResponse(row_count=row_count, estimated=False)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error("Failed to calculate row count: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to calculate row count: {str(e)}",
+        ) from e
 
 
 router.add_api_route(
@@ -810,6 +930,16 @@ async def start_validation(
             s3_url=presigned_url,
             dataset_id=dataset_id,
         )
+
+        # Update last requested timestamp
+        await update_json_key(
+            sql_model=UploadedS3Object,
+            session=session,
+            primary_keys=[object_id],
+            json_column="meta",
+            json_key=S3ObjectWellKnownMetaKeys.LAST_VALIDATION_REQUEST.value,
+            json_value=datetime.utcnow().isoformat(),
+        )
     except Exception as exc:
         _logger.error(
             "Failed to publish dataset for validation: %s",
@@ -877,11 +1007,22 @@ async def _get_validation_status(
             error_message="File extension not supported for validation",
         )
 
+    # Get last requested timestamp
+    meta = s3obj.meta or {}  # type: ignore
+    last_requested_str = meta.get(
+        S3ObjectWellKnownMetaKeys.LAST_VALIDATION_REQUEST.value
+    )
+    last_requested_at = (
+        datetime.fromisoformat(last_requested_str) if last_requested_str else None
+    )
+
     # Fetch validation results from DIVA
     dataset_id = diva.generate_dataset_id(asset_id=id, object_id=object_id)
 
     try:
         validation_result = await diva.get_validation_results(dataset_id=dataset_id)
+        # Inject the timestamp
+        validation_result.last_requested_at = last_requested_at
     except Exception as exc:
         _logger.error(
             "Failed to fetch validation results: %s",
@@ -891,6 +1032,7 @@ async def _get_validation_status(
         return ValidationResult(
             status=ValidationStatus.FAILED,
             error_message=f"Failed to fetch validation results: {str(exc)}",
+            last_requested_at=last_requested_at,
         )
 
     return validation_result

@@ -19,6 +19,8 @@ if TYPE_CHECKING:
 
 class S3ObjectWellKnownMetaKeys(enum.Enum):
     PENDING_QUALITY_CHECK = "pending_quality_check"
+    LAST_VALIDATION_REQUEST = "last_validation_request"
+    ROW_COUNT = "row_count"
 
 
 class AssetAccessLevels(enum.Enum):
