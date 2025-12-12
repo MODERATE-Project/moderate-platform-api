@@ -171,7 +171,7 @@ class MockDivaClient(DivaClient):
             else ValidationStatus.IN_PROGRESS
         )
 
-        result = ValidationResult.from_entries(entries, status=status)
+        result = ValidationResult.from_entries(entries, status=status, is_mock=True)
         result.processed_rows = state.processed_rows
 
         return result

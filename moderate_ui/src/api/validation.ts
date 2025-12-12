@@ -41,6 +41,7 @@ export interface ValidationResult {
   overall_pass_rate: number;
   error_message?: string;
   processed_rows?: number;
+  is_mock?: boolean;
 }
 
 /**

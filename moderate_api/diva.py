@@ -66,12 +66,16 @@ class ValidationResult(BaseModel):
     processed_rows: int | None = Field(
         default=None, description="Number of rows processed so far"
     )
+    is_mock: bool = Field(
+        default=False, description="Whether these results are from a mock service"
+    )
 
     @classmethod
     def from_entries(
         cls,
         entries: list[ValidationEntry],
         status: ValidationStatus = ValidationStatus.COMPLETE,
+        is_mock: bool = False,
     ) -> "ValidationResult":
         """Create ValidationResult from a list of entries."""
         total_valid = sum(e.valid for e in entries)
@@ -85,6 +89,7 @@ class ValidationResult(BaseModel):
             total_valid=total_valid,
             total_fail=total_fail,
             overall_pass_rate=overall_pass_rate,
+            is_mock=is_mock,
         )
 
 

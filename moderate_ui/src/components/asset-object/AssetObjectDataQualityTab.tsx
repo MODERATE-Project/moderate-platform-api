@@ -152,6 +152,18 @@ export const AssetObjectDataQualityTab: React.FC<
   if (status?.status === "in_progress") {
     return (
       <Stack spacing="md">
+        {status.is_mock && (
+          <Alert
+            icon={<IconAlertTriangle size={24} />}
+            title={t("validation.mockTitle", "Demonstration Mode")}
+            color="orange"
+          >
+            {t(
+              "validation.mockMessage",
+              "This validation is running in demonstration mode using simulated data. The results shown are for illustration purposes only.",
+            )}
+          </Alert>
+        )}
         <Paper p="md" withBorder>
           <Group position="apart" mb="sm">
             <Group spacing="sm">
@@ -232,6 +244,18 @@ export const AssetObjectDataQualityTab: React.FC<
 
     return (
       <Stack spacing="md">
+        {status.is_mock && (
+          <Alert
+            icon={<IconAlertTriangle size={24} />}
+            title={t("validation.mockTitle", "Demonstration Mode")}
+            color="orange"
+          >
+            {t(
+              "validation.mockMessage",
+              "This validation is running in demonstration mode using simulated data. The results shown are for illustration purposes only.",
+            )}
+          </Alert>
+        )}
         {/* Summary header */}
         <Paper p="md" withBorder>
           <Group position="apart">
