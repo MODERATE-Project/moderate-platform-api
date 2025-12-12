@@ -67,6 +67,8 @@ class DivaSettings(BaseModel):
     supported_extensions: list[str] = ["csv"]
     request_timeout: int = 30
     presigned_url_ttl: int = 3600  # 1 hour default
+    completion_threshold: float = 0.90  # 90%
+    completion_timeout_seconds: int = 300  # 5 minutes
 
     def build_kafka_url(self, *parts: str) -> str:
         """Build URL for Kafka REST Gateway."""

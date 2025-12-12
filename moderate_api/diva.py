@@ -81,6 +81,7 @@ class ValidationResult(BaseModel):
         status: ValidationStatus = ValidationStatus.COMPLETE,
         is_mock: bool = False,
         last_requested_at: datetime | None = None,
+        processed_rows: int | None = None,
     ) -> "ValidationResult":
         """Create ValidationResult from a list of entries."""
         total_valid = sum(e.valid for e in entries)
@@ -96,6 +97,7 @@ class ValidationResult(BaseModel):
             overall_pass_rate=overall_pass_rate,
             is_mock=is_mock,
             last_requested_at=last_requested_at,
+            processed_rows=processed_rows,
         )
 
 
@@ -211,11 +213,15 @@ class DivaClient:
     async def get_validation_results(
         self,
         dataset_id: str,
+        expected_rows: int | None = None,
+        start_time: datetime | None = None,
     ) -> ValidationResult:
         """Fetch validation results from DIVA Quality Reporter.
 
         Args:
             dataset_id: Dataset identifier to fetch results for
+            expected_rows: Total number of rows expected (for progress calculation)
+            start_time: Timestamp when validation was started (for timeout calculation)
 
         Returns:
             ValidationResult with current status and entries
@@ -244,6 +250,7 @@ class DivaClient:
             return ValidationResult(
                 status=ValidationStatus.FAILED,
                 error_message=f"Failed to fetch results: {e.response.status_code}",
+                last_requested_at=start_time,
             )
         except httpx.RequestError as e:
             _logger.error(
@@ -254,6 +261,7 @@ class DivaClient:
             return ValidationResult(
                 status=ValidationStatus.FAILED,
                 error_message=f"Request error: {str(e)}",
+                last_requested_at=start_time,
             )
 
         # Filter entries for this dataset_id
@@ -272,10 +280,44 @@ class DivaClient:
 
         if not entries:
             # No results found for this dataset - not started yet
-            return ValidationResult(status=ValidationStatus.NOT_STARTED)
+            return ValidationResult(
+                status=ValidationStatus.NOT_STARTED, last_requested_at=start_time
+            )
 
-        # Determine status based on entries
-        # Note: DIVA processes data incrementally, so we consider it complete
-        # if we have any results. In a real scenario, you might need additional
-        # logic to determine if processing is still in progress.
-        return ValidationResult.from_entries(entries, status=ValidationStatus.COMPLETE)
+        # Determine completion status
+        processed_rows = max((e.total for e in entries), default=0)
+        is_complete = False
+
+        if expected_rows and expected_rows > 0:
+            pct = processed_rows / expected_rows
+            if pct >= 1.0:
+                is_complete = True
+            elif start_time:
+                # Check for "good enough" completion after timeout
+                elapsed = (datetime.utcnow() - start_time).total_seconds()
+                if (
+                    pct >= self.settings.completion_threshold
+                    and elapsed > self.settings.completion_timeout_seconds
+                ):
+                    is_complete = True
+        else:
+            # Fallback logic if expected_rows is unknown
+            if start_time:
+                elapsed = (datetime.utcnow() - start_time).total_seconds()
+                if elapsed > self.settings.completion_timeout_seconds:
+                    is_complete = True
+            else:
+                # If we don't know expected rows or start time, assume complete
+                # if we have data (legacy behavior)
+                is_complete = True
+
+        status = (
+            ValidationStatus.COMPLETE if is_complete else ValidationStatus.IN_PROGRESS
+        )
+
+        return ValidationResult.from_entries(
+            entries,
+            status=status,
+            processed_rows=processed_rows,
+            last_requested_at=start_time,
+        )

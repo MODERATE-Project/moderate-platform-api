@@ -1016,13 +1016,19 @@ async def _get_validation_status(
         datetime.fromisoformat(last_requested_str) if last_requested_str else None
     )
 
+    # Get row count (expected rows)
+    row_count = meta.get(S3ObjectWellKnownMetaKeys.ROW_COUNT.value)
+    expected_rows = int(row_count) if row_count is not None else None
+
     # Fetch validation results from DIVA
     dataset_id = diva.generate_dataset_id(asset_id=id, object_id=object_id)
 
     try:
-        validation_result = await diva.get_validation_results(dataset_id=dataset_id)
-        # Inject the timestamp
-        validation_result.last_requested_at = last_requested_at
+        validation_result = await diva.get_validation_results(
+            dataset_id=dataset_id,
+            expected_rows=expected_rows,
+            start_time=last_requested_at,
+        )
     except Exception as exc:
         _logger.error(
             "Failed to fetch validation results: %s",
