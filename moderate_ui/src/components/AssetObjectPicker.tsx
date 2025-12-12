@@ -1,6 +1,6 @@
-import { Group, Loader, Select, Text } from "@mantine/core";
+import { Alert, Group, Loader, Select, Stack, Text } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
-import { IconTable } from "@tabler/icons-react";
+import { IconInfoCircle, IconTable } from "@tabler/icons-react";
 import React, {
   ComponentPropsWithoutRef,
   forwardRef,
@@ -8,8 +8,8 @@ import React, {
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { searchAssets } from "../api/assets";
-import { Asset, AssetModel, AssetObjectModel } from "../api/types";
+import { searchAssetObjects } from "../api/assets";
+import { AssetModel, AssetObjectModel, UploadedS3Object } from "../api/types";
 
 export interface DatasetSelectOption {
   value: string;
@@ -37,11 +37,17 @@ const DatasetSelectItem = forwardRef<HTMLDivElement, ItemProps>(
 interface Props {
   debouncedSearchWaitMs?: number;
   onSelect?: (item: DatasetSelectOption | undefined) => void;
+  fileFormat?: string | string[];
+  showFormatInfo?: boolean;
+  formatInfoMessage?: string;
 }
 
 export const AssetObjectPicker: React.FC<Props> = ({
   debouncedSearchWaitMs = 1000,
   onSelect,
+  fileFormat,
+  showFormatInfo = false,
+  formatInfoMessage,
 }) => {
   const { t } = useTranslation();
 
@@ -64,24 +70,25 @@ export const AssetObjectPicker: React.FC<Props> = ({
   useEffect(() => {
     setIsSearching(true);
 
-    searchAssets({
+    searchAssetObjects({
       searchQuery: debouncedSearchValue,
       excludeMine: false,
+      fileFormat: fileFormat,
     })
       .then((resp) => {
-        const responseOptions = (resp as Asset[])
-          .map((item: Asset) => {
-            return new AssetModel(item);
-          })
-          .flatMap((assetModel: AssetModel) =>
-            assetModel.getObjects().map((assetObject) => ({
-              value: assetObject.data.id.toString(),
-              label: assetObject.humanName,
+        const responseOptions = (resp as UploadedS3Object[]).map(
+          (item: UploadedS3Object) => {
+            const assetModel = new AssetModel(item.asset);
+            const assetObjectModel = new AssetObjectModel(item);
+            return {
+              value: item.id.toString(),
+              label: assetObjectModel.humanName,
               group: assetModel.data.name,
               asset: assetModel,
-              assetObject: assetObject,
-            })),
-          );
+              assetObject: assetObjectModel,
+            };
+          },
+        );
 
         setFoundOptions(responseOptions);
       })
@@ -89,10 +96,10 @@ export const AssetObjectPicker: React.FC<Props> = ({
         console.error(err);
         setFoundOptions([]);
       })
-      .then(() => {
+      .finally(() => {
         setIsSearching(false);
       });
-  }, [debouncedSearchValue]);
+  }, [debouncedSearchValue, fileFormat]);
 
   useEffect(() => {
     const newOptions = currentOption
@@ -116,21 +123,53 @@ export const AssetObjectPicker: React.FC<Props> = ({
     }
   };
 
+  const formatDisplay = Array.isArray(fileFormat)
+    ? fileFormat.join(", ").toUpperCase()
+    : fileFormat?.toUpperCase() || "CSV";
+
+  const defaultFormatMessage = t(
+    "Only {{format}} files are supported for this analysis",
+    {
+      format: formatDisplay,
+    },
+  );
+
   return (
-    <Select
-      label={t("Select a dataset")}
-      placeholder={t("Start typing to search your dataset catalogue")}
-      nothingFound={t("No datasets found")}
-      itemComponent={DatasetSelectItem}
-      value={value}
-      onChange={handleValueChange}
-      data={options}
-      searchable
-      clearable
-      onSearchChange={onSearchChange}
-      searchValue={searchValue}
-      icon={isSearching ? <Loader size="xs" /> : <IconTable size="1em" />}
-      filter={() => true}
-    />
+    <Stack spacing="xs">
+      {showFormatInfo && fileFormat && (
+        <Alert
+          icon={<IconInfoCircle size="1rem" />}
+          color="blue"
+          variant="light"
+        >
+          {formatInfoMessage || defaultFormatMessage}
+        </Alert>
+      )}
+      <Select
+        label={t("Select a dataset")}
+        placeholder={
+          fileFormat
+            ? t("Start typing to search your {{format}} datasets", {
+                format: formatDisplay,
+              })
+            : t("Start typing to search your dataset catalogue")
+        }
+        nothingFound={
+          fileFormat
+            ? t("No {{format}} datasets found", { format: formatDisplay })
+            : t("No datasets found")
+        }
+        itemComponent={DatasetSelectItem}
+        value={value}
+        onChange={handleValueChange}
+        data={options}
+        searchable
+        clearable
+        onSearchChange={onSearchChange}
+        searchValue={searchValue}
+        icon={isSearching ? <Loader size="xs" /> : <IconTable size="1em" />}
+        filter={() => true}
+      />
+    </Stack>
   );
 };

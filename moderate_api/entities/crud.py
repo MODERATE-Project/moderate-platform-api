@@ -1,3 +1,4 @@
+import enum as python_enum
 import json
 import logging
 import re
@@ -12,6 +13,7 @@ from typing import (
 import arrow
 from fastapi import Query, Response
 from pydantic import BaseModel
+from sqlalchemy import Enum as SQLEnum
 from sqlalchemy import Text, asc, desc, func
 from sqlalchemy import cast as sql_cast
 from sqlalchemy.dialects.postgresql import JSONB
@@ -149,6 +151,88 @@ def _parse_value(val: Any) -> datetime | int | float | str | bool | list[Any]:
     return val
 
 
+def _normalize_enum_value(model: type[SQLModel], field: str, value: Any) -> Any:
+    """Normalize enum filter values to proper enum members for SQLAlchemy queries.
+
+    **Context: Enum Case Mismatch Issue**
+
+    This function solves a critical mismatch between how PostgreSQL enums, Python enums,
+    and Pydantic serialization work together:
+
+    1. **PostgreSQL Enum Storage**: Stores the enum MEMBER NAME (e.g., 'MATRIX_PROFILE')
+    2. **Python Enum Definition**: Has a value property (e.g., WorkflowJobTypes.MATRIX_PROFILE = "matrix_profile")
+    3. **Pydantic Serialization**: Uses the `.value` when converting to JSON (returns "matrix_profile")
+    4. **SQLAlchemy Querying**: Expects the enum member, then uses the NAME in SQL queries
+
+    **The Problem:**
+    - Frontend receives: `{"job_type": "matrix_profile"}` (Pydantic serialized value)
+    - Frontend sends filter: `["job_type", "eq", "matrix_profile"]` (using received value)
+    - Backend tries to query: `WHERE job_type = 'matrix_profile'` (direct value)
+    - PostgreSQL rejects: Invalid enum value (expects 'MATRIX_PROFILE')
+
+    **The Solution:**
+    This function intercepts filter values and converts them back to enum members:
+    - Input: "matrix_profile" (string value from API)
+    - Output: WorkflowJobTypes.MATRIX_PROFILE (enum member)
+    - SQLAlchemy then uses: 'MATRIX_PROFILE' (member name) in the SQL query
+
+    **Why This Approach:**
+    - ✅ Backwards compatible: No database migrations required
+    - ✅ No breaking changes: API contract remains unchanged
+    - ✅ Handles edge cases: Works if value is already an enum member
+    - ✅ Database-level filtering: More efficient than client-side filtering
+    - ✅ Future-proof: Automatically handles new enum types
+
+    Args:
+        model: The SQLModel class being queried
+        field: The field name being filtered
+        value: The filter value (potentially an enum value string)
+
+    Returns:
+        The normalized value - either the enum member or the original value if not an enum field
+    """
+    # Get the column from the model
+    column = getattr(model, field, None)
+    if column is None:
+        return value
+
+    # Check if this column is an enum type
+    if hasattr(column, "type") and isinstance(column.type, SQLEnum):
+        enum_class = column.type.enum_class
+
+        # Only process if it's a Python enum
+        if enum_class and issubclass(enum_class, python_enum.Enum):
+            # If value is already an enum member, return as-is
+            if isinstance(value, enum_class):
+                return value
+
+            # If value is a list, normalize each item
+            if isinstance(value, list):
+                return [_normalize_enum_value(model, field, v) for v in value]
+
+            # Try to convert string value to enum member
+            try:
+                # This converts "matrix_profile" → WorkflowJobTypes.MATRIX_PROFILE
+                enum_member = enum_class(value)
+                _logger.debug(
+                    "Normalized enum filter: field=%s, value=%s → member=%s",
+                    field,
+                    value,
+                    enum_member,
+                )
+                return enum_member
+            except (ValueError, KeyError):
+                # If conversion fails, return original value (let SQLAlchemy handle the error)
+                _logger.warning(
+                    "Failed to normalize enum value for field=%s, value=%s",
+                    field,
+                    value,
+                )
+                pass
+
+    return value
+
+
 class CrudFilter(BaseModel):
     """Model that represents a filter for a CRUD operation.
     Inspired by: https://refine.dev/docs/api-reference/core/interfaceReferences/#crudfilters
@@ -202,35 +286,51 @@ class CrudFilter(BaseModel):
 
 
 def _map_eq(model: type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression:  # type: ignore[type-arg]
-    return getattr(model, crud_filter.field) == crud_filter.parsed_value
+    # Normalize enum values before comparison (fixes PostgreSQL enum case mismatch)
+    value = _normalize_enum_value(model, crud_filter.field, crud_filter.parsed_value)
+    return getattr(model, crud_filter.field) == value
 
 
 def _map_ne(model: type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression:  # type: ignore[type-arg]
-    return getattr(model, crud_filter.field) != crud_filter.parsed_value
+    # Normalize enum values before comparison (fixes PostgreSQL enum case mismatch)
+    value = _normalize_enum_value(model, crud_filter.field, crud_filter.parsed_value)
+    return getattr(model, crud_filter.field) != value
 
 
 def _map_lt(model: type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression:  # type: ignore[type-arg]
-    return getattr(model, crud_filter.field) < crud_filter.parsed_value
+    # Normalize enum values before comparison (fixes PostgreSQL enum case mismatch)
+    value = _normalize_enum_value(model, crud_filter.field, crud_filter.parsed_value)
+    return getattr(model, crud_filter.field) < value
 
 
 def _map_gt(model: type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression:  # type: ignore[type-arg]
-    return getattr(model, crud_filter.field) > crud_filter.parsed_value
+    # Normalize enum values before comparison (fixes PostgreSQL enum case mismatch)
+    value = _normalize_enum_value(model, crud_filter.field, crud_filter.parsed_value)
+    return getattr(model, crud_filter.field) > value
 
 
 def _map_lte(model: type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression:  # type: ignore[type-arg]
-    return getattr(model, crud_filter.field) <= crud_filter.parsed_value
+    # Normalize enum values before comparison (fixes PostgreSQL enum case mismatch)
+    value = _normalize_enum_value(model, crud_filter.field, crud_filter.parsed_value)
+    return getattr(model, crud_filter.field) <= value
 
 
 def _map_gte(model: type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression:  # type: ignore[type-arg]
-    return getattr(model, crud_filter.field) >= crud_filter.parsed_value
+    # Normalize enum values before comparison (fixes PostgreSQL enum case mismatch)
+    value = _normalize_enum_value(model, crud_filter.field, crud_filter.parsed_value)
+    return getattr(model, crud_filter.field) >= value
 
 
 def _map_in(model: type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression:  # type: ignore[type-arg]
-    return getattr(model, crud_filter.field).in_(crud_filter.parsed_value)
+    # Normalize enum values before comparison (fixes PostgreSQL enum case mismatch)
+    value = _normalize_enum_value(model, crud_filter.field, crud_filter.parsed_value)
+    return getattr(model, crud_filter.field).in_(value)
 
 
 def _map_nin(model: type[SQLModel], crud_filter: CrudFilter) -> BinaryExpression:  # type: ignore[type-arg]
-    return getattr(model, crud_filter.field).notin_(crud_filter.parsed_value)
+    # Normalize enum values before comparison (fixes PostgreSQL enum case mismatch)
+    value = _normalize_enum_value(model, crud_filter.field, crud_filter.parsed_value)
+    return getattr(model, crud_filter.field).notin_(value)
 
 
 def _map_contains(

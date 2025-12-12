@@ -62,6 +62,14 @@ export interface Asset {
   uuid: string;
 }
 
+export interface UploadedS3Object extends AssetObject {
+  asset_id: number;
+  bucket?: string;
+  etag?: string;
+  location?: string;
+  asset: Asset;
+}
+
 // Regex to parse S3 object keys in the format:
 // {bucket}/{slugified-filename}-{uuid}.{extension}
 // The bucket may contain email-like usernames with @ and other special chars

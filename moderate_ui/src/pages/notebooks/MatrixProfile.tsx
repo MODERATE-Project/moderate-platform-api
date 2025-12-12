@@ -1,18 +1,22 @@
 import {
   ActionIcon,
+  Alert,
   Button,
   Card,
   Code,
   Group,
-  Skeleton,
+  Loader,
+  Progress,
+  Select,
   Stack,
   Stepper,
   Text,
-  TextInput,
   ThemeIcon,
+  Timeline,
   Title,
 } from "@mantine/core";
 import {
+  IconAlertCircle,
   IconBrandGithub,
   IconCheck,
   IconDownload,
@@ -24,13 +28,15 @@ import {
 } from "@tabler/icons-react";
 import React, { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { getAssetObjectById, getAssetObjectColumns } from "../../api/assets";
 import { createMatrixProfileJob, getJob } from "../../api/job";
-import { WorkflowJob } from "../../api/types";
+import { AssetModel, AssetObjectModel, WorkflowJob } from "../../api/types";
 import { AssetObjectCard } from "../../components/AssetObjectCard";
 import {
   AssetObjectPicker,
   DatasetSelectOption,
 } from "../../components/AssetObjectPicker";
+import { MatrixProfileJobHistory } from "../../components/MatrixProfileJobHistory";
 
 const MatrixProfileWorkflowAnalysisVariableStep: React.FC<{
   selectedAsset: DatasetSelectOption;
@@ -44,6 +50,47 @@ const MatrixProfileWorkflowAnalysisVariableStep: React.FC<{
   setAnalysisVariable,
 }) => {
   const { t } = useTranslation();
+  const [columns, setColumns] = useState<string[]>([]);
+  const [isLoadingColumns, setIsLoadingColumns] = useState(false);
+  const [columnsError, setColumnsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    setIsLoadingColumns(true);
+    setColumnsError(null);
+    setColumns([]);
+
+    getAssetObjectColumns({
+      assetId: selectedAsset.asset.data.id,
+      objectId: selectedAsset.assetObject.data.id,
+    })
+      .then((response) => {
+        if (isMounted) {
+          setColumns(response.columns);
+        }
+      })
+      .catch((err) => {
+        if (isMounted) {
+          console.error("Failed to fetch columns", err);
+          setColumnsError(
+            t(
+              "Failed to load column names from the dataset. Please try again.",
+            ),
+          );
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoadingColumns(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedAsset, t]);
+
+  const columnOptions = columns.map((col) => ({ value: col, label: col }));
 
   return (
     <Stack>
@@ -51,16 +98,35 @@ const MatrixProfileWorkflowAnalysisVariableStep: React.FC<{
         asset={selectedAsset.asset.data}
         assetObject={selectedAsset.assetObject.data}
       />
-      <TextInput
-        icon={<IconVariable size="1em" />}
-        placeholder={t(
-          "Input the column variable from your dataset that will be the focus of the analysis",
-        )}
+      {columnsError && (
+        <Alert
+          icon={<IconAlertCircle size="1rem" />}
+          title={t("Error")}
+          color="red"
+          variant="light"
+        >
+          {columnsError}
+        </Alert>
+      )}
+      <Select
+        icon={
+          isLoadingColumns ? <Loader size="xs" /> : <IconVariable size="1em" />
+        }
+        label={t("Analysis Variable")}
+        placeholder={
+          isLoadingColumns
+            ? t("Loading columns...")
+            : t("Select the column for analysis")
+        }
         description={t(
           "The variable name used for the analysis (i.e., the column in the CSV containing the electrical load under analysis).",
         )}
+        data={columnOptions}
         value={variableInputValue}
-        onChange={(event) => setVariableInputValue(event.currentTarget.value)}
+        onChange={(value) => setVariableInputValue(value || "")}
+        searchable
+        disabled={isLoadingColumns || columns.length === 0}
+        nothingFound={t("No columns found")}
       />
       <Button
         leftIcon={<IconCheck size="1em" />}
@@ -80,8 +146,21 @@ const MatrixProfileWorkflowResultsStep: React.FC<{
   workflowJob: WorkflowJob | undefined;
   onJobSubmit: () => void;
   isJobRunning: boolean;
-}> = ({ selectedAsset, workflowJob, onJobSubmit, isJobRunning }) => {
+  elapsedTime: number;
+}> = ({
+  selectedAsset,
+  workflowJob,
+  onJobSubmit,
+  isJobRunning,
+  elapsedTime,
+}) => {
   const { t } = useTranslation();
+
+  const formatElapsedTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}m ${secs}s`;
+  };
 
   return (
     <Stack>
@@ -95,7 +174,7 @@ const MatrixProfileWorkflowResultsStep: React.FC<{
           onClick={onJobSubmit}
           loading={isJobRunning}
         >
-          {t("Run workflow ")}
+          {t("Run workflow")}
         </Button>
       )}
       {workflowJob && (
@@ -104,16 +183,49 @@ const MatrixProfileWorkflowResultsStep: React.FC<{
             {t("Job results")}
           </Title>
           {isJobRunning && (
-            <Group>
-              <ThemeIcon color="gray" variant="light">
-                <IconHourglass size="1em" />
-              </ThemeIcon>
-              <Text>
-                {t(
-                  "The job has been queued. Please wait a few minutes; this may take a while.",
+            <Card withBorder p="lg" radius="md">
+              <Stack spacing="md">
+                <Group>
+                  <ThemeIcon color="blue" variant="light" size="lg">
+                    <IconHourglass size="1.2em" />
+                  </ThemeIcon>
+                  <Stack spacing={2}>
+                    <Text weight={500}>{t("Processing your dataset...")}</Text>
+                    <Text size="sm" color="dimmed">
+                      {t(
+                        "This may take several minutes depending on data size.",
+                      )}
+                    </Text>
+                  </Stack>
+                </Group>
+
+                <Progress value={100} animate size="sm" color="blue" />
+
+                {elapsedTime > 0 && (
+                  <Text size="xs" color="dimmed" align="center">
+                    {t("Elapsed time:")} {formatElapsedTime(elapsedTime)}
+                  </Text>
                 )}
-              </Text>
-            </Group>
+
+                <Timeline active={1} bulletSize={20} lineWidth={2}>
+                  <Timeline.Item title={t("Job submitted")} color="green">
+                    <Text color="dimmed" size="xs">
+                      {new Date(
+                        workflowJob.created_at.endsWith("Z")
+                          ? workflowJob.created_at
+                          : workflowJob.created_at + "Z",
+                      ).toLocaleTimeString()}
+                    </Text>
+                  </Timeline.Item>
+                  <Timeline.Item title={t("Processing")} color="blue">
+                    <Text color="dimmed" size="xs">
+                      {t("Analyzing time series data...")}
+                    </Text>
+                  </Timeline.Item>
+                  <Timeline.Item title={t("Complete")} color="gray" />
+                </Timeline>
+              </Stack>
+            </Card>
           )}
           {!isJobRunning &&
             workflowJob.results &&
@@ -152,7 +264,6 @@ const MatrixProfileWorkflowResultsStep: React.FC<{
               </Card>
             </>
           )}
-          {isJobRunning && <Skeleton height={80} mt={6} radius="md" />}
           {workflowJob && workflowJob.extended_results?.download_url && (
             <Button
               leftIcon={<IconDownload size="1em" />}
@@ -196,6 +307,13 @@ export const MatrixProfileWorkflow: React.FC<Props> = ({
   );
 
   const [isJobRunning, setIsJobRunning] = useState<boolean>(false);
+
+  const [refreshHistoryTrigger, setRefreshHistoryTrigger] = useState(0);
+
+  const [elapsedTime, setElapsedTime] = useState<number>(0);
+
+  // Flag to prevent step management effect from running during resume
+  const [isResuming, setIsResuming] = useState<boolean>(false);
 
   const onDatasetSelect = useCallback(
     (item: DatasetSelectOption | undefined) => {
@@ -245,10 +363,90 @@ export const MatrixProfileWorkflow: React.FC<Props> = ({
   useEffect(() => {
     if (workflowJob && workflowJob.finalised_at) {
       setIsJobRunning(false);
+      // Refresh job history when job completes
+      setRefreshHistoryTrigger((prev) => prev + 1);
     }
   }, [workflowJob]);
 
+  // Track elapsed time when job is running
   useEffect(() => {
+    if (!workflowJob || workflowJob.finalised_at) {
+      setElapsedTime(0);
+      return;
+    }
+
+    const createdAt = workflowJob.created_at.endsWith("Z")
+      ? workflowJob.created_at
+      : workflowJob.created_at + "Z";
+    const startTime = new Date(createdAt).getTime();
+
+    const updateElapsed = (): void => {
+      const now = Date.now();
+      setElapsedTime(Math.floor((now - startTime) / 1000));
+    };
+
+    updateElapsed();
+    const intervalId = setInterval(updateElapsed, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [workflowJob]);
+
+  // Handler for resuming a running job from history
+  const handleResumeJob = useCallback(async (job: WorkflowJob) => {
+    // Set flag to prevent step management effect from interfering
+    setIsResuming(true);
+
+    let assetOption: DatasetSelectOption | undefined;
+
+    if (job.arguments?.uploaded_s3_object_id) {
+      try {
+        const object = await getAssetObjectById(
+          job.arguments.uploaded_s3_object_id,
+        );
+        if (object && object.asset) {
+          const assetModel = new AssetModel(object.asset);
+          const assetObjectModel = new AssetObjectModel(object);
+          assetOption = {
+            value: object.id.toString(),
+            label: assetObjectModel.humanName,
+            group: assetModel.data.name,
+            asset: assetModel,
+            assetObject: assetObjectModel,
+          };
+        }
+      } catch (e) {
+        console.error("Failed to fetch asset for resumed job", e);
+        setIsResuming(false);
+        return;
+      }
+    }
+
+    if (assetOption) {
+      setSelectedAsset(assetOption);
+    }
+
+    // Set analysis variable from job arguments
+    if (job.arguments?.analysis_variable) {
+      setAnalysisVariable(job.arguments.analysis_variable);
+      setVariableInputValue(job.arguments.analysis_variable);
+    }
+
+    setWorkflowJob(job);
+    setIsJobRunning(!job.finalised_at);
+
+    // Move to the processing step
+    setActiveStep(2);
+
+    // Clear resuming flag after state is set
+    setIsResuming(false);
+  }, []);
+
+  useEffect(() => {
+    // Skip step management when resuming a job
+    if (isResuming) {
+      return;
+    }
+
     if (selectedAsset === undefined) {
       setActiveStep(0);
       setAnalysisVariable(undefined);
@@ -266,7 +464,7 @@ export const MatrixProfileWorkflow: React.FC<Props> = ({
       setActiveStep(2);
       return;
     }
-  }, [selectedAsset, analysisVariable, workflowJob]);
+  }, [selectedAsset, analysisVariable, workflowJob, isResuming]);
 
   return (
     <Stack>
@@ -293,9 +491,20 @@ export const MatrixProfileWorkflow: React.FC<Props> = ({
           </Text>
         </Stack>
       </Group>
+      <MatrixProfileJobHistory
+        onResumeJob={handleResumeJob}
+        refreshTrigger={refreshHistoryTrigger}
+      />
       <Stepper active={activeStep} breakpoint="sm">
-        <Stepper.Step label={t("Dataset")} description={t("Pick a dataset")}>
-          <AssetObjectPicker onSelect={onDatasetSelect} />
+        <Stepper.Step
+          label={t("Dataset")}
+          description={t("Pick a CSV dataset")}
+        >
+          <AssetObjectPicker
+            onSelect={onDatasetSelect}
+            fileFormat="csv"
+            showFormatInfo={true}
+          />
         </Stepper.Step>
         <Stepper.Step
           label={t("Variable")}
@@ -330,6 +539,7 @@ export const MatrixProfileWorkflow: React.FC<Props> = ({
                 workflowJob,
                 onJobSubmit,
                 isJobRunning,
+                elapsedTime,
               }}
             />
           )}

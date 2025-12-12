@@ -1,8 +1,55 @@
 import axios from "axios";
+import { Asset, UploadedS3Object } from "./types";
 import { buildApiUrl } from "./utils";
 
 export async function fetchPygwalkerHtml({ objectId }: { objectId: string }) {
   return axios.get(buildApiUrl("visualization", "object", objectId));
+}
+
+interface AssetObjectWithAssetId {
+  id: number;
+  asset_id: number;
+  key: string;
+  name: string | null;
+  description: string | null;
+  created_at: string;
+  series_id: string | null;
+  sha256_hash: string;
+  proof_id: string | null;
+  meta: { [k: string]: unknown } | null;
+  tags: { [k: string]: unknown } | null;
+}
+
+export async function getAssetObjectById(
+  objectId: number | string,
+): Promise<UploadedS3Object | undefined> {
+  // Step 1: Fetch the object using filters
+  const params = {
+    filters: JSON.stringify([{ field: "id", operator: "eq", value: objectId }]),
+    limit: "1",
+  };
+  const objectResponse = await axios.get(buildApiUrl("asset", "object"), {
+    params,
+  });
+  const objects = objectResponse.data as AssetObjectWithAssetId[];
+
+  if (!objects || objects.length === 0) {
+    return undefined;
+  }
+
+  const obj = objects[0];
+
+  // Step 2: Fetch the parent asset using asset_id
+  const assetResponse = await axios.get(
+    buildApiUrl("asset", obj.asset_id.toString()),
+  );
+  const asset = assetResponse.data as Asset;
+
+  // Step 3: Combine into UploadedS3Object format
+  return {
+    ...obj,
+    asset: asset,
+  };
 }
 
 export async function uploadObject({
@@ -256,5 +303,27 @@ export async function deleteAssetObject({
   );
 
   const response = await axios.delete(url);
+  return response.data;
+}
+
+export interface AssetObjectColumnsResponse {
+  columns: string[];
+}
+
+export async function getAssetObjectColumns({
+  assetId,
+  objectId,
+}: {
+  assetId: string | number;
+  objectId: string | number;
+}): Promise<AssetObjectColumnsResponse> {
+  const url = buildApiUrl(
+    "asset",
+    assetId.toString(),
+    "object",
+    objectId.toString(),
+    "columns",
+  );
+  const response = await axios.get(url);
   return response.data;
 }

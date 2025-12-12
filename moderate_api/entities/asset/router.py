@@ -164,6 +164,10 @@ class AssetObjectRowCountResponse(BaseModel):
     estimated: bool
 
 
+class AssetObjectColumnsResponse(BaseModel):
+    columns: list[str]
+
+
 router.add_api_route(
     "/search",
     search_assets_wrapper,
@@ -469,6 +473,93 @@ async def get_asset_object_row_count(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to calculate row count: {str(e)}",
+        ) from e
+
+
+def _get_columns_local(file_path: str, key: str) -> list[str]:
+    """Extract column names from a local CSV file using Polars."""
+    lower_key = key.lower()
+    try:
+        if lower_key.endswith(".csv"):
+            return pl.scan_csv(file_path).collect_schema().names()
+        else:
+            raise ValueError(f"Column extraction only supported for CSV files: {key}")
+    except Exception as e:
+        _logger.warning("Failed to extract columns for %s: %s", key, e)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Could not extract columns: {e}",
+        ) from e
+
+
+@router.get(
+    "/{id}/object/{object_id}/columns",
+    response_model=AssetObjectColumnsResponse,
+    tags=[_TAG],
+    summary="Get column names for a CSV asset object",
+)
+async def get_asset_object_columns(
+    *,
+    user: UserDep,
+    session: AsyncSessionDep,
+    s3: S3ClientDep,
+    id: int,
+    object_id: int,
+):
+    """Retrieves the column names for a CSV asset object.
+
+    Downloads the file and extracts column names using Polars.
+    Only supports CSV files.
+    """
+    user_selector = await build_selector(user=user, session=session)
+
+    the_asset = await read_one(
+        user=user,
+        entity=_ENTITY,
+        sql_model=Asset,
+        session=session,
+        entity_id=id,
+        user_selector=user_selector,
+    )
+
+    if not the_asset:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    select_object = select(UploadedS3Object).where(
+        UploadedS3Object.id == object_id,
+        UploadedS3Object.asset_id == id,
+    )
+    result_object = await session.execute(select_object)
+    the_object = result_object.scalar_one_or_none()
+
+    if not the_object:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    if not the_object.key.lower().endswith(".csv"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Column extraction is only supported for CSV files",
+        )
+
+    try:
+        with tempfile.NamedTemporaryFile() as tmp:
+            _logger.info("Downloading object %s to extract columns", the_object.key)
+            response = await s3.get_object(Bucket=the_object.bucket, Key=the_object.key)
+            async with response["Body"] as stream:
+                body_content = await stream.read()
+                tmp.write(body_content)
+                tmp.flush()
+
+            columns = _get_columns_local(tmp.name, the_object.key)
+            return AssetObjectColumnsResponse(columns=columns)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error("Failed to extract columns: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to extract columns: {str(e)}",
         ) from e
 
 

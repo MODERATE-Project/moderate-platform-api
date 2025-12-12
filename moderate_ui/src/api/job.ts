@@ -40,3 +40,40 @@ export async function getJob({
 
   return response.data;
 }
+
+export interface ListJobsParams {
+  jobType?: WorkflowJobType;
+  limit?: number;
+  offset?: number;
+}
+
+export async function listJobs({
+  jobType,
+  limit = 10,
+  offset = 0,
+}: ListJobsParams = {}): Promise<WorkflowJob[]> {
+  const params: Record<string, string> = {};
+
+  if (limit !== undefined) {
+    params.limit = limit.toString();
+  }
+
+  if (offset !== undefined) {
+    params.offset = offset.toString();
+  }
+
+  // Filter by job type at database level
+  // Backend handles enum normalization (converts "matrix_profile" → MATRIX_PROFILE)
+  if (jobType !== undefined) {
+    params.filters = JSON.stringify([
+      { field: "job_type", operator: "eq", value: jobType },
+    ]);
+  }
+
+  // Sort by created_at descending (most recent first)
+  params.sorts = JSON.stringify([{ field: "created_at", order: "desc" }]);
+
+  const response = await axios.get(buildApiUrl("job"), { params });
+
+  return response.data;
+}
