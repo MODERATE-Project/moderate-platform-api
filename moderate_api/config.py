@@ -55,6 +55,40 @@ class OpenMetadataService(BaseModel):
         return self.build_url("api", "v1", "tables", fqn, "tableProfile", "latest")
 
 
+class DivaSettings(BaseModel):
+    """Settings for DIVA data quality validation integration."""
+
+    enabled: bool = False
+    kafka_rest_url: str | None = None
+    quality_reporter_url: str | None = None
+    basic_auth_user: str | None = None
+    basic_auth_password: str | None = None
+    ingestion_topic: str = "data-ingestion-trigger"
+    supported_extensions: list[str] = ["csv", "json", "parquet"]
+    request_timeout: int = 30
+    presigned_url_ttl: int = 3600  # 1 hour default
+
+    def build_kafka_url(self, *parts: str) -> str:
+        """Build URL for Kafka REST Gateway."""
+        if not self.kafka_rest_url:
+            raise ValueError("kafka_rest_url is not configured")
+        return self.kafka_rest_url.strip("/") + "/" + "/".join(parts)
+
+    def build_reporter_url(self, *parts: str) -> str:
+        """Build URL for Quality Reporter API."""
+        if not self.quality_reporter_url:
+            raise ValueError("quality_reporter_url is not configured")
+        return self.quality_reporter_url.strip("/") + "/" + "/".join(parts)
+
+    def url_publish_topic(self) -> str:
+        """URL for publishing to Kafka ingestion topic."""
+        return self.build_kafka_url("topics", self.ingestion_topic)
+
+    def url_report(self) -> str:
+        """URL for fetching validation report."""
+        return self.build_reporter_url("report")
+
+
 class Settings(BaseSettings):
     class Config:
         env_prefix = _ENV_PREFIX
@@ -81,6 +115,7 @@ class Settings(BaseSettings):
 
     open_metadata_service: OpenMetadataService | None = None
     rabbit_router_url: str | None = None
+    diva: DivaSettings = DivaSettings()
 
     @property
     def role_admin(self) -> str:

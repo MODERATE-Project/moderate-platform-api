@@ -31,6 +31,7 @@ import {
   IconFileText,
   IconHome,
   IconReportSearch,
+  IconShieldCheck,
   IconTable,
 } from "@tabler/icons-react";
 import _ from "lodash";
@@ -43,6 +44,7 @@ import {
   IIdentity,
 } from "../../auth-provider/keycloak";
 import {
+  AssetObjectDataQualityTab,
   AssetObjectDescriptionTab,
   AssetObjectMetadataTab,
   AssetObjectProfileTab,
@@ -418,6 +420,10 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
                 >
                   {t("assetObjects.profile", "Profile")}
                 </Tabs.Tab>
+
+                <Tabs.Tab value="quality" icon={<IconShieldCheck size={16} />}>
+                  {t("assetObjects.dataQuality", "Data Quality")}
+                </Tabs.Tab>
               </Tabs.List>
 
               <Box pt="xl">
@@ -437,6 +443,14 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
                   <AssetObjectProfileTab
                     isLoading={isProfileLoading}
                     profile={profile}
+                  />
+                </Tabs.Panel>
+
+                <Tabs.Panel value="quality">
+                  <AssetObjectDataQualityTab
+                    assetId={assetModel.data.id}
+                    objectId={assetObjectModel.data.id}
+                    fileExtension={assetObjectModel.format || ""}
                   />
                 </Tabs.Panel>
               </Box>

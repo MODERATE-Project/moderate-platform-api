@@ -23,6 +23,8 @@ from sqlmodel import or_, select
 from moderate_api.authz.user import OptionalUserDep, User, UserDep
 from moderate_api.config import SettingsDep
 from moderate_api.db import AsyncSessionDep
+from moderate_api.diva import ValidationResult, ValidationStatus
+from moderate_api.diva_deps import DivaClientDep
 from moderate_api.entities.asset import trust_routes
 from moderate_api.entities.asset.models import (
     Asset,
@@ -695,3 +697,219 @@ async def update_asset_object(
     await session.refresh(the_asset_object)
 
     return the_asset_object
+
+
+# =============================================================================
+# DIVA Data Quality Validation Endpoints
+# =============================================================================
+
+
+class StartValidationResponse(BaseModel):
+    """Response from starting a validation job."""
+
+    dataset_id: str
+    message: str
+
+
+@router.get(
+    "/validation/supported-extensions",
+    response_model=list[str],
+    tags=[_TAG],
+    summary="Get supported file extensions for validation",
+)
+async def get_supported_extensions(
+    settings: SettingsDep,
+) -> list[str]:
+    """Return list of file extensions supported for data quality validation."""
+    return settings.diva.supported_extensions
+
+
+@router.post(
+    "/{id}/object/{object_id}/validate",
+    response_model=StartValidationResponse,
+    tags=[_TAG],
+    summary="Start data quality validation",
+)
+async def start_validation(
+    *,
+    user: UserDep,
+    session: AsyncSessionDep,
+    settings: SettingsDep,
+    s3: S3ClientDep,
+    diva: DivaClientDep,
+    id: int,
+    object_id: int,
+) -> StartValidationResponse:
+    """Trigger data quality validation for an asset object via DIVA.
+
+    This endpoint:
+    1. Verifies the user has access to the asset
+    2. Checks if the file extension is supported
+    3. Generates a presigned S3 URL for DIVA to access the file
+    4. Publishes the dataset to DIVA's Kafka ingestion topic
+
+    The validation runs asynchronously. Use the validation-status endpoint
+    to check progress and retrieve results.
+
+    Args:
+        id: Asset ID
+        object_id: Asset object ID
+
+    Returns:
+        StartValidationResponse with the dataset_id for tracking
+    """
+    user.enforce_raise(obj=_ENTITY.value, act=Actions.READ.value)
+    user_selector = await build_selector(user=user, session=session)
+
+    # Verify asset exists and user has access
+    the_asset = await read_one(
+        user=user,
+        entity=_ENTITY,
+        sql_model=Asset,
+        session=session,
+        entity_id=id,
+        user_selector=user_selector,
+    )
+
+    if not the_asset:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    # Find the specific object
+    select_object = select(UploadedS3Object).where(
+        UploadedS3Object.id == object_id,
+        UploadedS3Object.asset_id == id,
+    )
+    result_object = await session.execute(select_object)
+    the_object = result_object.scalar_one_or_none()
+
+    if not the_object:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Object {object_id} not found in asset {id}",
+        )
+
+    # Check if file extension is supported
+    if not diva.is_supported_extension(the_object.key):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File extension not supported for validation. Supported: {settings.diva.supported_extensions}",
+        )
+
+    # Generate presigned URL for DIVA to access the file
+    presigned_url = await s3.generate_presigned_url(
+        "get_object",
+        Params={"Bucket": the_object.bucket, "Key": the_object.key},
+        ExpiresIn=settings.diva.presigned_url_ttl,
+    )
+
+    # Generate dataset ID and publish to DIVA
+    dataset_id = diva.generate_dataset_id(asset_id=id, object_id=object_id)
+
+    try:
+        await diva.publish_for_validation(
+            s3_url=presigned_url,
+            dataset_id=dataset_id,
+        )
+    except Exception as exc:
+        _logger.error(
+            "Failed to publish dataset for validation: %s",
+            exc,
+            exc_info=exc,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Failed to start validation: {str(exc)}",
+        ) from exc
+
+    return StartValidationResponse(
+        dataset_id=dataset_id,
+        message="Validation started successfully. Use the validation-status endpoint to check progress.",
+    )
+
+
+async def _get_validation_status(
+    *,
+    user: OptionalUserDep,
+    session: AsyncSessionDep,
+    diva: DivaClientDep,
+    id: int,
+    object_id: int,
+) -> ValidationResult:
+    """Fetch current validation status and results from DIVA Quality Reporter.
+
+    This endpoint queries DIVA's Quality Reporter API for the current
+    validation status and results. Results update live as DIVA processes
+    the dataset row by row.
+
+    Args:
+        id: Asset ID
+        object_id: Asset object ID
+
+    Returns:
+        ValidationResult with current status and validation entries
+    """
+    # Verify the object exists (basic check, full authorization in select)
+    user_selector = user_asset_visibility_selector(user=user)
+    user_selector = user_selector if user_selector is not None else true()
+
+    stmt = (
+        select(UploadedS3Object, Asset)
+        .join(Asset, and_(Asset.id == UploadedS3Object.asset_id, user_selector))  # type: ignore
+        .where(
+            UploadedS3Object.id == object_id,  # type: ignore
+            UploadedS3Object.asset_id == id,  # type: ignore
+        )
+    )
+
+    result = await session.execute(stmt)
+    s3obj = result.scalars().one_or_none()
+
+    if not s3obj:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Object {object_id} not found in asset {id}",
+        )
+
+    # Check if file extension is supported
+    if not diva.is_supported_extension(s3obj.key):  # type: ignore
+        return ValidationResult(
+            status=ValidationStatus.UNSUPPORTED,
+            error_message="File extension not supported for validation",
+        )
+
+    # Fetch validation results from DIVA
+    dataset_id = diva.generate_dataset_id(asset_id=id, object_id=object_id)
+
+    try:
+        validation_result = await diva.get_validation_results(dataset_id=dataset_id)
+    except Exception as exc:
+        _logger.error(
+            "Failed to fetch validation results: %s",
+            exc,
+            exc_info=exc,
+        )
+        return ValidationResult(
+            status=ValidationStatus.FAILED,
+            error_message=f"Failed to fetch validation results: {str(exc)}",
+        )
+
+    return validation_result
+
+
+router.add_api_route(
+    "/{id}/object/{object_id}/validation-status",
+    _get_validation_status,
+    methods=["GET"],
+    response_model=ValidationResult,
+    tags=[_TAG],
+    summary="Get validation status and results",
+)
+
+router.add_api_route(
+    "/public/{id}/object/{object_id}/validation-status",
+    _get_validation_status,
+    methods=["GET"],
+    response_model=ValidationResult,
+    tags=[_TAG, Tags.PUBLIC.value],
+    summary="Get validation status and results (public)",
+)

@@ -1,0 +1,270 @@
+"""DIVA data quality validation client.
+
+This module provides the client interface for integrating with the DIVA
+(Data Integrity and Validation Architecture) platform for data quality validation.
+"""
+
+import logging
+from enum import Enum
+from typing import Any
+
+import httpx
+from pydantic import BaseModel, Field
+
+from moderate_api.config import DivaSettings
+
+_logger = logging.getLogger(__name__)
+
+
+class ValidationStatus(str, Enum):
+    """Status of a validation job."""
+
+    NOT_STARTED = "not_started"
+    IN_PROGRESS = "in_progress"
+    COMPLETE = "complete"
+    FAILED = "failed"
+    UNSUPPORTED = "unsupported"
+
+
+class ValidationEntry(BaseModel):
+    """A single validation result entry from DIVA Quality Reporter."""
+
+    validator: str = Field(description="Dataset identifier used in validation")
+    rule: str = Field(description="Validation rule type (missing, datatype, etc.)")
+    feature: str = Field(description="Data field being validated")
+    valid: int = Field(description="Count of valid values", ge=0)
+    fail: int = Field(description="Count of failed values", ge=0)
+
+    @property
+    def total(self) -> int:
+        """Total number of values checked."""
+        return self.valid + self.fail
+
+    @property
+    def pass_rate(self) -> float:
+        """Pass rate as percentage (0-100)."""
+        if self.total == 0:
+            return 0.0
+        return (self.valid / self.total) * 100
+
+
+class ValidationResult(BaseModel):
+    """Complete validation result with status and entries."""
+
+    status: ValidationStatus = Field(description="Current validation status")
+    entries: list[ValidationEntry] = Field(
+        default_factory=list, description="List of validation entries"
+    )
+    total_valid: int = Field(default=0, description="Sum of all valid counts", ge=0)
+    total_fail: int = Field(default=0, description="Sum of all fail counts", ge=0)
+    overall_pass_rate: float = Field(
+        default=0.0, description="Overall pass rate percentage", ge=0, le=100
+    )
+    error_message: str | None = Field(
+        default=None, description="Error message if validation failed"
+    )
+    processed_rows: int | None = Field(
+        default=None, description="Number of rows processed so far"
+    )
+
+    @classmethod
+    def from_entries(
+        cls,
+        entries: list[ValidationEntry],
+        status: ValidationStatus = ValidationStatus.COMPLETE,
+    ) -> "ValidationResult":
+        """Create ValidationResult from a list of entries."""
+        total_valid = sum(e.valid for e in entries)
+        total_fail = sum(e.fail for e in entries)
+        total = total_valid + total_fail
+        overall_pass_rate = (total_valid / total * 100) if total > 0 else 0.0
+
+        return cls(
+            status=status,
+            entries=entries,
+            total_valid=total_valid,
+            total_fail=total_fail,
+            overall_pass_rate=overall_pass_rate,
+        )
+
+
+class DivaClient:
+    """Client for DIVA Kafka REST Gateway and Quality Reporter APIs.
+
+    This client handles communication with two DIVA services:
+    1. Kafka REST Gateway - for publishing datasets for validation
+    2. Quality Reporter API - for fetching validation results
+
+    Args:
+        settings: DIVA configuration settings
+    """
+
+    # HTTP headers for Kafka REST API
+    KAFKA_CONTENT_TYPE = "application/vnd.kafka.json.v2+json"
+    KAFKA_ACCEPT = "application/vnd.kafka.v2+json"
+
+    def __init__(self, settings: DivaSettings):
+        """Initialize the DIVA client.
+
+        Args:
+            settings: DIVA configuration settings
+        """
+        self.settings = settings
+        self._auth: tuple[str, str] | None = None
+
+        if settings.basic_auth_user and settings.basic_auth_password:
+            self._auth = (settings.basic_auth_user, settings.basic_auth_password)
+
+    def generate_dataset_id(self, asset_id: int, object_id: int) -> str:
+        """Generate a deterministic dataset ID for DIVA.
+
+        Args:
+            asset_id: Asset ID
+            object_id: Asset object ID
+
+        Returns:
+            Deterministic dataset ID string
+        """
+        return f"moderate-asset-{asset_id}-object-{object_id}"
+
+    def is_supported_extension(self, filename: str) -> bool:
+        """Check if file extension is supported for validation.
+
+        Args:
+            filename: Filename or path to check
+
+        Returns:
+            True if extension is supported
+        """
+        if "." not in filename:
+            return False
+        ext = filename.rsplit(".", 1)[-1].lower()
+        return ext in self.settings.supported_extensions
+
+    async def publish_for_validation(
+        self,
+        s3_url: str,
+        dataset_id: str,
+    ) -> bool:
+        """Publish a dataset to Kafka for validation by DIVA.
+
+        Args:
+            s3_url: Presigned S3 URL for the dataset
+            dataset_id: Unique identifier for this dataset
+
+        Returns:
+            True if publish was successful
+
+        Raises:
+            httpx.HTTPStatusError: If the request fails
+        """
+        url = self.settings.url_publish_topic()
+
+        payload = {
+            "records": [
+                {
+                    "value": {
+                        "s3_url": s3_url,
+                        "dataset_id": dataset_id,
+                    }
+                }
+            ]
+        }
+
+        headers = {
+            "Content-Type": self.KAFKA_CONTENT_TYPE,
+            "Accept": self.KAFKA_ACCEPT,
+        }
+
+        _logger.info(
+            "Publishing dataset to DIVA: dataset_id=%s, url=%s",
+            dataset_id,
+            url,
+        )
+
+        async with httpx.AsyncClient(timeout=self.settings.request_timeout) as client:
+            response = await client.post(
+                url,
+                json=payload,
+                headers=headers,
+                auth=self._auth,  # type: ignore[arg-type]
+            )
+            response.raise_for_status()
+
+        _logger.info(
+            "Successfully published dataset to DIVA: dataset_id=%s",
+            dataset_id,
+        )
+        return True
+
+    async def get_validation_results(
+        self,
+        dataset_id: str,
+    ) -> ValidationResult:
+        """Fetch validation results from DIVA Quality Reporter.
+
+        Args:
+            dataset_id: Dataset identifier to fetch results for
+
+        Returns:
+            ValidationResult with current status and entries
+        """
+        url = self.settings.url_report()
+
+        _logger.debug(
+            "Fetching validation results from DIVA: dataset_id=%s, url=%s",
+            dataset_id,
+            url,
+        )
+
+        try:
+            async with httpx.AsyncClient(
+                timeout=self.settings.request_timeout
+            ) as client:
+                response = await client.get(url, auth=self._auth)
+                response.raise_for_status()
+                data: list[dict[str, Any]] = response.json()
+        except httpx.HTTPStatusError as e:
+            _logger.error(
+                "Failed to fetch validation results: dataset_id=%s, error=%s",
+                dataset_id,
+                str(e),
+            )
+            return ValidationResult(
+                status=ValidationStatus.FAILED,
+                error_message=f"Failed to fetch results: {e.response.status_code}",
+            )
+        except httpx.RequestError as e:
+            _logger.error(
+                "Request error fetching validation results: dataset_id=%s, error=%s",
+                dataset_id,
+                str(e),
+            )
+            return ValidationResult(
+                status=ValidationStatus.FAILED,
+                error_message=f"Request error: {str(e)}",
+            )
+
+        # Filter entries for this dataset_id
+        entries = []
+        for item in data:
+            if item.get("validator") == dataset_id:
+                entries.append(
+                    ValidationEntry(
+                        validator=item.get("validator", ""),
+                        rule=item.get("rule", ""),
+                        feature=item.get("feature", ""),
+                        valid=item.get("VALID", 0),
+                        fail=item.get("FAIL", 0),
+                    )
+                )
+
+        if not entries:
+            # No results found for this dataset - not started yet
+            return ValidationResult(status=ValidationStatus.NOT_STARTED)
+
+        # Determine status based on entries
+        # Note: DIVA processes data incrementally, so we consider it complete
+        # if we have any results. In a real scenario, you might need additional
+        # logic to determine if processing is still in progress.
+        return ValidationResult.from_entries(entries, status=ValidationStatus.COMPLETE)
