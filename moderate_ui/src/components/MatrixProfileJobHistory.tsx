@@ -3,6 +3,7 @@ import {
   Badge,
   Button,
   Card,
+  Code,
   Group,
   Skeleton,
   Stack,
@@ -19,6 +20,7 @@ import {
   IconHourglass,
   IconAlertTriangle,
   IconExternalLink,
+  IconTerminal,
 } from "@tabler/icons-react";
 import React, { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -41,6 +43,7 @@ const JobHistoryItem: React.FC<JobHistoryItemProps> = ({ job, onResume }) => {
   const isAbandoned = isJobAbandoned(job);
   const [assetObject, setAssetObject] = useState<any>(null);
   const [isLoadingAsset, setIsLoadingAsset] = useState(false);
+  const [showError, setShowError] = useState(false);
 
   useEffect(() => {
     if (!job.arguments?.uploaded_s3_object_id) {
@@ -259,8 +262,37 @@ const JobHistoryItem: React.FC<JobHistoryItemProps> = ({ job, onResume }) => {
                 {t("Get Results")}
               </Button>
             )}
+            {!isRunning && hasError && (
+              <Button
+                size="xs"
+                variant="light"
+                color="red"
+                leftIcon={<IconExclamationCircle size={14} />}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowError(!showError);
+                }}
+              >
+                {showError ? t("Hide Error") : t("View Error")}
+              </Button>
+            )}
           </Group>
         </Group>
+
+        {/* Expandable error details section */}
+        {showError && hasError && (
+          <Card shadow="sm" p="sm" radius="md" withBorder ml={44}>
+            <Group mb="xs" spacing="xs">
+              <IconTerminal size="1em" />
+              <Text weight={500} size="sm" color="red">
+                {t("Error details")}
+              </Text>
+            </Group>
+            <Code block style={{ fontSize: "0.75rem", whiteSpace: "pre-wrap" }}>
+              {job.results?.error}
+            </Code>
+          </Card>
+        )}
       </Stack>
     </Card>
   );
@@ -374,6 +406,11 @@ export const MatrixProfileJobHistory: React.FC<
                   <Title order={6} color="blue">
                     {t("In Progress")}
                   </Title>
+                  <Text size="xs" color="dimmed" mb="xs">
+                    {t(
+                      "Jobs currently being processed. Click 'View Progress' to monitor.",
+                    )}
+                  </Text>
                   {runningJobs.map((job) => (
                     <JobHistoryItem
                       key={job.id}
@@ -388,6 +425,11 @@ export const MatrixProfileJobHistory: React.FC<
                   <Title order={6} color="orange">
                     {t("Abandoned")}
                   </Title>
+                  <Text size="xs" color="dimmed" mb="xs">
+                    {t(
+                      "Jobs running for over 24 hours without completion. These may have encountered an issue.",
+                    )}
+                  </Text>
                   {abandonedJobs.map((job) => (
                     <JobHistoryItem
                       key={job.id}
@@ -410,6 +452,11 @@ export const MatrixProfileJobHistory: React.FC<
                   >
                     {t("Completed")}
                   </Title>
+                  <Text size="xs" color="dimmed" mb="xs">
+                    {t(
+                      "Finished jobs. Download results or view details for successfully completed runs.",
+                    )}
+                  </Text>
                   {completedJobs.slice(0, 5).map((job) => (
                     <JobHistoryItem
                       key={job.id}

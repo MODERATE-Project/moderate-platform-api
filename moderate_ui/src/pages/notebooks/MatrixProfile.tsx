@@ -26,7 +26,7 @@ import {
   IconTerminal,
   IconVariable,
 } from "@tabler/icons-react";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getAssetObjectById, getAssetObjectColumns } from "../../api/assets";
 import { createMatrixProfileJob, getJob } from "../../api/job";
@@ -315,6 +315,9 @@ export const MatrixProfileWorkflow: React.FC<Props> = ({
   // Flag to prevent step management effect from running during resume
   const [isResuming, setIsResuming] = useState<boolean>(false);
 
+  // Ref for scrolling to workflow results when resuming a job
+  const workflowResultsRef = useRef<HTMLDivElement>(null);
+
   const onDatasetSelect = useCallback(
     (item: DatasetSelectOption | undefined) => {
       setSelectedAsset(item);
@@ -439,6 +442,14 @@ export const MatrixProfileWorkflow: React.FC<Props> = ({
 
     // Clear resuming flag after state is set
     setIsResuming(false);
+
+    // Scroll to the workflow results section after state updates
+    setTimeout(() => {
+      workflowResultsRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 100);
   }, []);
 
   useEffect(() => {
@@ -495,56 +506,58 @@ export const MatrixProfileWorkflow: React.FC<Props> = ({
         onResumeJob={handleResumeJob}
         refreshTrigger={refreshHistoryTrigger}
       />
-      <Stepper active={activeStep} breakpoint="sm">
-        <Stepper.Step
-          label={t("Dataset")}
-          description={t("Pick a CSV dataset")}
-        >
-          <AssetObjectPicker
-            onSelect={onDatasetSelect}
-            fileFormat="csv"
-            showFormatInfo={true}
-          />
-        </Stepper.Step>
-        <Stepper.Step
-          label={t("Variable")}
-          description={
-            analysisVariable ? (
-              <Code>{analysisVariable}</Code>
-            ) : (
-              t("Input the analysis variable")
-            )
-          }
-        >
-          {selectedAsset && (
-            <MatrixProfileWorkflowAnalysisVariableStep
-              {...{
-                selectedAsset,
-                variableInputValue,
-                setVariableInputValue,
-                setAnalysisVariable,
-              }}
+      <div ref={workflowResultsRef}>
+        <Stepper active={activeStep} breakpoint="sm">
+          <Stepper.Step
+            label={t("Dataset")}
+            description={t("Pick a CSV dataset")}
+          >
+            <AssetObjectPicker
+              onSelect={onDatasetSelect}
+              fileFormat="csv"
+              showFormatInfo={true}
             />
-          )}
-        </Stepper.Step>
-        <Stepper.Step
-          label={t("Processing")}
-          description={t("Wait for the job to finish")}
-          loading={isJobRunning}
-        >
-          {selectedAsset && analysisVariable && (
-            <MatrixProfileWorkflowResultsStep
-              {...{
-                selectedAsset,
-                workflowJob,
-                onJobSubmit,
-                isJobRunning,
-                elapsedTime,
-              }}
-            />
-          )}
-        </Stepper.Step>
-      </Stepper>
+          </Stepper.Step>
+          <Stepper.Step
+            label={t("Variable")}
+            description={
+              analysisVariable ? (
+                <Code>{analysisVariable}</Code>
+              ) : (
+                t("Input the analysis variable")
+              )
+            }
+          >
+            {selectedAsset && (
+              <MatrixProfileWorkflowAnalysisVariableStep
+                {...{
+                  selectedAsset,
+                  variableInputValue,
+                  setVariableInputValue,
+                  setAnalysisVariable,
+                }}
+              />
+            )}
+          </Stepper.Step>
+          <Stepper.Step
+            label={t("Processing")}
+            description={t("Wait for the job to finish")}
+            loading={isJobRunning}
+          >
+            {selectedAsset && analysisVariable && (
+              <MatrixProfileWorkflowResultsStep
+                {...{
+                  selectedAsset,
+                  workflowJob,
+                  onJobSubmit,
+                  isJobRunning,
+                  elapsedTime,
+                }}
+              />
+            )}
+          </Stepper.Step>
+        </Stepper>
+      </div>
     </Stack>
   );
 };
