@@ -1,26 +1,28 @@
 import {
   Accordion,
+  ActionIcon,
   Badge,
-  Button,
-  Card,
+  Box,
   Code,
   Group,
   Skeleton,
+  Spoiler,
   Stack,
   Text,
-  ThemeIcon,
   Title,
+  Tooltip,
+  createStyles,
 } from "@mantine/core";
 import {
-  IconCheck,
+  IconChevronDown,
+  IconChevronUp,
   IconClock,
   IconDownload,
-  IconExclamationCircle,
-  IconHistory,
-  IconHourglass,
-  IconAlertTriangle,
   IconExternalLink,
+  IconEye,
+  IconHistory,
   IconTerminal,
+  IconVariable,
 } from "@tabler/icons-react";
 import React, { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -31,19 +33,93 @@ import { getAssetObjectById } from "../api/assets";
 import { AssetObjectModel } from "../api/types";
 import { routes } from "../utils/routes";
 
+const useStyles = createStyles((theme) => ({
+  jobItem: {
+    padding: theme.spacing.sm,
+    borderRadius: theme.radius.sm,
+    border: `1px solid ${
+      theme.colorScheme === "dark" ? theme.colors.dark[4] : theme.colors.gray[3]
+    }`,
+    backgroundColor:
+      theme.colorScheme === "dark" ? theme.colors.dark[6] : theme.white,
+    "&:hover": {
+      backgroundColor:
+        theme.colorScheme === "dark"
+          ? theme.colors.dark[5]
+          : theme.colors.gray[0],
+    },
+    transition: "background-color 150ms ease",
+  },
+  mainRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: theme.spacing.sm,
+    flexWrap: "nowrap",
+    [theme.fn.smallerThan("sm")]: {
+      flexWrap: "wrap",
+      gap: theme.spacing.xs,
+    },
+  },
+  infoSection: {
+    flex: 1,
+    minWidth: 0,
+    display: "flex",
+    alignItems: "center",
+    gap: theme.spacing.xs,
+    [theme.fn.smallerThan("sm")]: {
+      flexBasis: "100%",
+      order: 1,
+    },
+  },
+  metaSection: {
+    display: "flex",
+    alignItems: "center",
+    gap: theme.spacing.xs,
+    flexShrink: 0,
+    [theme.fn.smallerThan("sm")]: {
+      order: 3,
+      flexBasis: "100%",
+      justifyContent: "space-between",
+    },
+  },
+  actionsSection: {
+    display: "flex",
+    alignItems: "center",
+    gap: 4,
+    flexShrink: 0,
+    [theme.fn.smallerThan("sm")]: {
+      order: 2,
+    },
+  },
+  truncatedText: {
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  errorSection: {
+    marginTop: theme.spacing.xs,
+    padding: theme.spacing.xs,
+    backgroundColor:
+      theme.colorScheme === "dark"
+        ? theme.colors.dark[7]
+        : theme.colors.gray[0],
+    borderRadius: theme.radius.sm,
+  },
+}));
+
 interface JobHistoryItemProps {
   job: WorkflowJob;
   onResume: (job: WorkflowJob) => void;
 }
 
 const JobHistoryItem: React.FC<JobHistoryItemProps> = ({ job, onResume }) => {
+  const { classes } = useStyles();
   const { t } = useTranslation();
   const isRunning = !job.finalised_at;
   const hasError = job.results?.error;
   const isAbandoned = isJobAbandoned(job);
   const [assetObject, setAssetObject] = useState<any>(null);
   const [isLoadingAsset, setIsLoadingAsset] = useState(false);
-  const [showError, setShowError] = useState(false);
 
   useEffect(() => {
     if (!job.arguments?.uploaded_s3_object_id) {
@@ -63,238 +139,194 @@ const JobHistoryItem: React.FC<JobHistoryItemProps> = ({ job, onResume }) => {
       });
   }, [job]);
 
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr);
+  const formatTimestamp = (dateStr: string): string => {
+    const date = new Date(dateStr.endsWith("Z") ? dateStr : dateStr + "Z");
+    return date.toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
-
-  const createdDate = formatDate(job.created_at);
-  const finalisedDate = job.finalised_at ? formatDate(job.finalised_at) : null;
 
   const getStatusBadge = (): React.ReactNode => {
     if (isAbandoned) {
       return (
-        <Badge
-          color="orange"
-          variant="light"
-          leftSection={<IconAlertTriangle size={12} />}
-        >
+        <Badge size="sm" color="orange" variant="light">
           {t("Abandoned")}
         </Badge>
       );
     }
     if (isRunning) {
       return (
-        <Badge
-          color="blue"
-          variant="light"
-          leftSection={<IconHourglass size={12} />}
-        >
+        <Badge size="sm" color="blue" variant="light">
           {t("Running")}
         </Badge>
       );
     }
     if (hasError) {
       return (
-        <Badge color="red" variant="light">
+        <Badge size="sm" color="red" variant="light">
           {t("Failed")}
         </Badge>
       );
     }
     return (
-      <Badge color="green" variant="light">
+      <Badge size="sm" color="green" variant="light">
         {t("Completed")}
       </Badge>
     );
   };
 
-  const getStatusIcon = (): React.ReactNode => {
-    if (isAbandoned) {
-      return <IconAlertTriangle size="1rem" />;
-    }
-    if (isRunning) {
-      return <IconHourglass size="1rem" />;
-    }
-    if (hasError) {
-      return <IconExclamationCircle size="1rem" />;
-    }
-    return <IconCheck size="1rem" />;
-  };
-
-  const assetName = assetObject?.asset?.name || t("Loading...");
+  const assetName = assetObject?.asset?.name;
   const objectName = assetObject
     ? new AssetObjectModel(assetObject).humanName
-    : t("Loading...");
-  const analysisVariable = job.arguments?.analysis_variable || t("Unknown");
+    : null;
+  const analysisVariable = job.arguments?.analysis_variable;
   const assetId = assetObject?.asset_id;
   const objectId = assetObject?.id;
 
-  // Build link to asset object details page using the correct route helper
   const assetObjectDetailsUrl =
     assetId && objectId ? routes.assetObjectShow(assetId, objectId) : null;
 
+  const displayName =
+    assetName && objectName ? `${assetName} / ${objectName}` : null;
+
   return (
-    <Card withBorder p="md" radius="md">
-      <Stack spacing="sm">
-        {/* Header: Status Icon + Title + Badge */}
-        <Group position="apart" align="flex-start" noWrap>
-          <Group spacing="sm" noWrap style={{ flex: 1, minWidth: 0 }}>
-            <ThemeIcon
-              size="lg"
-              variant="light"
-              color={
-                isAbandoned
-                  ? "orange"
-                  : isRunning
-                    ? "blue"
-                    : hasError
-                      ? "red"
-                      : "green"
-              }
+    <Box className={classes.jobItem}>
+      {/* Main row */}
+      <div className={classes.mainRow}>
+        {/* Info section: Name + Variable */}
+        <div className={classes.infoSection}>
+          {isLoadingAsset ? (
+            <Skeleton height={16} width={200} />
+          ) : (
+            <Tooltip
+              label={displayName}
+              disabled={!displayName}
+              position="top-start"
+              withinPortal
             >
-              {getStatusIcon()}
-            </ThemeIcon>
-            <Stack spacing={4} style={{ flex: 1, minWidth: 0 }}>
-              {isLoadingAsset ? (
-                <>
-                  <Skeleton height={20} width="70%" />
-                  <Skeleton height={16} width="50%" mt={4} />
-                </>
-              ) : (
-                <>
-                  {/* Asset and Object Name */}
-                  <Group spacing="xs" noWrap style={{ minWidth: 0 }}>
-                    <Text
-                      size="sm"
-                      weight={600}
-                      color="dark"
-                      style={{
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        flex: 1,
-                      }}
-                      title={assetName}
-                    >
-                      {assetName}
-                    </Text>
-                  </Group>
-                  <Text
-                    size="sm"
-                    color="dimmed"
-                    style={{
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                    title={objectName}
-                  >
-                    {objectName}
-                  </Text>
-                </>
-              )}
-            </Stack>
-          </Group>
-          {getStatusBadge()}
-        </Group>
+              <Text
+                size="sm"
+                weight={500}
+                className={classes.truncatedText}
+                style={{ maxWidth: 300 }}
+              >
+                {displayName || t("Loading...")}
+              </Text>
+            </Tooltip>
+          )}
+          {analysisVariable && (
+            <Tooltip label={t("Analysis variable")} withinPortal>
+              <Badge
+                size="xs"
+                variant="outline"
+                color="gray"
+                leftSection={<IconVariable size={10} />}
+              >
+                {analysisVariable}
+              </Badge>
+            </Tooltip>
+          )}
+        </div>
 
-        {/* Analysis Variable */}
-        {!isLoadingAsset && (
-          <Group spacing="xs" pl={44}>
-            <Text size="xs" color="dimmed" weight={500}>
-              {t("Variable")}:
-            </Text>
-            <Badge size="sm" variant="dot" color="gray">
-              {analysisVariable}
-            </Badge>
-          </Group>
-        )}
-
-        {/* Footer: Timestamp + Actions */}
-        <Group position="apart" align="center" pl={44}>
-          <Group spacing="xs" noWrap>
-            <IconClock size="0.875rem" style={{ opacity: 0.5 }} />
-            <Text size="xs" color="dimmed">
-              {createdDate.toLocaleString()}
-              {finalisedDate && ` → ${finalisedDate.toLocaleString()}`}
-            </Text>
-          </Group>
-
-          <Group spacing="xs" noWrap>
-            {assetObjectDetailsUrl && (
-              <Button
+        {/* Actions section */}
+        <div className={classes.actionsSection}>
+          {assetObjectDetailsUrl && (
+            <Tooltip label={t("View dataset")} withinPortal>
+              <ActionIcon
                 component="a"
                 href={assetObjectDetailsUrl}
                 target="_blank"
-                size="xs"
-                variant="light"
-                color="blue"
-                leftIcon={<IconExternalLink size={14} />}
-                onClick={(e) => e.stopPropagation()}
+                size="sm"
+                variant="subtle"
+                color="gray"
+                onClick={(e: React.MouseEvent) => e.stopPropagation()}
               >
-                {t("View Dataset")}
-              </Button>
-            )}
-            {isRunning && !isAbandoned && (
-              <Button
-                size="xs"
+                <IconExternalLink size={16} />
+              </ActionIcon>
+            </Tooltip>
+          )}
+          {isRunning && !isAbandoned && (
+            <Tooltip label={t("View progress")} withinPortal>
+              <ActionIcon
+                size="sm"
                 variant="light"
                 color="blue"
-                leftIcon={<IconHourglass size={14} />}
                 onClick={(e) => {
                   e.stopPropagation();
                   onResume(job);
                 }}
               >
-                {t("View Progress")}
-              </Button>
-            )}
-            {!isRunning && !hasError && job.extended_results?.download_url && (
-              <Button
-                size="xs"
-                variant="light"
-                color="green"
-                leftIcon={<IconDownload size={14} />}
+                <IconEye size={16} />
+              </ActionIcon>
+            </Tooltip>
+          )}
+          {!isRunning && !hasError && job.extended_results?.download_url && (
+            <Tooltip label={t("Download results")} withinPortal>
+              <ActionIcon
                 component="a"
                 href={job.extended_results.download_url}
                 target="_blank"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {t("Get Results")}
-              </Button>
-            )}
-            {!isRunning && hasError && (
-              <Button
-                size="xs"
+                size="sm"
                 variant="light"
-                color="red"
-                leftIcon={<IconExclamationCircle size={14} />}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowError(!showError);
-                }}
+                color="green"
+                onClick={(e: React.MouseEvent) => e.stopPropagation()}
               >
-                {showError ? t("Hide Error") : t("View Error")}
-              </Button>
-            )}
-          </Group>
-        </Group>
+                <IconDownload size={16} />
+              </ActionIcon>
+            </Tooltip>
+          )}
+        </div>
 
-        {/* Expandable error details section */}
-        {showError && hasError && (
-          <Card shadow="sm" p="sm" radius="md" withBorder ml={44}>
-            <Group mb="xs" spacing="xs">
-              <IconTerminal size="1em" />
-              <Text weight={500} size="sm" color="red">
-                {t("Error details")}
+        {/* Meta section: Timestamp + Badge */}
+        <div className={classes.metaSection}>
+          <Group spacing={4} noWrap>
+            <IconClock size={12} style={{ opacity: 0.5 }} />
+            <Text size="xs" color="dimmed">
+              {formatTimestamp(job.created_at)}
+            </Text>
+          </Group>
+          {getStatusBadge()}
+        </div>
+      </div>
+
+      {/* Error section with Spoiler */}
+      {hasError && (
+        <Spoiler
+          maxHeight={0}
+          showLabel={
+            <Group spacing={4} mt="xs">
+              <IconChevronDown size={14} />
+              <Text size="xs" color="red">
+                {t("Show error details")}
               </Text>
             </Group>
-            <Code block style={{ fontSize: "0.75rem", whiteSpace: "pre-wrap" }}>
+          }
+          hideLabel={
+            <Group spacing={4} mt="xs">
+              <IconChevronUp size={14} />
+              <Text size="xs" color="red">
+                {t("Hide error details")}
+              </Text>
+            </Group>
+          }
+        >
+          <Box className={classes.errorSection}>
+            <Group spacing={4} mb={4}>
+              <IconTerminal size={12} />
+              <Text size="xs" weight={500} color="red">
+                {t("Error")}
+              </Text>
+            </Group>
+            <Code block style={{ fontSize: "0.7rem", whiteSpace: "pre-wrap" }}>
               {job.results?.error}
             </Code>
-          </Card>
-        )}
-      </Stack>
-    </Card>
+          </Box>
+        </Spoiler>
+      )}
+    </Box>
   );
 };
 
@@ -427,7 +459,7 @@ export const MatrixProfileJobHistory: React.FC<
                   </Title>
                   <Text size="xs" color="dimmed" mb="xs">
                     {t(
-                      "Jobs running for over 24 hours without completion. These may have encountered an issue.",
+                      "Jobs running for too long without completion. These may have encountered an issue.",
                     )}
                   </Text>
                   {abandonedJobs.map((job) => (
