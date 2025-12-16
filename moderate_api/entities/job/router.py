@@ -102,19 +102,30 @@ async def _add_matrix_profile_extended_results(
 
     output_bucket = workflow_job.results.get("output_bucket")
     output_key = workflow_job.results.get("output_key")
+    error_logs_key = workflow_job.results.get("error_logs_key")
 
-    if not output_bucket or not output_key:
+    if not output_bucket:
         return None
 
-    download_url = await s3.generate_presigned_url(
-        "get_object",
-        Params={"Bucket": output_bucket, "Key": output_key},
-        ExpiresIn=expiration_secs,
-    )
+    extended_results = {}
 
-    return {
-        "download_url": download_url,
-    }
+    if output_key:
+        download_url = await s3.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": output_bucket, "Key": output_key},
+            ExpiresIn=expiration_secs,
+        )
+        extended_results["download_url"] = download_url
+
+    if error_logs_key:
+        error_logs_download_url = await s3.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": output_bucket, "Key": error_logs_key},
+            ExpiresIn=expiration_secs,
+        )
+        extended_results["error_logs_download_url"] = error_logs_download_url
+
+    return extended_results if extended_results else None
 
 
 @router.get("/{id}", response_model=WorkflowJobRead, tags=[_TAG])

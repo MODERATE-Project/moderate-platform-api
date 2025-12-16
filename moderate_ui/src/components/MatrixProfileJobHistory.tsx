@@ -278,6 +278,21 @@ const JobHistoryItem: React.FC<JobHistoryItemProps> = ({ job, onResume }) => {
               </ActionIcon>
             </Tooltip>
           )}
+          {!isRunning && job.extended_results?.error_logs_download_url && (
+            <Tooltip label={t("Download error logs")} withinPortal>
+              <ActionIcon
+                component="a"
+                href={job.extended_results.error_logs_download_url}
+                target="_blank"
+                size="sm"
+                variant="light"
+                color="red"
+                onClick={(e: React.MouseEvent) => e.stopPropagation()}
+              >
+                <IconDownload size={16} />
+              </ActionIcon>
+            </Tooltip>
+          )}
         </div>
 
         {/* Meta section: Timestamp + Badge */}
@@ -356,7 +371,7 @@ export const MatrixProfileJobHistory: React.FC<
       // Fetch extended results for completed jobs to get download URLs
       const jobsWithExtendedResults = await Promise.all(
         result.map(async (job) => {
-          if (job.finalised_at && !job.results?.error) {
+          if (job.finalised_at) {
             try {
               return await getJob({
                 jobId: job.id,
