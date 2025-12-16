@@ -5,11 +5,13 @@ import {
   Card,
   Code,
   Group,
+  List,
   Loader,
   Progress,
   Select,
   Stack,
   Stepper,
+  Table,
   Text,
   ThemeIcon,
   Timeline,
@@ -22,6 +24,7 @@ import {
   IconDownload,
   IconExclamationCircle,
   IconHourglass,
+  IconInfoCircle,
   IconPlayerPlay,
   IconTerminal,
   IconVariable,
@@ -37,6 +40,89 @@ import {
   DatasetSelectOption,
 } from "../../components/AssetObjectPicker";
 import { MatrixProfileJobHistory } from "../../components/MatrixProfileJobHistory";
+
+const MatrixProfileDatasetInfo = () => {
+  const { t } = useTranslation();
+  return (
+    <Alert
+      icon={<IconInfoCircle size="1rem" />}
+      title={t("Dataset Requirements")}
+      color="blue"
+      variant="light"
+      mb="md"
+    >
+      <Stack spacing="sm">
+        <Text size="sm">
+          {t(
+            "The tool requires a CSV file containing electrical power timeseries for a specific building, meter or energy system. The CSV must be in a wide table format:",
+          )}
+        </Text>
+
+        <div style={{ overflowX: "auto" }}>
+          <Table
+            fontSize="xs"
+            striped
+            withBorder
+            withColumnBorders
+            style={{ backgroundColor: "rgba(255, 255, 255, 0.5)" }}
+          >
+            <thead>
+              <tr>
+                <th>timestamp</th>
+                <th>column_1</th>
+                <th>temp</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>2019-01-01 00:00:00</td>
+                <td>116.4</td>
+                <td>-0.6</td>
+              </tr>
+              <tr>
+                <td>2019-01-01 00:15:00</td>
+                <td>125.6</td>
+                <td>-0.9</td>
+              </tr>
+              <tr>
+                <td>2019-01-01 00:30:00</td>
+                <td>119.2</td>
+                <td>-1.2</td>
+              </tr>
+            </tbody>
+          </Table>
+        </div>
+
+        <Text size="sm" weight={500}>
+          {t("Required columns:")}
+        </Text>
+        <List size="sm" spacing="xs" type="unordered">
+          <List.Item>
+            <Code>timestamp</Code> ({t("case sensitive")}):{" "}
+            {t(
+              "The timestamp of the observation in the format YYYY-MM-DD HH:MM:SS (UTC). It will be internally transformed into the index.",
+            )}
+          </List.Item>
+          <List.Item>
+            <Code>temp</Code> ({t("case sensitive")}):{" "}
+            {t(
+              "Contains the external air temperature in Celsius degrees. Required for thermal sensitive analysis.",
+            )}
+          </List.Item>
+          <List.Item>
+            <Text span italic>
+              column_1
+            </Text>
+            :{" "}
+            {t(
+              "Arbitrary column name(s) referring to electrical load time series. You will specify the variable name in the next step.",
+            )}
+          </List.Item>
+        </List>
+      </Stack>
+    </Alert>
+  );
+};
 
 const MatrixProfileWorkflowAnalysisVariableStep: React.FC<{
   selectedAsset: DatasetSelectOption;
@@ -512,10 +598,11 @@ export const MatrixProfileWorkflow: React.FC<Props> = ({
             label={t("Dataset")}
             description={t("Pick a CSV dataset")}
           >
+            <MatrixProfileDatasetInfo />
             <AssetObjectPicker
               onSelect={onDatasetSelect}
               fileFormat="csv"
-              showFormatInfo={true}
+              showFormatInfo={false}
             />
           </Stepper.Step>
           <Stepper.Step

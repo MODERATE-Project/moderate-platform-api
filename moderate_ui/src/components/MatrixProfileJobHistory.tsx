@@ -189,9 +189,6 @@ const JobHistoryItem: React.FC<JobHistoryItemProps> = ({ job, onResume }) => {
   const assetObjectDetailsUrl =
     assetId && objectId ? routes.assetObjectShow(assetId, objectId) : null;
 
-  const displayName =
-    assetName && objectName ? `${assetName} / ${objectName}` : null;
-
   return (
     <Box className={classes.jobItem}>
       {/* Main row */}
@@ -199,35 +196,50 @@ const JobHistoryItem: React.FC<JobHistoryItemProps> = ({ job, onResume }) => {
         {/* Info section: Name + Variable */}
         <div className={classes.infoSection}>
           {isLoadingAsset ? (
-            <Skeleton height={16} width={200} />
+            <Stack spacing={4}>
+              <Skeleton height={16} width={150} />
+              <Skeleton height={12} width={100} />
+            </Stack>
           ) : (
-            <Tooltip
-              label={displayName}
-              disabled={!displayName}
-              position="top-start"
-              withinPortal
-            >
-              <Text
-                size="sm"
-                weight={500}
-                className={classes.truncatedText}
-                style={{ maxWidth: 300 }}
-              >
-                {displayName || t("Loading...")}
-              </Text>
-            </Tooltip>
-          )}
-          {analysisVariable && (
-            <Tooltip label={t("Analysis variable")} withinPortal>
-              <Badge
-                size="xs"
-                variant="outline"
-                color="gray"
-                leftSection={<IconVariable size={10} />}
-              >
-                {analysisVariable}
-              </Badge>
-            </Tooltip>
+            <Stack spacing={0} style={{ minWidth: 0 }}>
+              <Group spacing="xs" noWrap>
+                <Tooltip
+                  label={objectName || t("Loading...")}
+                  position="top-start"
+                  withinPortal
+                  disabled={!objectName}
+                >
+                  <Text
+                    size="sm"
+                    weight={500}
+                    className={classes.truncatedText}
+                  >
+                    {objectName || t("Loading...")}
+                  </Text>
+                </Tooltip>
+                {analysisVariable && (
+                  <Tooltip label={t("Analysis variable")} withinPortal>
+                    <Badge
+                      size="xs"
+                      variant="outline"
+                      color="gray"
+                      leftSection={<IconVariable size={10} />}
+                    >
+                      {analysisVariable}
+                    </Badge>
+                  </Tooltip>
+                )}
+              </Group>
+              {assetName && (
+                <Text
+                  size="xs"
+                  color="dimmed"
+                  className={classes.truncatedText}
+                >
+                  {assetName}
+                </Text>
+              )}
+            </Stack>
           )}
         </div>
 
@@ -405,10 +417,14 @@ export const MatrixProfileJobHistory: React.FC<
     (job) => !job.finalised_at && isJobAbandoned(job),
   );
   const completedJobs = jobs.filter((job) => job.finalised_at);
+  const failedJobs = completedJobs.filter((job) => job.results?.error);
+  const successfulJobs = completedJobs.filter((job) => !job.results?.error);
 
-  // Auto-expand if there are running or abandoned jobs
+  // Auto-expand if there are running, abandoned or failed jobs
   const defaultValue =
-    runningJobs.length > 0 || abandonedJobs.length > 0 ? "history" : undefined;
+    runningJobs.length > 0 || abandonedJobs.length > 0 || failedJobs.length > 0
+      ? "history"
+      : undefined;
 
   return (
     <Accordion
@@ -423,6 +439,11 @@ export const MatrixProfileJobHistory: React.FC<
             {runningJobs.length > 0 && (
               <Badge color="blue" size="sm" variant="filled">
                 {runningJobs.length} {t("running")}
+              </Badge>
+            )}
+            {failedJobs.length > 0 && (
+              <Badge color="red" size="sm" variant="filled">
+                {failedJobs.length} {t("failed")}
               </Badge>
             )}
             {abandonedJobs.length > 0 && (
@@ -467,6 +488,7 @@ export const MatrixProfileJobHistory: React.FC<
                   ))}
                 </>
               )}
+
               {abandonedJobs.length > 0 && (
                 <>
                   <Title order={6} color="orange">
@@ -486,25 +508,52 @@ export const MatrixProfileJobHistory: React.FC<
                   ))}
                 </>
               )}
-              {completedJobs.length > 0 && (
+
+              {failedJobs.length > 0 && (
                 <>
                   <Title
                     order={6}
-                    color="dimmed"
+                    color="red"
                     mt={
                       runningJobs.length > 0 || abandonedJobs.length > 0
                         ? "sm"
                         : 0
                     }
                   >
-                    {t("Completed")}
+                    {t("Failed")}
                   </Title>
                   <Text size="xs" color="dimmed" mb="xs">
-                    {t(
-                      "Finished jobs. Download results or view details for successfully completed runs.",
-                    )}
+                    {t("Jobs that encountered errors during execution.")}
                   </Text>
-                  {completedJobs.slice(0, 5).map((job) => (
+                  {failedJobs.map((job) => (
+                    <JobHistoryItem
+                      key={job.id}
+                      job={job}
+                      onResume={onResumeJob}
+                    />
+                  ))}
+                </>
+              )}
+
+              {successfulJobs.length > 0 && (
+                <>
+                  <Title
+                    order={6}
+                    color="green"
+                    mt={
+                      runningJobs.length > 0 ||
+                      abandonedJobs.length > 0 ||
+                      failedJobs.length > 0
+                        ? "sm"
+                        : 0
+                    }
+                  >
+                    {t("Successful")}
+                  </Title>
+                  <Text size="xs" color="dimmed" mb="xs">
+                    {t("Successfully completed jobs.")}
+                  </Text>
+                  {successfulJobs.map((job) => (
                     <JobHistoryItem
                       key={job.id}
                       job={job}
