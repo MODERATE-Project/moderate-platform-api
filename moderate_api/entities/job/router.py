@@ -67,11 +67,13 @@ async def query_workflow_jobs(
     *,
     response: Response,
     user: UserDep,
+    s3: S3ClientDep,
     session: AsyncSessionDep,
     offset: int = 0,
     limit: int = Query(default=100, le=100),
     filters: str | None = CrudFiltersQuery,
     sorts: str | None = CrudSortsQuery,
+    with_extended_results: str | None = Query(default=None),
 ):
     user_selector = await build_selector(user=user, session=session)
 
@@ -81,7 +83,7 @@ async def query_workflow_jobs(
         session=session,
     )
 
-    return await read_many(
+    jobs = await read_many(
         user=user,
         entity=_ENTITY,
         sql_model=WorkflowJob,
@@ -92,6 +94,28 @@ async def query_workflow_jobs(
         json_filters=filters,
         json_sorts=sorts,
     )
+
+    if not with_extended_results:
+        return jobs
+
+    result_jobs = []
+    for job in jobs:
+        job_read = WorkflowJobRead.model_validate(job)
+
+        if (
+            job.finalised_at
+            and job.results
+            and job.job_type == WorkflowJobTypes.MATRIX_PROFILE
+        ):
+            extended_results = await _add_matrix_profile_extended_results(
+                workflow_job=job, s3=s3, expiration_secs=7200
+            )
+            if extended_results:
+                job_read.extended_results = extended_results
+
+        result_jobs.append(job_read)
+
+    return result_jobs
 
 
 async def _add_matrix_profile_extended_results(

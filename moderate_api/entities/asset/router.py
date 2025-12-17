@@ -612,6 +612,67 @@ async def query_asset_objects(
     )
 
 
+@router.get(
+    "/object/batch",
+    response_model=list[UploadedS3ObjectReadWithAsset],
+    tags=[_TAG],
+)
+async def batch_get_asset_objects(
+    *,
+    user: OptionalUserDep,
+    session: AsyncSessionDep,
+    ids: str = Query(..., description="Comma-separated object IDs"),
+):
+    """Batch fetch asset objects by IDs with their parent asset information.
+
+    Args:
+        ids: Comma-separated list of object IDs (e.g., "1,2,3").
+
+    Returns:
+        List of asset objects with their parent asset information.
+    """
+    try:
+        object_ids = [
+            int(id_str.strip()) for id_str in ids.split(",") if id_str.strip()
+        ]
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid ID format. IDs must be integers.",
+        ) from e
+
+    if not object_ids:
+        return []
+
+    user_selector = user_asset_visibility_selector(user=user)
+    user_selector = user_selector if user_selector is not None else true()
+
+    stmt = (
+        select(UploadedS3Object, Asset)
+        .join(Asset, and_(Asset.id == UploadedS3Object.asset_id, user_selector))
+        .where(UploadedS3Object.id.in_(object_ids))
+    )
+
+    result = await session.execute(stmt)
+    rows = result.all()
+
+    ret = []
+    for obj, asset in rows:
+        obj_read = UploadedS3ObjectRead(**obj.model_dump())
+        asset_read = AssetRead(
+            **asset.model_dump(exclude={"objects"}),
+            objects=[obj_read],
+        )
+        ret.append(
+            UploadedS3ObjectReadWithAsset(
+                **obj_read.model_dump(),
+                asset=asset_read,
+            )
+        )
+
+    return ret
+
+
 @router.post("/{id}/object", response_model=UploadedS3Object, tags=[_TAG])
 async def upload_object(
     user: UserDep,

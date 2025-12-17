@@ -52,6 +52,36 @@ export async function getAssetObjectById(
   };
 }
 
+/**
+ * Batch fetch asset objects by IDs with their parent asset information.
+ * Uses the batch endpoint to minimize HTTP requests.
+ *
+ * @param objectIds - Array of object IDs to fetch
+ * @returns Map of object ID to UploadedS3Object for O(1) lookup
+ */
+export async function getAssetObjectsByIds(
+  objectIds: (number | string)[],
+): Promise<Map<number, UploadedS3Object>> {
+  if (objectIds.length === 0) {
+    return new Map();
+  }
+
+  const params = {
+    ids: objectIds.map(Number).join(","),
+  };
+
+  const response = await axios.get(buildApiUrl("asset", "object", "batch"), {
+    params,
+  });
+
+  const objectsMap = new Map<number, UploadedS3Object>();
+  for (const obj of response.data) {
+    objectsMap.set(obj.id, obj);
+  }
+
+  return objectsMap;
+}
+
 export async function uploadObject({
   assetId,
   file,

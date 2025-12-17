@@ -45,12 +45,14 @@ export interface ListJobsParams {
   jobType?: WorkflowJobType;
   limit?: number;
   offset?: number;
+  withExtendedResults?: boolean;
 }
 
 export async function listJobs({
   jobType,
   limit = 10,
   offset = 0,
+  withExtendedResults,
 }: ListJobsParams = {}): Promise<WorkflowJob[]> {
   const params: Record<string, string> = {};
 
@@ -72,6 +74,11 @@ export async function listJobs({
 
   // Sort by created_at descending (most recent first)
   params.sorts = JSON.stringify([{ field: "created_at", order: "desc" }]);
+
+  // Request extended results (e.g., download URLs) for completed jobs
+  if (withExtendedResults) {
+    params.with_extended_results = "true";
+  }
 
   const response = await axios.get(buildApiUrl("job"), { params });
 

@@ -26,11 +26,15 @@ import {
 } from "@tabler/icons-react";
 import React, { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { getJob, listJobs } from "../api/job";
-import { WorkflowJob, WorkflowJobType } from "../api/types";
+import { listJobs } from "../api/job";
+import {
+  AssetObjectModel,
+  UploadedS3Object,
+  WorkflowJob,
+  WorkflowJobType,
+} from "../api/types";
 import { isJobAbandoned } from "../utils/jobs";
-import { getAssetObjectById } from "../api/assets";
-import { AssetObjectModel } from "../api/types";
+import { getAssetObjectsByIds } from "../api/assets";
 import { routes } from "../utils/routes";
 
 const useStyles = createStyles((theme) => ({
@@ -110,34 +114,21 @@ const useStyles = createStyles((theme) => ({
 interface JobHistoryItemProps {
   job: WorkflowJob;
   onResume: (job: WorkflowJob) => void;
+  assetObject?: UploadedS3Object;
+  isLoadingAsset?: boolean;
 }
 
-const JobHistoryItem: React.FC<JobHistoryItemProps> = ({ job, onResume }) => {
+const JobHistoryItem: React.FC<JobHistoryItemProps> = ({
+  job,
+  onResume,
+  assetObject,
+  isLoadingAsset = false,
+}) => {
   const { classes } = useStyles();
   const { t } = useTranslation();
   const isRunning = !job.finalised_at;
   const hasError = job.results?.error;
   const isAbandoned = isJobAbandoned(job);
-  const [assetObject, setAssetObject] = useState<any>(null);
-  const [isLoadingAsset, setIsLoadingAsset] = useState(false);
-
-  useEffect(() => {
-    if (!job.arguments?.uploaded_s3_object_id) {
-      return;
-    }
-
-    setIsLoadingAsset(true);
-    getAssetObjectById(job.arguments.uploaded_s3_object_id)
-      .then((obj) => {
-        setAssetObject(obj);
-      })
-      .catch((err) => {
-        console.error("Failed to fetch asset object for job", err);
-      })
-      .finally(() => {
-        setIsLoadingAsset(false);
-      });
-  }, [job]);
 
   const formatTimestamp = (dateStr: string): string => {
     const date = new Date(dateStr.endsWith("Z") ? dateStr : dateStr + "Z");
@@ -367,7 +358,11 @@ export const MatrixProfileJobHistory: React.FC<
 > = ({ onResumeJob, refreshTrigger }) => {
   const { t } = useTranslation();
   const [jobs, setJobs] = useState<WorkflowJob[]>([]);
+  const [assetObjectsMap, setAssetObjectsMap] = useState<
+    Map<number, UploadedS3Object>
+  >(new Map());
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingAssets, setIsLoadingAssets] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchJobs = useCallback(async () => {
@@ -375,34 +370,34 @@ export const MatrixProfileJobHistory: React.FC<
     setError(null);
 
     try {
+      // Single request with extended results included (batch optimization)
       const result = await listJobs({
         jobType: WorkflowJobType.MATRIX_PROFILE,
         limit: 10,
+        withExtendedResults: true,
       });
 
-      // Fetch extended results for completed jobs to get download URLs
-      const jobsWithExtendedResults = await Promise.all(
-        result.map(async (job) => {
-          if (job.finalised_at) {
-            try {
-              return await getJob({
-                jobId: job.id,
-                withExtendedResults: true,
-              });
-            } catch {
-              return job;
-            }
-          }
-          return job;
-        }),
-      );
+      setJobs(result);
 
-      setJobs(jobsWithExtendedResults);
+      // Collect unique asset object IDs from all jobs
+      const objectIds = result
+        .map((job) => job.arguments?.uploaded_s3_object_id)
+        .filter((id): id is number => id !== undefined && id !== null);
+
+      // Single batch request for all asset objects (batch optimization)
+      if (objectIds.length > 0) {
+        setIsLoadingAssets(true);
+        const uniqueObjectIds = [...new Set(objectIds)];
+        const objectsMap = await getAssetObjectsByIds(uniqueObjectIds);
+        setAssetObjectsMap(objectsMap);
+        setIsLoadingAssets(false);
+      }
     } catch (err) {
       console.error("Failed to fetch job history", err);
       setError(t("Failed to load job history"));
     } finally {
       setIsLoading(false);
+      setIsLoadingAssets(false);
     }
   }, [t]);
 
@@ -484,6 +479,10 @@ export const MatrixProfileJobHistory: React.FC<
                       key={job.id}
                       job={job}
                       onResume={onResumeJob}
+                      assetObject={assetObjectsMap.get(
+                        job.arguments?.uploaded_s3_object_id,
+                      )}
+                      isLoadingAsset={isLoadingAssets}
                     />
                   ))}
                 </>
@@ -504,6 +503,10 @@ export const MatrixProfileJobHistory: React.FC<
                       key={job.id}
                       job={job}
                       onResume={onResumeJob}
+                      assetObject={assetObjectsMap.get(
+                        job.arguments?.uploaded_s3_object_id,
+                      )}
+                      isLoadingAsset={isLoadingAssets}
                     />
                   ))}
                 </>
@@ -530,6 +533,10 @@ export const MatrixProfileJobHistory: React.FC<
                       key={job.id}
                       job={job}
                       onResume={onResumeJob}
+                      assetObject={assetObjectsMap.get(
+                        job.arguments?.uploaded_s3_object_id,
+                      )}
+                      isLoadingAsset={isLoadingAssets}
                     />
                   ))}
                 </>
@@ -558,6 +565,10 @@ export const MatrixProfileJobHistory: React.FC<
                       key={job.id}
                       job={job}
                       onResume={onResumeJob}
+                      assetObject={assetObjectsMap.get(
+                        job.arguments?.uploaded_s3_object_id,
+                      )}
+                      isLoadingAsset={isLoadingAssets}
                     />
                   ))}
                 </>
