@@ -93,6 +93,7 @@ async def query_workflow_jobs(
         user_selector=user_selector,
         json_filters=filters,
         json_sorts=sorts,
+        skip_admin_bypass=True,
     )
 
     if not with_extended_results:

@@ -390,6 +390,7 @@ async def read_many(
     json_filters: str | None = None,
     json_sorts: str | None = None,
     select_in_load: list[InstrumentedAttribute] | None = None,
+    skip_admin_bypass: bool = False,
 ):
     """Reusable helper function to read many entities."""
 
@@ -410,7 +411,9 @@ async def read_many(
         _logger.debug("Applying selectinload: %s", item)
         statement = statement.options(selectinload(item))
 
-    must_apply_user_selector = (user and not user.is_admin) or not user
+    must_apply_user_selector = (
+        user and (not user.is_admin or skip_admin_bypass)
+    ) or not user
 
     if must_apply_user_selector and user_selector:
         _logger.debug("Applying user selector as WHERE: %s", user_selector)
