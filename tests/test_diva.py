@@ -2,10 +2,12 @@
 
 import logging
 import pprint
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
+from moderate_api.config import DivaSettings
 from moderate_api.diva import (
     DivaClient,
     ValidationEntry,
@@ -65,8 +67,6 @@ class TestDivaClient:
 
     def test_generate_dataset_id(self) -> None:
         """Test dataset ID generation."""
-        from moderate_api.config import DivaSettings
-
         settings = DivaSettings()
         client = DivaClient(settings)
 
@@ -75,8 +75,6 @@ class TestDivaClient:
 
     def test_is_supported_extension(self) -> None:
         """Test file extension support checking."""
-        from moderate_api.config import DivaSettings
-
         settings = DivaSettings(supported_extensions=["csv", "json", "parquet"])
         client = DivaClient(settings)
 
@@ -88,6 +86,73 @@ class TestDivaClient:
         assert client.is_supported_extension("data.txt") is False
         assert client.is_supported_extension("noextension") is False
 
+    def test_url_report_with_validator(self) -> None:
+        """Test that url_report includes validator query param."""
+        settings = DivaSettings(quality_reporter_url="https://reporter.example.com")
+        url = settings.url_report(validator="my-dataset-123")
+        assert url == (
+            "https://reporter.example.com/report" "?validator=my-dataset-123"
+        )
+
+    def test_url_report_without_validator(self) -> None:
+        """Test that url_report has no query param when None."""
+        settings = DivaSettings(quality_reporter_url="https://reporter.example.com")
+        url = settings.url_report()
+        assert url == "https://reporter.example.com/report"
+        assert "?" not in url
+
+    def test_url_report_validator_special_chars(self) -> None:
+        """Test that url_report properly encodes special characters."""
+        settings = DivaSettings(quality_reporter_url="https://reporter.example.com")
+        url = settings.url_report(validator="asset 1&object=2")
+        assert "validator=asset+1%26object%3D2" in url
+
+    @pytest.mark.asyncio
+    async def test_get_validation_results_invalid_json(self) -> None:
+        """Test that invalid JSON from Quality Reporter returns FAILED."""
+        settings = DivaSettings(quality_reporter_url="https://reporter.example.com")
+        client = DivaClient(settings)
+
+        mock_response = MagicMock()
+        mock_response.raise_for_status = MagicMock()
+        mock_response.json.side_effect = ValueError("Invalid JSON")
+
+        mock_http_client = AsyncMock()
+        mock_http_client.get.return_value = mock_response
+        mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
+        mock_http_client.__aexit__ = AsyncMock(return_value=False)
+
+        with patch(
+            "moderate_api.diva.httpx.AsyncClient", return_value=mock_http_client
+        ):
+            result = await client.get_validation_results("test-dataset")
+
+        assert result.status == ValidationStatus.FAILED
+        assert "Invalid response from Quality Reporter" in result.error_message
+
+    @pytest.mark.asyncio
+    async def test_get_validation_results_passes_validator_param(self) -> None:
+        """Test that get_validation_results passes dataset_id to url_report."""
+        settings = DivaSettings(quality_reporter_url="https://reporter.example.com")
+        client = DivaClient(settings)
+
+        mock_response = MagicMock()
+        mock_response.raise_for_status = MagicMock()
+        mock_response.json.return_value = []
+
+        mock_http_client = AsyncMock()
+        mock_http_client.get.return_value = mock_response
+        mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
+        mock_http_client.__aexit__ = AsyncMock(return_value=False)
+
+        with patch(
+            "moderate_api.diva.httpx.AsyncClient", return_value=mock_http_client
+        ):
+            await client.get_validation_results("my-dataset-42")
+
+        called_url = mock_http_client.get.call_args[0][0]
+        assert "validator=my-dataset-42" in called_url
+
 
 class TestMockDivaClient:
     """Test mock DIVA client implementation."""
@@ -95,8 +160,6 @@ class TestMockDivaClient:
     @pytest.mark.asyncio
     async def test_mock_client_not_started(self) -> None:
         """Test that mock client returns not_started for unknown datasets."""
-        from moderate_api.config import DivaSettings
-
         settings = DivaSettings()
         client = MockDivaClient(settings)
 
@@ -107,8 +170,6 @@ class TestMockDivaClient:
     @pytest.mark.asyncio
     async def test_mock_client_publish_starts_validation(self) -> None:
         """Test that publishing starts validation."""
-        from moderate_api.config import DivaSettings
-
         settings = DivaSettings()
         client = MockDivaClient(settings)
         dataset_id = "test-dataset-123"
@@ -124,8 +185,6 @@ class TestMockDivaClient:
     @pytest.mark.asyncio
     async def test_mock_client_validation_progress(self) -> None:
         """Test that mock validation progresses over multiple calls."""
-        from moderate_api.config import DivaSettings
-
         settings = DivaSettings()
         client = MockDivaClient(settings)
         dataset_id = "test-dataset-progress"
@@ -158,8 +217,6 @@ class TestMockDivaClient:
     @pytest.mark.asyncio
     async def test_mock_client_entries_structure(self) -> None:
         """Test that mock validation entries have correct structure."""
-        from moderate_api.config import DivaSettings
-
         settings = DivaSettings()
         client = MockDivaClient(settings)
         dataset_id = "test-dataset-structure"

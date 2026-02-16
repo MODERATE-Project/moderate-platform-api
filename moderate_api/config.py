@@ -1,5 +1,6 @@
 import logging
 from typing import Annotated
+from urllib.parse import urlencode
 
 from fastapi import Depends
 from pydantic import BaseModel, BaseSettings
@@ -86,9 +87,19 @@ class DivaSettings(BaseModel):
         """URL for publishing to Kafka ingestion topic."""
         return self.build_kafka_url("topics", self.ingestion_topic)
 
-    def url_report(self) -> str:
-        """URL for fetching validation report."""
-        return self.build_reporter_url("report")
+    def url_report(self, validator: str | None = None) -> str:
+        """URL for fetching validation report.
+
+        Args:
+            validator: Optional validator ID to filter results server-side.
+
+        Returns:
+            Report URL, optionally with validator query parameter.
+        """
+        base_url = self.build_reporter_url("report")
+        if validator is not None:
+            return f"{base_url}?{urlencode({'validator': validator})}"
+        return base_url
 
 
 class Settings(BaseSettings):

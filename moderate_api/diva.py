@@ -232,7 +232,7 @@ class DivaClient:
         Returns:
             ValidationResult with current status and entries
         """
-        url = self.settings.url_report()
+        url = self.settings.url_report(validator=dataset_id)
 
         _logger.debug(
             "Fetching validation results from DIVA: dataset_id=%s, url=%s",
@@ -269,6 +269,23 @@ class DivaClient:
                 error_message=f"Request error: {str(e)}",
                 last_requested_at=start_time,
             )
+        except (ValueError, KeyError) as e:
+            _logger.error(
+                "Invalid response from Quality Reporter: dataset_id=%s, error=%s",
+                dataset_id,
+                str(e),
+            )
+            return ValidationResult(
+                status=ValidationStatus.FAILED,
+                error_message=f"Invalid response from Quality Reporter: {str(e)}",
+                last_requested_at=start_time,
+            )
+
+        _logger.debug(
+            "Received %d entries from Quality Reporter for dataset_id=%s",
+            len(data),
+            dataset_id,
+        )
 
         # Filter entries for this dataset_id
         entries = []
