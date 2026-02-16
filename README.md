@@ -16,7 +16,13 @@ The API is based on the following main building blocks:
 
 ## Development
 
-You can deploy a local development instance of the API that includes APISIX and Keycloak in an effort to faithfully reproduce the production environment. There are two options when it comes to the object storage service, the first one is using the built-in local MinIO instance, and the second one is using the S3-compatible interface of a GCS bucket .
+You can deploy a local development instance of the API that includes APISIX and Keycloak in an effort to reproduce the production environment.
+
+Configuration load order for local development:
+
+1. `Taskfile.yml` loads `.env.dev` first.
+2. Missing values fall back to `.env.dev.default`.
+3. The API reads `MODERATE_API_*` variables via `moderate_api/config.py` (nested fields use `__`, for example `MODERATE_API_S3__BUCKET`).
 
 To use **MinIO**:
 
@@ -30,8 +36,6 @@ To use **GCS** (or any other S3-compatible service):
 ACCESS_KEY="TheAccessKey" SECRET_KEY="TheSecretKey" task dev-up-gcs
 ```
 
-> Other S3-related environment variables such as the region and endpoint can be found in the Taskfile. The default configuration points to the S3-compatible interface of GCS.
-
 ### Create an admin user
 
 You need to create an admin user in Keycloak to be able to log in to the API. Moreover, this user needs to be assigned a specific role. Check the Compose file and `.env.dev.default` for the URLs and default credentials.
@@ -42,4 +46,134 @@ The role name is defined in the `moderate_api/config.py` file. Please note that 
 
 The [MODERATE Trust Services](https://github.com/MODERATE-Project/trust-service) are an _optional_ dependency of the platform API. When this dependency is available, the API can use it to check the integrity of datasets via cryptographic proofs stored in the IOTA DLT.
 
-To deploy a development instance of the Trust Services along with the API you need to create a `.env.trust.local` file that defines the `L2_PRIVATE_KEY` environment variable. Please check the Trust Services repository for further information.
+To deploy a development instance of the Trust Services along with the API:
+
+1. Ensure `.env.trust` is present (tracked in this repo).
+2. Create `.env.trust.local` with `L2_PRIVATE_KEY`.
+3. Run `task trust-up` (or `task dev-up`, which calls it).
+
+## Environment Variables Reference
+
+### API runtime (`moderate_api/config.py` + `moderate_api/__init__.py`)
+
+| Variable                                        | Default                                                                            | Required                                  | Impact                                                                               |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------ |
+| `LOG_LEVEL`                                     | `INFO` (`DEBUG` in `docker-compose-dev.yml`)                                       | No                                        | Global API log verbosity.                                                            |
+| `MODERATE_API_POSTGRES_URL`                     | `postgresql+asyncpg://postgres:postgres@localhost:5432/moderateapi/`               | Yes for DB-backed endpoints               | Database connection string used by the API engine.                                   |
+| `MODERATE_API_OPENID_CONFIG_URL`                | `https://keycloak.moderate.cloud/realms/moderate/.well-known/openid-configuration` | Yes unless token verification is disabled | OpenID discovery URL used to fetch JWKS for JWT verification.                        |
+| `MODERATE_API_DISABLE_TOKEN_VERIFICATION`       | `false`                                                                            | No                                        | If `true`, JWT signature verification is skipped (unsafe outside local/dev testing). |
+| `MODERATE_API_VERBOSE_ERRORS`                   | `false`                                                                            | No                                        | If `true`, DB exception details are returned in API responses.                       |
+| `MODERATE_API_MAX_OBJECTS_PER_ASSET`            | `100`                                                                              | No                                        | Upload limit per asset (`POST /asset/{id}/object`).                                  |
+| `MODERATE_API_VISUALIZATION_MAX_SIZE_MIB`       | `10.0`                                                                             | No                                        | Max file size before visualization endpoint starts sampling.                         |
+| `MODERATE_API_VISUALIZATION_EXPIRES_IN_SECONDS` | `1800`                                                                             | No                                        | Presigned URL TTL used by visualization endpoint.                                    |
+| `MODERATE_API_RESPONSE_TOTAL_COUNT_HEADER`      | `X-Total-Count`                                                                    | No                                        | Header key used for total count in paginated responses.                              |
+| `MODERATE_API_RABBIT_ROUTER_URL`                | unset                                                                              | No                                        | RabbitMQ connection URL; if unset, workflow job submission is unavailable.           |
+
+#### API nested settings
+
+| Variable                                           | Default                          | Required                                  | Impact                                                              |
+| -------------------------------------------------- | -------------------------------- | ----------------------------------------- | ------------------------------------------------------------------- |
+| `MODERATE_API_S3__ACCESS_KEY`                      | unset                            | Yes for S3-backed endpoints               | S3/MinIO access key.                                                |
+| `MODERATE_API_S3__SECRET_KEY`                      | unset                            | Yes for S3-backed endpoints               | S3/MinIO secret key.                                                |
+| `MODERATE_API_S3__ENDPOINT_URL`                    | `https://storage.googleapis.com` | No                                        | S3-compatible endpoint (MinIO, GCS S3, AWS, etc.).                  |
+| `MODERATE_API_S3__USE_SSL`                         | `true`                           | No                                        | Enables HTTPS for S3 client connections.                            |
+| `MODERATE_API_S3__REGION`                          | unset                            | Yes for S3-backed endpoints               | S3 region passed to client creation.                                |
+| `MODERATE_API_S3__BUCKET`                          | unset                            | Yes for S3-backed endpoints               | Bucket used for asset object storage and retrieval.                 |
+| `MODERATE_API_OAUTH_NAMES__API_GW_CLIENT_ID`       | `apisix`                         | No                                        | Prefix for client-level roles extracted from JWT.                   |
+| `MODERATE_API_OAUTH_NAMES__ROLE_ADMIN`             | `api_admin`                      | No                                        | Admin role suffix used for authorization checks.                    |
+| `MODERATE_API_OAUTH_NAMES__ROLE_BASIC_ACCESS`      | `api_basic_access`               | No                                        | Basic access role suffix required for non-admin users.              |
+| `MODERATE_API_TRUST_SERVICE__ENDPOINT_URL`         | unset                            | Required only for Trust routes            | Base URL for DID/proof operations in Trust integration endpoints.   |
+| `MODERATE_API_OPEN_METADATA_SERVICE__ENDPOINT_URL` | unset                            | Required only for metadata profile routes | Base URL for OpenMetadata API calls.                                |
+| `MODERATE_API_OPEN_METADATA_SERVICE__BEARER_TOKEN` | unset                            | Required only for metadata profile routes | Bearer token for OpenMetadata requests.                             |
+| `MODERATE_API_DIVA__ENABLED`                       | `false`                          | No                                        | If `true`, API uses real DIVA client; otherwise uses mock behavior. |
+| `MODERATE_API_DIVA__KAFKA_REST_URL`                | unset                            | Required when DIVA enabled                | Kafka REST base URL used to publish validation jobs.                |
+| `MODERATE_API_DIVA__QUALITY_REPORTER_URL`          | unset                            | Required when DIVA enabled                | Quality Reporter base URL used to fetch validation results.         |
+| `MODERATE_API_DIVA__BASIC_AUTH_USER`               | unset                            | No                                        | Optional basic auth user for DIVA endpoints.                        |
+| `MODERATE_API_DIVA__BASIC_AUTH_PASSWORD`           | unset                            | No                                        | Optional basic auth password for DIVA endpoints.                    |
+| `MODERATE_API_DIVA__INGESTION_TOPIC`               | `data-ingestion-trigger`         | No                                        | Kafka topic used for validation trigger messages.                   |
+| `MODERATE_API_DIVA__SUPPORTED_EXTENSIONS`          | `["csv"]`                        | No                                        | Allowed file extensions for validation endpoints.                   |
+| `MODERATE_API_DIVA__REQUEST_TIMEOUT`               | `30`                             | No                                        | HTTP timeout (seconds) for DIVA requests.                           |
+| `MODERATE_API_DIVA__PRESIGNED_URL_TTL`             | `3600`                           | No                                        | Presigned URL TTL (seconds) used for DIVA ingestion.                |
+| `MODERATE_API_DIVA__COMPLETION_THRESHOLD`          | `0.90`                           | No                                        | "Good enough" completion ratio for long-running DIVA validation.    |
+| `MODERATE_API_DIVA__COMPLETION_TIMEOUT_SECONDS`    | `300`                            | No                                        | Timeout window used with completion threshold logic.                |
+
+### Local dev stack (`.env.dev.default`, `Taskfile.yml`, `docker-compose-dev.yml`)
+
+| Variable                         | Default                                 | Impact                                                                           |
+| -------------------------------- | --------------------------------------- | -------------------------------------------------------------------------------- |
+| `KEYCLOAK_ADMIN_USER`            | `admin`                                 | Bootstrap Keycloak admin account.                                                |
+| `KEYCLOAK_ADMIN_PASSWORD`        | `admin`                                 | Bootstrap Keycloak admin password.                                               |
+| `KEYCLOAK_POSTGRES_DBNAME`       | `keycloak`                              | DB name used by Keycloak container (same postgres server as API dev stack).      |
+| `POSTGRES_USER`                  | `postgres`                              | Dev PostgreSQL user (also used in API DB URL composition).                       |
+| `POSTGRES_PASSWORD`              | `postgres`                              | Dev PostgreSQL password.                                                         |
+| `MINIO_ROOT_USER`                | `minio`                                 | MinIO root user and default S3 access key for local storage.                     |
+| `MINIO_ROOT_PASSWORD`            | `minio123`                              | MinIO root password and default S3 secret key for local storage.                 |
+| `MINIO_REGION`                   | `eu-central-1`                          | MinIO region and default API S3 region.                                          |
+| `MINIO_BUCKET_NAME`              | `moderate`                              | Bucket created by `minio_setup` and used by API uploads.                         |
+| `RABBITMQ_DEFAULT_USER`          | `guest`                                 | Dev RabbitMQ username.                                                           |
+| `RABBITMQ_DEFAULT_PASS`          | `guest`                                 | Dev RabbitMQ password.                                                           |
+| `TRUST_MONGO_ROOT_USER`          | `root`                                  | Mongo root user for local Trust stack.                                           |
+| `TRUST_MONGO_ROOT_PASS`          | `rootpassword`                          | Mongo root password for local Trust stack.                                       |
+| `DEV_KEYCLOAK_PORT`              | `8989` (Task default)                   | Host port exposed for local Keycloak.                                            |
+| `DEV_POSTGRES_PORT`              | `5433` (Task default)                   | Host port exposed for local PostgreSQL.                                          |
+| `DEV_RABBIT_PORT`                | `5672` (Compose fallback)               | Host port exposed for RabbitMQ AMQP.                                             |
+| `DEV_RABBIT_MANAGEMENT_PORT`     | `15672` (Compose fallback)              | Host port exposed for RabbitMQ management UI.                                    |
+| `KC_HOSTNAME_URL`                | `http://localhost:${DEV_KEYCLOAK_PORT}` | Keycloak frontend URL override to avoid token-introspection hostname mismatches. |
+| `ACTIONS_MINIO_IMAGE_LOCAL`      | `minio-gh-actions`                      | Image tag used by `task push-minio-image`.                                       |
+| `ACTIONS_MINIO_IMAGE_REMOTE`     | `agmangas/minio-gh-actions`             | Remote image name for GitHub Actions MinIO image.                                |
+| `ACTIONS_MINIO_IMAGE_REMOTE_TAG` | `latest`                                | Remote image tag for GitHub Actions MinIO image.                                 |
+| `COMPOSE_PROJECT_NAME`           | `moderateapi`                           | Docker Compose project prefix for the dev stack (container/network naming).      |
+
+Compose also defines container-specific aliases derived from the variables above:
+
+- `KEYCLOAK_ADMIN`, `KEYCLOAK_ADMIN_PASS`, `KC_DB_USERNAME`, `KC_DB_PASSWORD`, `KC_DB_URL_DATABASE` (Keycloak container internals)
+- `MINIO_USER`, `MINIO_PASS`, `MINIO_URL`, `BUCKET_NAME` (used by `minio_setup` container script)
+- `MONGO_INITDB_ROOT_USERNAME`, `MONGO_INITDB_ROOT_PASSWORD` (Trust Mongo bootstrap names)
+
+### Trust service runtime (`.env.trust` + `.env.trust.local`)
+
+These variables are consumed by the Trust service container (not by FastAPI directly):
+
+| Variable group       | Variables                                                                                                                                                                          | Impact                                                        |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Runtime + binding    | `RUST_LOG`, `RUST_BACKTRACE`, `ADDR_D`, `ADDR_L`, `PORT`, `LOG_FILE_NAME`                                                                                                          | Log level, backtrace behavior, and service bind settings.     |
+| IOTA L1 endpoints    | `NODE_URL`, `FAUCET_URL`, `EXPLORER_URL`                                                                                                                                           | L1 node/faucet/explorer integration for DID/proof operations. |
+| IOTA L2 endpoints    | `RPC_PROVIDER`, `CHAIN_ID`, `ASSET_FACTORY_ADDR`, `L2_PRIVATE_KEY`                                                                                                                 | L2 transaction execution and signing configuration.           |
+| Wallet/key storage   | `STRONGHOLD_PASSWORD`, `MNEMONIC`, `WALLET_DB_PATH`, `STRONGHOLD_SNAPSHOT_PATH`, `KEY_STORAGE_STRONGHOLD_SNAPSHOT_PATH`, `KEY_STORAGE_STRONGHOLD_PASSWORD`, `KEY_STORAGE_MNEMONIC` | Wallet/identity key material and storage paths.               |
+| Trust compose wiring | `MONGO_PORT`, `TRUST_PORT`, `MONGO_DATABASE`, `IPFS_PORT`, `TRUST_MONGO_ROOT_USER`, `TRUST_MONGO_ROOT_PASS`                                                                        | Local Trust stack ports, Mongo DB name, and credentials.      |
+
+### Tests and CI
+
+| Variable                                                                                                                                                      | Default/usage               | Impact                                                                                                  |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `TESTS_POSTGRES_URL`                                                                                                                                          | set by Task/CI              | Tests DB URL (used directly by `tests/db.py` and mapped into `MODERATE_API_POSTGRES_URL` during tests). |
+| `TESTS_MINIO_ROOT_USER` / `TESTS_MINIO_ROOT_PASSWORD`                                                                                                         | set by Task/CI              | Test S3 credentials.                                                                                    |
+| `TESTS_MINIO_ENDPOINT_URL` / `TESTS_MINIO_USE_SSL` / `TESTS_MINIO_REGION`                                                                                     | set by Task/CI              | Test S3 endpoint/SSL/region.                                                                            |
+| `TESTS_MINIO_BUCKET`                                                                                                                                          | set in CI, optional locally | Bucket name used by tests when building API env.                                                        |
+| `TESTS_MINIO_BUCKET_NAME`                                                                                                                                     | set by Task/Compose         | Bucket name for test MinIO container setup (different surface from `TESTS_MINIO_BUCKET`).               |
+| `TESTS_RABBIT_URL`                                                                                                                                            | set by Task/CI              | RabbitMQ URL mapped to `MODERATE_API_RABBIT_ROUTER_URL` in tests.                                       |
+| `TESTS_POSTGRES_PUBLIC_PORT`, `TESTS_MINIO_PUBLIC_PORT`, `TESTS_MINIO_PUBLIC_PORT_CONSOLE`, `TESTS_RABBIT_PUBLIC_PORT`, `TESTS_RABBIT_PUBLIC_PORT_MANAGEMENT` | set by Task/Compose         | Host port mappings for test dependency containers.                                                      |
+| `TESTS_POSTGRES_USER`, `TESTS_POSTGRES_PASSWORD`, `TESTS_POSTGRES_DB`, `TESTS_RABBIT_DEFAULT_USER`, `TESTS_RABBIT_DEFAULT_PASS`                               | set by Task/Compose         | Container bootstrap credentials for test dependencies.                                                  |
+| `MIGRATIONS_SQLALCHEMY_URL`                                                                                                                                   | no default                  | Optional override for Alembic DB URL (`task alembic-upgrade`).                                          |
+| `PYTEST_VERSION`                                                                                                                                              | provided by pytest runtime  | Internal switch used to skip trigram index creation in tests.                                           |
+
+### UI and utility scripts
+
+| Variable                                    | Default                                                                                        | Impact                                                               |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `MODERATE_API_URL`                          | `https://api.gw.moderate.cloud` in UI Docker image, `http://localhost:8000` in fixtures script | API base URL for UI reverse proxy and fixtures script API calls.     |
+| `VITE_PROXY_API_TARGET`                     | `http://localhost:8000`                                                                        | Vite dev server proxy target for `/api` and `/notebook-*`.           |
+| `VITE_KEYCLOAK_URL`                         | production `.env.production` points to cloud Keycloak                                          | Keycloak base URL used by UI auth client.                            |
+| `VITE_KEYCLOAK_CLIENT_ID`                   | `ui`                                                                                           | Keycloak client ID used by UI.                                       |
+| `VITE_KEYCLOAK_REALM`                       | `moderate`                                                                                     | Keycloak realm used by UI.                                           |
+| `KEYCLOAK_URL`                              | `http://localhost:${DEV_KEYCLOAK_PORT}`                                                        | Fixtures script Keycloak endpoint.                                   |
+| `MODERATE_REALM`                            | `moderate`                                                                                     | Fixtures script realm.                                               |
+| `APISIX_CLIENT_ID` / `APISIX_CLIENT_SECRET` | `apisix`                                                                                       | Fixtures script OAuth client credentials.                            |
+| `KEYCLOAK_USERNAME` / `KEYCLOAK_PASSWORD`   | unset                                                                                          | Required credentials for fixtures creation (`task fixtures-create`). |
+
+## Practical notes
+
+1. Keep secrets out of VCS: use `.env.dev` and `.env.trust.local` for local overrides.
+2. If auth fails unexpectedly in dev, check `MODERATE_API_OPENID_CONFIG_URL` and `KC_HOSTNAME_URL` first.
+3. If uploads/visualization fail, verify the full `MODERATE_API_S3__*` set and bucket existence.
+4. If workflow job creation fails with "Message broker connection not available", set `MODERATE_API_RABBIT_ROUTER_URL`.
