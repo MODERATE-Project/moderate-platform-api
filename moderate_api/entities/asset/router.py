@@ -1074,10 +1074,10 @@ async def start_validation(
         ExpiresIn=settings.diva.presigned_url_ttl,
     )
 
-    # Generate unique dataset ID (using timestamp to prevent collisions)
-    timestamp_suffix = str(int(datetime.utcnow().timestamp()))
+    # Generate unique dataset ID to prevent collisions across rapid retries
+    unique_suffix = uuid.uuid4().hex
     dataset_id = diva.generate_dataset_id(
-        asset_id=id, object_id=object_id, unique_suffix=timestamp_suffix
+        asset_id=id, object_id=object_id, unique_suffix=unique_suffix
     )
 
     try:

@@ -66,6 +66,8 @@ export const AssetObjectDataQualityTab: React.FC<
   const t = useTranslate();
   const { open } = useNotification();
   const [supportedExtensions, setSupportedExtensions] = useState<string[]>([]);
+  const [supportedExtensionsLoadFailed, setSupportedExtensionsLoadFailed] =
+    useState(false);
   const [rowCount, setRowCount] = useState<number | null>(null);
 
   const { status, isLoading, isPolling, startValidation, refreshStatus } =
@@ -78,10 +80,14 @@ export const AssetObjectDataQualityTab: React.FC<
   // Fetch supported extensions and row count on mount
   useEffect(() => {
     getSupportedExtensions()
-      .then(setSupportedExtensions)
-      .catch(() => {
-        // Default supported extensions if API fails
-        setSupportedExtensions(["csv", "json", "parquet"]);
+      .then((extensions) => {
+        setSupportedExtensions(extensions);
+        setSupportedExtensionsLoadFailed(false);
+      })
+      .catch((err) => {
+        setSupportedExtensions([]);
+        setSupportedExtensionsLoadFailed(true);
+        catchErrorAndShow(open, undefined, err);
       });
 
     getAssetObjectRowCount({ assetId, objectId })
@@ -95,6 +101,10 @@ export const AssetObjectDataQualityTab: React.FC<
   const isSupported = supportedExtensions.includes(
     fileExtension?.toLowerCase() || "",
   );
+  const hasRunningOrCompletedValidation =
+    status?.status === "in_progress" || status?.status === "complete";
+  const disableValidationActions =
+    supportedExtensionsLoadFailed && !hasRunningOrCompletedValidation;
 
   // Loading state
   if (isLoading && !status) {
@@ -108,7 +118,10 @@ export const AssetObjectDataQualityTab: React.FC<
   }
 
   // Unsupported file type
-  if (!isSupported || status?.status === "unsupported") {
+  if (
+    status?.status === "unsupported" ||
+    (!supportedExtensionsLoadFailed && !isSupported)
+  ) {
     return (
       <Alert
         icon={<IconFileOff size={24} />}
@@ -154,9 +167,26 @@ export const AssetObjectDataQualityTab: React.FC<
               "Run validation to check your data for missing values, data type consistency, and other quality metrics.",
             )}
           </Text>
+          {disableValidationActions && (
+            <Alert
+              icon={<IconAlertTriangle size={16} />}
+              color="yellow"
+              title={t(
+                "validation.extensionsUnavailableTitle",
+                "Validation temporarily unavailable",
+              )}
+              w="100%"
+            >
+              {t(
+                "validation.extensionsUnavailableMessage",
+                "Supported file formats could not be loaded. Please refresh and try again.",
+              )}
+            </Alert>
+          )}
           <Button
             onClick={startValidation}
             loading={isLoading}
+            disabled={disableValidationActions}
             leftIcon={<IconShieldCheck size={18} />}
             size="md"
           >
@@ -352,6 +382,7 @@ export const AssetObjectDataQualityTab: React.FC<
         <Button
           onClick={startValidation}
           loading={isLoading}
+          disabled={disableValidationActions}
           variant="light"
           color="red"
           leftIcon={<IconRefresh size={18} />}

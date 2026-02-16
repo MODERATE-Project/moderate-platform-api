@@ -196,9 +196,9 @@ class DivaClient:
         }
 
         _logger.info(
-            "Publishing dataset to DIVA: dataset_id=%s, url=%s",
+            "Publishing dataset to DIVA: dataset_id=%s, topic=%s",
             dataset_id,
-            url,
+            self.settings.ingestion_topic,
         )
 
         async with httpx.AsyncClient(timeout=self.settings.request_timeout) as client:
@@ -209,10 +209,29 @@ class DivaClient:
                 auth=self._auth,  # type: ignore[arg-type]
             )
             response.raise_for_status()
+            response_data: dict[str, Any] = response.json()
+
+        offsets = response_data.get("offsets")
+        if not isinstance(offsets, list) or not offsets:
+            raise RuntimeError("Kafka publish response missing offsets")
+
+        publish_errors = [
+            item
+            for item in offsets
+            if isinstance(item, dict) and item.get("error") is not None
+        ]
+        if publish_errors:
+            first_error = publish_errors[0]
+            error_code = first_error.get("error", "unknown")
+            error_message = first_error.get("message", "No details from Kafka REST")
+            raise RuntimeError(
+                f"Kafka publish failed with error {error_code}: {error_message}"
+            )
 
         _logger.info(
-            "Successfully published dataset to DIVA: dataset_id=%s",
+            "Successfully published dataset to DIVA: dataset_id=%s, records=%d",
             dataset_id,
+            len(offsets),
         )
         return True
 

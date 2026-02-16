@@ -73,6 +73,18 @@ class TestDivaClient:
         dataset_id = client.generate_dataset_id(123, 456)
         assert dataset_id == "moderate-asset-123-object-456"
 
+    def test_generate_dataset_id_with_unique_suffix(self) -> None:
+        """Test dataset ID generation with unique suffixes."""
+        settings = DivaSettings()
+        client = DivaClient(settings)
+
+        dataset_id_1 = client.generate_dataset_id(123, 456, unique_suffix="first")
+        dataset_id_2 = client.generate_dataset_id(123, 456, unique_suffix="second")
+
+        assert dataset_id_1 != dataset_id_2
+        assert dataset_id_1.startswith("moderate-asset-123-object-456-")
+        assert dataset_id_2.startswith("moderate-asset-123-object-456-")
+
     def test_is_supported_extension(self) -> None:
         """Test file extension support checking."""
         settings = DivaSettings(supported_extensions=["csv", "json", "parquet"])
@@ -152,6 +164,63 @@ class TestDivaClient:
 
         called_url = mock_http_client.get.call_args[0][0]
         assert "validator=my-dataset-42" in called_url
+
+    @pytest.mark.asyncio
+    async def test_publish_for_validation_fails_when_offsets_missing(self) -> None:
+        """Test publish failure when Kafka response does not include offsets."""
+        settings = DivaSettings(kafka_rest_url="https://kafka.example.com")
+        client = DivaClient(settings)
+
+        mock_response = MagicMock()
+        mock_response.raise_for_status = MagicMock()
+        mock_response.json.return_value = {"status": "ok"}
+
+        mock_http_client = AsyncMock()
+        mock_http_client.post.return_value = mock_response
+        mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
+        mock_http_client.__aexit__ = AsyncMock(return_value=False)
+
+        with patch(
+            "moderate_api.diva.httpx.AsyncClient", return_value=mock_http_client
+        ):
+            with pytest.raises(RuntimeError, match="missing offsets"):
+                await client.publish_for_validation(
+                    s3_url="https://example.com/test.csv",
+                    dataset_id="test-dataset",
+                )
+
+    @pytest.mark.asyncio
+    async def test_publish_for_validation_fails_when_kafka_reports_error(self) -> None:
+        """Test publish failure when Kafka response has per-record errors."""
+        settings = DivaSettings(kafka_rest_url="https://kafka.example.com")
+        client = DivaClient(settings)
+
+        mock_response = MagicMock()
+        mock_response.raise_for_status = MagicMock()
+        mock_response.json.return_value = {
+            "offsets": [
+                {
+                    "partition": 0,
+                    "offset": 123,
+                    "error": 1,
+                    "message": "Invalid record",
+                }
+            ]
+        }
+
+        mock_http_client = AsyncMock()
+        mock_http_client.post.return_value = mock_response
+        mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
+        mock_http_client.__aexit__ = AsyncMock(return_value=False)
+
+        with patch(
+            "moderate_api.diva.httpx.AsyncClient", return_value=mock_http_client
+        ):
+            with pytest.raises(RuntimeError, match="Kafka publish failed"):
+                await client.publish_for_validation(
+                    s3_url="https://example.com/test.csv",
+                    dataset_id="test-dataset",
+                )
 
 
 class TestMockDivaClient:
@@ -304,6 +373,36 @@ class TestValidationEndpoints:
             data = response.json()
             assert "dataset_id" in data
             assert f"asset-{asset_id}-object-{object_id}" in data["dataset_id"]
+
+    @pytest.mark.asyncio
+    async def test_start_validation_returns_503_when_publish_fails(
+        self, access_token: str  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test starting validation fails when DIVA publish fails."""
+        asset_id = upload_test_files(access_token, num_files=1)
+
+        with TestClient(app) as client:
+            asset_response = client.get(
+                f"/asset/{asset_id}",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+
+            assert asset_response.status_code == 200
+            asset_data = asset_response.json()
+            object_id = asset_data["objects"][0]["id"]
+
+            with patch(
+                "moderate_api.diva_mock.MockDivaClient.publish_for_validation",
+                new=AsyncMock(side_effect=RuntimeError("Kafka publish failed")),
+            ):
+                response = client.post(
+                    f"/asset/{asset_id}/object/{object_id}/validate",
+                    headers={"Authorization": f"Bearer {access_token}"},
+                )
+
+            assert response.status_code == 503
+            detail = response.json().get("detail", "")
+            assert "Failed to start validation" in detail
 
     @pytest.mark.asyncio
     async def test_get_validation_status_not_started(
