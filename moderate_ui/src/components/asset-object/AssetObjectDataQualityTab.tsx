@@ -327,7 +327,7 @@ export const AssetObjectDataQualityTab: React.FC<
                   </Text>
                 </Stack>
               )}
-              {status.processed_rows !== undefined && (
+              {status.processed_rows != null && (
                 <Stack spacing={0} align="flex-end">
                   <Text size="xs" color="dimmed" transform="uppercase">
                     {t("validation.processedRows", "Processed")}
@@ -356,6 +356,7 @@ export const AssetObjectDataQualityTab: React.FC<
             leftIcon={<IconShieldCheck size={18} />}
             onClick={startValidation}
             loading={isLoading}
+            disabled={isPolling || isLoading}
           >
             {t("validation.revalidateButton", "Re-validate")}
           </Button>

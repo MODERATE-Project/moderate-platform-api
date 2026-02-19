@@ -321,7 +321,12 @@ class DivaClient:
                 )
 
         if not entries:
-            # No results found for this dataset - not started yet
+            if start_time:
+                # Validation was triggered but DIVA has not consumed the Kafka
+                # message yet — treat as in-progress so the frontend polls.
+                return ValidationResult(
+                    status=ValidationStatus.IN_PROGRESS, last_requested_at=start_time
+                )
             return ValidationResult(
                 status=ValidationStatus.NOT_STARTED, last_requested_at=start_time
             )
