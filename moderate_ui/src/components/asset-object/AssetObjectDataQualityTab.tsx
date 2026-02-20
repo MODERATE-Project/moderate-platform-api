@@ -70,12 +70,18 @@ export const AssetObjectDataQualityTab: React.FC<
     useState(false);
   const [rowCount, setRowCount] = useState<number | null>(null);
 
-  const { status, isLoading, isPolling, startValidation, refreshStatus } =
-    useAssetObjectValidation({
-      assetId,
-      objectId,
-      usePublicEndpoint,
-    });
+  const {
+    status,
+    isLoading,
+    isPolling,
+    isTriggered,
+    startValidation,
+    refreshStatus,
+  } = useAssetObjectValidation({
+    assetId,
+    objectId,
+    usePublicEndpoint,
+  });
 
   // Fetch supported extensions and row count on mount
   useEffect(() => {
@@ -114,6 +120,29 @@ export const AssetObjectDataQualityTab: React.FC<
         <Skeleton height={20} />
         <Skeleton height={100} />
       </Stack>
+    );
+  }
+
+  // Triggered but NiFi hasn't acknowledged yet — prevent re-clicking
+  if (isTriggered && (status?.status === "not_started" || !status)) {
+    return (
+      <Paper p="lg" withBorder>
+        <Stack align="center" spacing="md">
+          <Loader size="lg" />
+          <Title order={4}>
+            {t("validation.pendingTitle", "Starting Validation")}
+          </Title>
+          <Text color="dimmed" align="center" sx={{ maxWidth: 400 }}>
+            {t(
+              "validation.pendingMessage",
+              "Validation has been requested. Please wait while the process initialises.",
+            )}
+          </Text>
+          <Button disabled leftIcon={<IconShieldCheck size={18} />} size="md">
+            {t("validation.startButton", "Validate Now")}
+          </Button>
+        </Stack>
+      </Paper>
     );
   }
 
@@ -346,7 +375,25 @@ export const AssetObjectDataQualityTab: React.FC<
           <Title order={5}>
             {t("validation.detailedResults", "Detailed Results")}
           </Title>
-          <ValidationResultsTable entries={status.entries} />
+          {status.entries.length === 0 ? (
+            status.status === "in_progress" ? (
+              <Stack align="center" spacing="sm" py="lg">
+                <Loader size="md" />
+                <Text color="dimmed" align="center">
+                  {t(
+                    "validation.warmingUp",
+                    "Validation is running. Results will appear shortly.",
+                  )}
+                </Text>
+              </Stack>
+            ) : (
+              <Text color="dimmed" align="center" py="md">
+                {t("validation.noResults", "No validation results available.")}
+              </Text>
+            )
+          ) : (
+            <ValidationResultsTable entries={status.entries} />
+          )}
         </Stack>
 
         {/* Re-validate button */}

@@ -33,6 +33,8 @@ export interface UseAssetObjectValidationReturn {
   isLoading: boolean;
   /** Whether polling is actively running */
   isPolling: boolean;
+  /** Whether the user triggered validation but NiFi has not yet acknowledged */
+  isTriggered: boolean;
   /** Error message if something went wrong */
   error: string | null;
   /** Start validation for the asset object */
@@ -44,10 +46,17 @@ export interface UseAssetObjectValidationReturn {
 }
 
 /**
- * Check if validation status indicates polling should continue
+ * Check if validation status indicates polling should continue.
+ * When the user has triggered validation, we keep polling even while
+ * the status is still "not_started" (NiFi may not have started yet).
  */
-function shouldPoll(status: ValidationStatus | undefined): boolean {
-  return status === "in_progress";
+function shouldPoll(
+  status: ValidationStatus | undefined,
+  triggered?: boolean,
+): boolean {
+  if (status === "in_progress") return true;
+  if (triggered && status === "not_started") return true;
+  return false;
 }
 
 /**
@@ -57,6 +66,7 @@ function shouldPoll(status: ValidationStatus | undefined): boolean {
  * - Fetches initial validation status on mount
  * - Starts validation via API
  * - Auto-polls when status is "in_progress"
+ * - Keeps polling after trigger while NiFi is warming up ("not_started")
  * - Stops polling when validation completes or fails
  */
 export const useAssetObjectValidation = ({
@@ -68,11 +78,14 @@ export const useAssetObjectValidation = ({
   const [status, setStatus] = useState<ValidationResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isPolling, setIsPolling] = useState(false);
+  const [isTriggered, setIsTriggered] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const { open } = useNotification();
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef(true);
+  // Ref mirrors isTriggered so the setInterval closure always reads the latest value
+  const hasTriggeredRef = useRef(false);
 
   // Clean up on unmount
   useEffect(() => {
@@ -121,13 +134,22 @@ export const useAssetObjectValidation = ({
     pollIntervalRef.current = setInterval(async () => {
       const result = await fetchStatus();
 
-      if (result && !shouldPoll(result.status) && isMountedRef.current) {
+      if (
+        result &&
+        !shouldPoll(result.status, hasTriggeredRef.current) &&
+        isMountedRef.current
+      ) {
         // Stop polling when validation is no longer in progress
         if (pollIntervalRef.current) {
           clearInterval(pollIntervalRef.current);
           pollIntervalRef.current = null;
         }
         setIsPolling(false);
+        // Reset triggered state whenever polling stops, regardless of the
+        // specific status, so users can retry if polling exits without a
+        // recognised terminal value.
+        hasTriggeredRef.current = false;
+        setIsTriggered(false);
       }
     }, pollInterval);
   }, [fetchStatus, pollInterval]);
@@ -145,23 +167,26 @@ export const useAssetObjectValidation = ({
   const handleStartValidation = useCallback(async () => {
     setIsLoading(true);
     setError(null);
+    hasTriggeredRef.current = true;
+    setIsTriggered(true);
 
     try {
       await startValidation({ assetId, objectId });
 
       // Immediately fetch status after starting
-      const result = await fetchStatus();
+      await fetchStatus();
 
-      // Start polling if validation is in progress
-      if (result && shouldPoll(result.status)) {
-        startPolling();
-      }
+      // Always start polling after trigger — NiFi may not respond immediately,
+      // so the status may still be "not_started" on the first fetch.
+      startPolling();
     } catch (err) {
       if (isMountedRef.current) {
         const errorMessage =
           err instanceof Error ? err.message : "Failed to start validation";
         setError(errorMessage);
         catchErrorAndShow(open, undefined, err);
+        hasTriggeredRef.current = false;
+        setIsTriggered(false);
       }
     } finally {
       if (isMountedRef.current) {
@@ -184,6 +209,13 @@ export const useAssetObjectValidation = ({
       setIsLoading(false);
     }
   }, [fetchStatus, startPolling]);
+
+  // Reset triggered state when the validation target changes so a previously
+  // triggered run on one object does not bleed into another.
+  useEffect(() => {
+    hasTriggeredRef.current = false;
+    setIsTriggered(false);
+  }, [assetId, objectId]);
 
   // Fetch initial status on mount
   useEffect(() => {
@@ -212,6 +244,7 @@ export const useAssetObjectValidation = ({
     status,
     isLoading,
     isPolling,
+    isTriggered,
     error,
     startValidation: handleStartValidation,
     refreshStatus,

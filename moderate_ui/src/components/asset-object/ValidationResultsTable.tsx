@@ -1,4 +1,14 @@
-import { Badge, Table, Text, Tooltip } from "@mantine/core";
+import {
+  Badge,
+  Divider,
+  Group,
+  Paper,
+  Progress,
+  SimpleGrid,
+  Stack,
+  Text,
+  Tooltip,
+} from "@mantine/core";
 import { useTranslate } from "@refinedev/core";
 import React, { useMemo } from "react";
 import {
@@ -9,6 +19,12 @@ import {
 
 interface ValidationResultsTableProps {
   entries: ValidationEntry[];
+}
+
+interface FeatureGroup {
+  feature: string;
+  entries: ValidationEntryWithStats[];
+  worstPassRate: number;
 }
 
 /**
@@ -25,6 +41,24 @@ function getPassRateColor(passRate: number): string {
  */
 function formatFeatureName(feature: string): string {
   return feature.replace(/^metricValue\./, "");
+}
+
+/**
+ * Get user-friendly label for validation rule enum values
+ */
+function getRuleLabel(rule: string): string {
+  const labels: Record<string, string> = {
+    missing: "Missing Values",
+    datatype: "Data Type",
+    range: "Range",
+    format: "Format",
+    categorical: "Categorical",
+    exists: "Exists",
+    regex: "Regex Pattern",
+    strlen: "String Length",
+    domain: "Domain",
+  };
+  return labels[rule] ?? rule;
 }
 
 /**
@@ -54,25 +88,59 @@ function getRuleDescription(
     strlen: t("validation.ruleStrlen", "Validates string length constraints"),
     domain: t("validation.ruleDomain", "Validates domain-specific constraints"),
   };
-
   return descriptions[rule] || t("validation.ruleUnknown", "Validation rule");
 }
 
 /**
- * Table component for displaying validation results
- * Shows rule, feature, valid/fail counts, and pass rate
- * Sorted by pass rate (failures first)
+ * Map a pass rate to a short severity label
+ */
+function getSeverityLabel(passRate: number): string {
+  if (passRate >= 99) return "Excellent";
+  if (passRate >= 95) return "Good";
+  if (passRate >= 80) return "Fair";
+  return "Poor";
+}
+
+/**
+ * Group flat validation entries by feature (column), computing the worst
+ * pass rate for each group so cards can be sorted by severity.
+ */
+function groupByFeature(entries: ValidationEntryWithStats[]): FeatureGroup[] {
+  const groups = new Map<string, ValidationEntryWithStats[]>();
+
+  for (const entry of entries) {
+    const key = entry.feature;
+    const current = groups.get(key);
+    if (current) {
+      current.push(entry);
+      continue;
+    }
+    groups.set(key, [entry]);
+  }
+
+  return Array.from(groups.entries())
+    .map(([feature, groupEntries]) => ({
+      feature,
+      entries: groupEntries.sort((a, b) => a.passRate - b.passRate),
+      worstPassRate: Math.min(...groupEntries.map((e) => e.passRate)),
+    }))
+    .sort((a, b) => a.worstPassRate - b.worstPassRate);
+}
+
+/**
+ * Card-grid component for displaying validation results grouped by feature.
+ * One card per data column; within each card, rules are listed with a
+ * progress bar. Cards are sorted by severity (most problematic first).
  */
 export const ValidationResultsTable: React.FC<ValidationResultsTableProps> = ({
   entries,
 }) => {
   const t = useTranslate();
 
-  // Add computed stats and sort by pass rate (lowest first)
-  const sortedEntries: ValidationEntryWithStats[] = useMemo(() => {
-    const withStats = addEntryStats(entries);
-    return withStats.sort((a, b) => a.passRate - b.passRate);
-  }, [entries]);
+  const featureGroups: FeatureGroup[] = useMemo(
+    () => groupByFeature(addEntryStats(entries)),
+    [entries],
+  );
 
   if (entries.length === 0) {
     return (
@@ -83,71 +151,68 @@ export const ValidationResultsTable: React.FC<ValidationResultsTableProps> = ({
   }
 
   return (
-    <Table striped highlightOnHover withBorder withColumnBorders>
-      <thead>
-        <tr>
-          <th>{t("validation.rule", "Rule")}</th>
-          <th>{t("validation.feature", "Feature")}</th>
-          <th style={{ textAlign: "right" }}>
-            {t("validation.valid", "Valid")}
-          </th>
-          <th style={{ textAlign: "right" }}>{t("validation.fail", "Fail")}</th>
-          <th style={{ textAlign: "right" }}>
-            {t("validation.total", "Total")}
-          </th>
-          <th style={{ textAlign: "center" }}>
-            {t("validation.passRate", "Pass Rate")}
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        {sortedEntries.map((entry, index) => (
-          <tr key={`${entry.rule}-${entry.feature}-${index}`}>
-            <td>
-              <Tooltip label={getRuleDescription(entry.rule, t)}>
-                <Badge variant="light" color="blue" size="sm">
-                  {entry.rule}
+    <SimpleGrid
+      cols={3}
+      breakpoints={[
+        { maxWidth: "md", cols: 2 },
+        { maxWidth: "sm", cols: 1 },
+      ]}
+    >
+      {featureGroups.map(
+        ({ feature, entries: groupEntries, worstPassRate }) => (
+          <Paper key={feature} p="md" withBorder>
+            <Stack spacing="sm">
+              {/* Card header: column name + overall severity */}
+              <Group position="apart" align="flex-start" noWrap>
+                <Text
+                  size="sm"
+                  weight={600}
+                  sx={{ fontFamily: "monospace", wordBreak: "break-all" }}
+                >
+                  {formatFeatureName(feature)}
+                </Text>
+                <Badge
+                  color={getPassRateColor(worstPassRate)}
+                  variant="filled"
+                  size="sm"
+                  sx={{ flexShrink: 0 }}
+                >
+                  {getSeverityLabel(worstPassRate)}
                 </Badge>
-              </Tooltip>
-            </td>
-            <td>
-              <Text size="sm" sx={{ fontFamily: "monospace" }}>
-                {formatFeatureName(entry.feature)}
-              </Text>
-            </td>
-            <td style={{ textAlign: "right" }}>
-              <Text
-                size="sm"
-                color="green"
-                weight={entry.valid > 0 ? 500 : undefined}
-              >
-                {entry.valid.toLocaleString()}
-              </Text>
-            </td>
-            <td style={{ textAlign: "right" }}>
-              <Text
-                size="sm"
-                color={entry.fail > 0 ? "red" : undefined}
-                weight={entry.fail > 0 ? 500 : undefined}
-              >
-                {entry.fail.toLocaleString()}
-              </Text>
-            </td>
-            <td style={{ textAlign: "right" }}>
-              <Text size="sm">{entry.total.toLocaleString()}</Text>
-            </td>
-            <td style={{ textAlign: "center" }}>
-              <Badge
-                color={getPassRateColor(entry.passRate)}
-                variant="filled"
-                size="sm"
-              >
-                {entry.passRate.toFixed(2)}%
-              </Badge>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </Table>
+              </Group>
+
+              <Divider />
+
+              {/* Rule breakdown */}
+              <Stack spacing="xs">
+                {groupEntries.map((entry, index) => (
+                  <div key={`${entry.rule}-${entry.feature}-${index}`}>
+                    <Group position="apart" mb={4}>
+                      <Tooltip label={getRuleDescription(entry.rule, t)}>
+                        <Text size="xs" color="dimmed">
+                          {getRuleLabel(entry.rule)}
+                        </Text>
+                      </Tooltip>
+                      <Text
+                        size="xs"
+                        weight={500}
+                        color={getPassRateColor(entry.passRate)}
+                      >
+                        {entry.passRate.toFixed(1)}%
+                      </Text>
+                    </Group>
+                    <Progress
+                      value={entry.passRate}
+                      color={getPassRateColor(entry.passRate)}
+                      size="sm"
+                    />
+                  </div>
+                ))}
+              </Stack>
+            </Stack>
+          </Paper>
+        ),
+      )}
+    </SimpleGrid>
   );
 };
