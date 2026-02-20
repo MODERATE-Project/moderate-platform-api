@@ -2,6 +2,7 @@
 
 import logging
 import pprint
+from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -164,6 +165,81 @@ class TestDivaClient:
 
         called_url = mock_http_client.get.call_args[0][0]
         assert "validator=my-dataset-42" in called_url
+
+    @pytest.mark.asyncio
+    async def test_get_validation_results_completes_after_timeout_with_partial_rows(
+        self,
+    ) -> None:
+        """Timeout should complete even when processed rows are below expected rows."""
+        settings = DivaSettings(quality_reporter_url="https://reporter.example.com")
+        client = DivaClient(settings)
+
+        mock_response = MagicMock()
+        mock_response.raise_for_status = MagicMock()
+        mock_response.json.return_value = [
+            {
+                "validator": "dataset-1",
+                "rule": "missing",
+                "feature": "metricValue.col1",
+                "VALID": 1757,
+                "FAIL": 0,
+            }
+        ]
+
+        mock_http_client = AsyncMock()
+        mock_http_client.get.return_value = mock_response
+        mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
+        mock_http_client.__aexit__ = AsyncMock(return_value=False)
+
+        start_time = datetime.utcnow() - timedelta(
+            seconds=settings.completion_timeout_seconds + 1
+        )
+
+        with patch(
+            "moderate_api.diva.httpx.AsyncClient", return_value=mock_http_client
+        ):
+            result = await client.get_validation_results(
+                "dataset-1",
+                expected_rows=4013,
+                start_time=start_time,
+            )
+
+        assert result.status == ValidationStatus.COMPLETE
+        assert result.processed_rows == 1757
+
+    @pytest.mark.asyncio
+    async def test_get_validation_results_fails_after_timeout_with_no_entries(
+        self,
+    ) -> None:
+        """Timeout with no reporter entries should return FAILED."""
+        settings = DivaSettings(quality_reporter_url="https://reporter.example.com")
+        client = DivaClient(settings)
+
+        mock_response = MagicMock()
+        mock_response.raise_for_status = MagicMock()
+        mock_response.json.return_value = []
+
+        mock_http_client = AsyncMock()
+        mock_http_client.get.return_value = mock_response
+        mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
+        mock_http_client.__aexit__ = AsyncMock(return_value=False)
+
+        start_time = datetime.utcnow() - timedelta(
+            seconds=settings.completion_timeout_seconds + 1
+        )
+
+        with patch(
+            "moderate_api.diva.httpx.AsyncClient", return_value=mock_http_client
+        ):
+            result = await client.get_validation_results(
+                "dataset-1",
+                expected_rows=4013,
+                start_time=start_time,
+            )
+
+        assert result.status == ValidationStatus.FAILED
+        assert result.error_message is not None
+        assert "timed out with no results" in result.error_message.lower()
 
     @pytest.mark.asyncio
     async def test_publish_for_validation_fails_when_offsets_missing(self) -> None:

@@ -94,8 +94,7 @@ To deploy a development instance of the Trust Services along with the API:
 | `MODERATE_API_DIVA__SUPPORTED_EXTENSIONS`          | `["csv"]`                        | No                                        | Allowed file extensions for validation endpoints.                   |
 | `MODERATE_API_DIVA__REQUEST_TIMEOUT`               | `30`                             | No                                        | HTTP timeout (seconds) for DIVA requests.                           |
 | `MODERATE_API_DIVA__PRESIGNED_URL_TTL`             | `3600`                           | No                                        | Presigned URL TTL (seconds) used for DIVA ingestion.                |
-| `MODERATE_API_DIVA__COMPLETION_THRESHOLD`          | `0.90`                           | No                                        | "Good enough" completion ratio for long-running DIVA validation.    |
-| `MODERATE_API_DIVA__COMPLETION_TIMEOUT_SECONDS`    | `300`                            | No                                        | Timeout window used with completion threshold logic.                |
+| `MODERATE_API_DIVA__COMPLETION_TIMEOUT_SECONDS`    | `300`                            | No                                        | Timeout window after which validation is treated as terminal.       |
 
 ### Local dev stack (`.env.dev.default`, `Taskfile.yml`, `docker-compose-dev.yml`)
 

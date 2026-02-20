@@ -322,8 +322,19 @@ class DivaClient:
 
         if not entries:
             if start_time:
-                # Validation was triggered but DIVA has not consumed the Kafka
-                # message yet — treat as in-progress so the frontend polls.
+                elapsed = (datetime.utcnow() - start_time).total_seconds()
+                if elapsed > self.settings.completion_timeout_seconds:
+                    # No rows were reported within timeout; treat as a failed run.
+                    return ValidationResult(
+                        status=ValidationStatus.FAILED,
+                        error_message=(
+                            "Validation timed out with no results. "
+                            "The pipeline may not have processed this file."
+                        ),
+                        last_requested_at=start_time,
+                    )
+                # Validation was triggered but DIVA may not have consumed the
+                # Kafka message yet — keep polling.
                 return ValidationResult(
                     status=ValidationStatus.IN_PROGRESS, last_requested_at=start_time
                 )
@@ -340,12 +351,10 @@ class DivaClient:
             if pct >= 1.0:
                 is_complete = True
             elif start_time:
-                # Check for "good enough" completion after timeout
+                # Declare complete after timeout regardless of row coverage.
+                # NiFi may stop below full coverage due to failures/partial data.
                 elapsed = (datetime.utcnow() - start_time).total_seconds()
-                if (
-                    pct >= self.settings.completion_threshold
-                    and elapsed > self.settings.completion_timeout_seconds
-                ):
+                if elapsed > self.settings.completion_timeout_seconds:
                     is_complete = True
         else:
             # Fallback logic if expected_rows is unknown
