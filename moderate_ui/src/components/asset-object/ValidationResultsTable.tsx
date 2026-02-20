@@ -1,5 +1,7 @@
 import {
+  Accordion,
   Badge,
+  Code,
   Divider,
   Group,
   Paper,
@@ -25,6 +27,12 @@ interface FeatureGroup {
   feature: string;
   entries: ValidationEntryWithStats[];
   worstPassRate: number;
+}
+
+interface RuleHelpItem {
+  rule: string;
+  label: string;
+  description: string;
 }
 
 /**
@@ -69,24 +77,36 @@ function getRuleDescription(
   t: (key: string, defaultValue: string) => string,
 ): string {
   const descriptions: Record<string, string> = {
-    missing: t("validation.ruleMissing", "Checks for missing/null values"),
-    datatype: t("validation.ruleDatatype", "Validates data type consistency"),
-    range: t(
-      "validation.ruleRange",
-      "Checks if values are within expected range",
+    missing: t(
+      "validation.ruleMissing",
+      "Checks whether field presence matches the inferred expectation",
     ),
-    format: t("validation.ruleFormat", "Validates format/pattern compliance"),
+    datatype: t(
+      "validation.ruleDatatype",
+      "Checks values against inferred primitive type (INTEGER/FLOAT/STRING/BOOLEAN)",
+    ),
+    range: t("validation.ruleRange", "Legacy alias for numeric range checks"),
+    format: t("validation.ruleFormat", "Legacy alias for regex pattern checks"),
     categorical: t(
       "validation.ruleCategorical",
-      "Validates categorical values against allowed set",
+      "Checks values are in the allowed set inferred from the sample",
     ),
-    exists: t("validation.ruleExists", "Checks if required values exist"),
+    exists: t(
+      "validation.ruleExists",
+      "Internal rule that feeds Missing Values checks",
+    ),
     regex: t(
       "validation.ruleRegex",
-      "Validates against regular expression pattern",
+      "Checks full value match against regex pattern",
     ),
-    strlen: t("validation.ruleStrlen", "Validates string length constraints"),
-    domain: t("validation.ruleDomain", "Validates domain-specific constraints"),
+    strlen: t(
+      "validation.ruleStrlen",
+      "Checks string length with EXACT/LOWER/UPPER comparators",
+    ),
+    domain: t(
+      "validation.ruleDomain",
+      "For numeric fields, checks values against inferred min/max domain",
+    ),
   };
   return descriptions[rule] || t("validation.ruleUnknown", "Validation rule");
 }
@@ -125,6 +145,109 @@ function groupByFeature(entries: ValidationEntryWithStats[]): FeatureGroup[] {
       worstPassRate: Math.min(...groupEntries.map((e) => e.passRate)),
     }))
     .sort((a, b) => a.worstPassRate - b.worstPassRate);
+}
+
+/**
+ * Collapsible help with concise, source-of-truth explanations for each rule.
+ * Stays collapsed by default to avoid taking meaningful screen space.
+ */
+export function DataQualityRulesHelp({
+  t,
+}: {
+  t: (key: string, defaultValue: string) => string;
+}): React.JSX.Element {
+  const helpItems: RuleHelpItem[] = [
+    {
+      rule: "missing",
+      label: getRuleLabel("missing"),
+      description: t(
+        "validation.helpMissing",
+        "Generated from an internal exists rule. It checks whether each column is present (or absent) as expected from sampled data.",
+      ),
+    },
+    {
+      rule: "datatype",
+      label: getRuleLabel("datatype"),
+      description: t(
+        "validation.helpDatatype",
+        "Validates values against the inferred main type for that column. Numeric strings may be accepted when permissive numeric checks are enabled.",
+      ),
+    },
+    {
+      rule: "domain",
+      label: getRuleLabel("domain"),
+      description: t(
+        "validation.helpDomain",
+        "Numeric min/max range inferred from sampled data. In permissive mode, the observed range is widened to reduce brittle failures.",
+      ),
+    },
+    {
+      rule: "categorical",
+      label: getRuleLabel("categorical"),
+      description: t(
+        "validation.helpCategorical",
+        "Restricts values to an allowed set inferred for low-cardinality columns.",
+      ),
+    },
+    {
+      rule: "regex",
+      label: getRuleLabel("regex"),
+      description: t(
+        "validation.helpRegex",
+        "Enforces full-string pattern matching when a stable format can be derived (or configured).",
+      ),
+    },
+    {
+      rule: "strlen",
+      label: getRuleLabel("strlen"),
+      description: t(
+        "validation.helpStrlen",
+        "Checks string length constraints using EXACT, LOWER, or UPPER comparison modes.",
+      ),
+    },
+  ];
+
+  return (
+    <Accordion variant="contained" radius="md">
+      <Accordion.Item value="rule-help">
+        <Accordion.Control>
+          <Group position="apart" noWrap>
+            <Text size="sm" weight={600}>
+              {t("validation.helpTitle", "How to read Data Quality rules")}
+            </Text>
+            <Badge size="xs" variant="light" color="blue">
+              {t("validation.helpQuickGuide", "Quick guide")}
+            </Badge>
+          </Group>
+        </Accordion.Control>
+        <Accordion.Panel>
+          <Stack spacing="sm">
+            <Text size="xs" color="dimmed">
+              {t(
+                "validation.helpIntro",
+                "Rules are inferred from sampled rows and then applied to processed rows. Pass rate = valid / (valid + failed).",
+              )}
+            </Text>
+            <Stack spacing={8}>
+              {helpItems.map((item) => (
+                <div key={item.rule}>
+                  <Group spacing={6} mb={2}>
+                    <Text size="sm" weight={600}>
+                      {item.label}
+                    </Text>
+                    <Code>{item.rule}</Code>
+                  </Group>
+                  <Text size="sm" color="dimmed">
+                    {item.description}
+                  </Text>
+                </div>
+              ))}
+            </Stack>
+          </Stack>
+        </Accordion.Panel>
+      </Accordion.Item>
+    </Accordion>
+  );
 }
 
 /**

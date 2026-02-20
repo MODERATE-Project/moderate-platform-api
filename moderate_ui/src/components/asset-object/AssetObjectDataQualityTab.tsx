@@ -27,7 +27,10 @@ import {
 } from "../../api/validation";
 import { useAssetObjectValidation } from "../../hooks";
 import { catchErrorAndShow } from "../../utils";
-import { ValidationResultsTable } from "./ValidationResultsTable";
+import {
+  DataQualityRulesHelp,
+  ValidationResultsTable,
+} from "./ValidationResultsTable";
 
 interface AssetObjectDataQualityTabProps {
   assetId: number | string;
@@ -196,6 +199,7 @@ export const AssetObjectDataQualityTab: React.FC<
               "Run validation to check your data for missing values, data type consistency, and other quality metrics.",
             )}
           </Text>
+          <DataQualityRulesHelp t={t} />
           {disableValidationActions && (
             <Alert
               icon={<IconAlertTriangle size={16} />}
@@ -375,6 +379,7 @@ export const AssetObjectDataQualityTab: React.FC<
           <Title order={5}>
             {t("validation.detailedResults", "Detailed Results")}
           </Title>
+          <DataQualityRulesHelp t={t} />
           {status.entries.length === 0 ? (
             status.status === "in_progress" ? (
               <Stack align="center" spacing="sm" py="lg">
