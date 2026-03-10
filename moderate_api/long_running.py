@@ -16,11 +16,11 @@ _logger = logging.getLogger(__name__)
 
 class LongRunningTask(SQLModel, table=True):  # type: ignore[call-arg, misc]
     id: int | None = Field(default=None, primary_key=True)
-    username_owner: str | None = Field(default=None)
+    username_owner: str | None = Field(default=None, index=True)
     result: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
     error: str | None = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    finished_at: datetime | None = Field(default=None)
+    finished_at: datetime | None = Field(default=None, index=True)
 
 
 async def init_task(session: AsyncSession, username_owner: str | None = None) -> int:

@@ -6,8 +6,9 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 from sqlmodel import SQLModel
 
-from moderate_api.entities.asset.models import Asset, UploadedS3Object
-from moderate_api.entities.user.models import UserMeta
+from moderate_api.entities.asset.models import Asset, UploadedS3Object  # noqa: F401
+from moderate_api.entities.user.models import UserMeta  # noqa: F401
+from moderate_api.long_running import LongRunningTask  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

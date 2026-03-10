@@ -36,6 +36,29 @@ To use **GCS** (or any other S3-compatible service):
 ACCESS_KEY="TheAccessKey" SECRET_KEY="TheSecretKey" task dev-up-gcs
 ```
 
+### Database migrations
+
+Alembic migrations live in `migrations/versions/` and are managed through `Taskfile.yml`.
+
+When you change SQLModel metadata, create a revision and review the generated file before applying it:
+
+```console
+task alembic-revision MSG="Describe the schema change"
+```
+
+Apply migrations with `MIGRATIONS_SQLALCHEMY_URL`, which is Alembic's own DB URL and should use a synchronous SQLAlchemy driver such as `postgresql://...`:
+
+```console
+MIGRATIONS_SQLALCHEMY_URL="postgresql://postgres:postgres@localhost:5433/moderateapi" task alembic-upgrade
+```
+
+> [!IMPORTANT]
+> The API still bootstraps the base schema on startup via `SQLModel.metadata.create_all()`. In other words, a fresh database is expected to be initialized by running the container first, and Alembic migrations are used for tracked schema deltas on top of that already-created schema.
+
+This means the migration chain is intentionally state-dependent: revisions may assume the target tables already exist, and should be written defensively so they can handle both cases where the current app bootstrapping has already created the target objects and cases where only the older base schema exists.
+
+Production deploys should therefore run `task alembic-upgrade` against the production database as an explicit deployment step before or together with the new API release; the container image does not run Alembic automatically on startup.
+
 ### Create an admin user
 
 You need to create an admin user in Keycloak to be able to log in to the API. Moreover, this user needs to be assigned a specific role. Check the Compose file and `.env.dev.default` for the URLs and default credentials.
