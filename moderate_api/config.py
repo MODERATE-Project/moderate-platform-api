@@ -100,6 +100,10 @@ class DivaSettings(BaseModel):
             return f"{base_url}?{urlencode({'validator': validator})}"
         return base_url
 
+    def url_report_status(self) -> str:
+        """URL for fetching reporter health status."""
+        return self.build_reporter_url("report", "status")
+
 
 class Settings(BaseSettings):
     class Config:

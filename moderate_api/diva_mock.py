@@ -13,6 +13,8 @@ from typing import ClassVar
 from moderate_api.config import DivaSettings
 from moderate_api.diva import (
     DivaClient,
+    ReporterState,
+    ReporterStatus,
     ValidationEntry,
     ValidationResult,
     ValidationStatus,
@@ -238,6 +240,19 @@ class MockDivaClient(DivaClient):
                 )
 
         return entries
+
+    async def get_reporter_status(self) -> ReporterStatus:
+        """Return a healthy mock reporter status.
+
+        Returns:
+            ReporterStatus indicating healthy mock state
+        """
+        return ReporterStatus(
+            state=ReporterState.HEALTHY,
+            kafka_connected=True,
+            consumer_group="mock-consumer-group",
+            is_mock=True,
+        )
 
     @classmethod
     def reset_mock_state(cls) -> None:

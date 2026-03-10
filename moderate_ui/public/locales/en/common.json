@@ -129,5 +129,28 @@
       "includeMine": "Toggle this to view private datasets you have uploaded, in addition to public ones.",
       "fileFormat": "Filter results to show only specific file types (e.g., CSV, JSON)."
     }
+  },
+  "reporter": {
+    "healthy": "Validation ready",
+    "healthyTooltip": "Data Quality service is available and validation can run now.",
+    "starting": "Validation starting",
+    "startingTooltip": "Data Quality service is starting up. Validation requests may take a moment.",
+    "catchingUp": "Validation delayed",
+    "catchingUpTooltip": "Data Quality service is catching up on queued work. New validation requests may take longer.",
+    "stale": "Validation delayed",
+    "staleTitle": "Validation delayed",
+    "staleTooltip": "Data Quality service has not processed recent work. Validation results may be delayed.",
+    "staleMessage": "The Data Quality service has not processed recent work. Validation results may be delayed.",
+    "error": "Validation unavailable",
+    "errorTitle": "Validation unavailable",
+    "errorTooltip": "Data Quality service is currently unavailable. Starting a new validation may fail.",
+    "errorMessage": "The Data Quality service is currently unavailable. Starting a new validation may fail.",
+    "kafkaConnected": "Kafka Connected",
+    "kafkaDisconnected": "Kafka Disconnected"
+  },
+  "validation": {
+    "serviceStatusLabel": "Service status",
+    "serviceUnavailableTitle": "Validation temporarily unavailable",
+    "serviceUnavailableMessage": "Validation is temporarily unavailable because the Data Quality service is offline."
   }
 }

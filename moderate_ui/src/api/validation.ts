@@ -62,6 +62,36 @@ export interface AssetObjectRowCountResponse {
 }
 
 /**
+ * State of the DIVA Quality Reporter service.
+ */
+export type ReporterState =
+  | "starting"
+  | "healthy"
+  | "catching_up"
+  | "stale"
+  | "error";
+
+/**
+ * Health status of the DIVA Quality Reporter.
+ */
+export interface ReporterStatus {
+  state: ReporterState;
+  kafka_connected: boolean;
+  consumer_group?: string;
+  last_poll_at?: number;
+  last_message_at?: number;
+  last_flush_at?: number;
+  seconds_since_last_flush?: number;
+  messages_processed_total: number;
+  current_batch_size: number;
+  validation_pending_messages?: number;
+  validation_pending_by_partition: Record<string, number>;
+  reconnect_count: number;
+  last_error?: string;
+  is_mock?: boolean;
+}
+
+/**
  * Add computed stats to validation entries.
  */
 export function addEntryStats(
@@ -154,6 +184,15 @@ export async function getAssetObjectRowCount({
     objectId.toString(),
     "row-count",
   );
+  const response = await axios.get(url);
+  return response.data;
+}
+
+/**
+ * Get the current health status of the DIVA Quality Reporter.
+ */
+export async function getReporterStatus(): Promise<ReporterStatus> {
+  const url = buildApiUrl("asset", "validation", "reporter-status");
   const response = await axios.get(url);
   return response.data;
 }

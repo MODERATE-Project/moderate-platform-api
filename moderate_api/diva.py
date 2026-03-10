@@ -101,6 +101,35 @@ class ValidationResult(BaseModel):
         )
 
 
+class ReporterState(str, Enum):
+    """State of the DIVA Quality Reporter service."""
+
+    STARTING = "starting"
+    HEALTHY = "healthy"
+    CATCHING_UP = "catching_up"
+    STALE = "stale"
+    ERROR = "error"
+
+
+class ReporterStatus(BaseModel):
+    """Health status of the DIVA Quality Reporter."""
+
+    state: ReporterState
+    kafka_connected: bool
+    consumer_group: str | None = None
+    last_poll_at: float | None = None
+    last_message_at: float | None = None
+    last_flush_at: float | None = None
+    seconds_since_last_flush: float | None = None
+    messages_processed_total: int = 0
+    current_batch_size: int = 0
+    validation_pending_messages: int | None = None
+    validation_pending_by_partition: dict[str, int] = Field(default_factory=dict)
+    reconnect_count: int = 0
+    last_error: str | None = None
+    is_mock: bool = False
+
+
 class DivaClient:
     """Client for DIVA Kafka REST Gateway and Quality Reporter APIs.
 
@@ -377,3 +406,34 @@ class DivaClient:
             processed_rows=processed_rows,
             last_requested_at=start_time,
         )
+
+    async def get_reporter_status(self) -> ReporterStatus:
+        """Fetch health status from DIVA Quality Reporter.
+
+        Returns:
+            ReporterStatus with current health state. Returns ERROR state
+            on any failure instead of raising.
+        """
+        url = self.settings.url_report_status()
+
+        _logger.debug("Fetching reporter status from DIVA: url=%s", url)
+
+        try:
+            async with httpx.AsyncClient(
+                timeout=self.settings.request_timeout
+            ) as client:
+                response = await client.get(url, auth=self._auth)
+                response.raise_for_status()
+                data = response.json()
+            return ReporterStatus(**data)
+        except (
+            httpx.HTTPStatusError,
+            httpx.RequestError,
+            Exception,
+        ) as e:
+            _logger.error("Failed to fetch reporter status: %s", str(e))
+            return ReporterStatus(
+                state=ReporterState.ERROR,
+                kafka_connected=False,
+                last_error=str(e),
+            )

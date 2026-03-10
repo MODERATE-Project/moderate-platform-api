@@ -25,12 +25,13 @@ import {
   getAssetObjectRowCount,
   getSupportedExtensions,
 } from "../../api/validation";
-import { useAssetObjectValidation } from "../../hooks";
+import { useAssetObjectValidation, useReporterStatus } from "../../hooks";
 import { catchErrorAndShow } from "../../utils";
 import {
   DataQualityRulesHelp,
   ValidationResultsTable,
 } from "./ValidationResultsTable";
+import { ReporterStatusIndicator } from "./ReporterStatusIndicator";
 
 interface AssetObjectDataQualityTabProps {
   assetId: number | string;
@@ -50,6 +51,51 @@ function getOverallStatusBadge(passRate: number): {
   if (passRate >= 95) return { color: "teal", label: "Good" };
   if (passRate >= 80) return { color: "yellow", label: "Fair" };
   return { color: "red", label: "Poor" };
+}
+
+function getReporterStatusSummary(
+  reporterStatus: ReturnType<typeof useReporterStatus>["reporterStatus"],
+  t: ReturnType<typeof useTranslate>,
+): string | null {
+  if (!reporterStatus) {
+    return null;
+  }
+
+  if (reporterStatus.state === "healthy") {
+    return t(
+      "reporter.healthyTooltip",
+      "Data Quality service is available and validation can run now.",
+    );
+  }
+
+  if (reporterStatus.state === "starting") {
+    return t(
+      "reporter.startingTooltip",
+      "Data Quality service is starting up. Validation requests may take a moment.",
+    );
+  }
+
+  if (reporterStatus.state === "catching_up") {
+    return t(
+      "reporter.catchingUpTooltip",
+      "Data Quality service is catching up on queued work. New validation requests may take longer.",
+    );
+  }
+
+  if (reporterStatus.state === "stale") {
+    return t(
+      "reporter.staleMessage",
+      "The Data Quality service has not processed recent work. Validation results may be delayed.",
+    );
+  }
+
+  return (
+    reporterStatus.last_error ||
+    t(
+      "reporter.errorMessage",
+      "The Data Quality service is currently unavailable. Starting a new validation may fail.",
+    )
+  );
 }
 
 /**
@@ -86,6 +132,8 @@ export const AssetObjectDataQualityTab: React.FC<
     usePublicEndpoint,
   });
 
+  const { reporterStatus } = useReporterStatus();
+
   // Fetch supported extensions and row count on mount
   useEffect(() => {
     getSupportedExtensions()
@@ -114,6 +162,11 @@ export const AssetObjectDataQualityTab: React.FC<
     status?.status === "in_progress" || status?.status === "complete";
   const disableValidationActions =
     supportedExtensionsLoadFailed && !hasRunningOrCompletedValidation;
+  const reporterUnavailable =
+    reporterStatus?.state === "error" && !reporterStatus.kafka_connected;
+  const showValidationUnavailableMessage =
+    reporterUnavailable && !disableValidationActions;
+  const reporterStatusSummary = getReporterStatusSummary(reporterStatus, t);
 
   // Loading state
   if (isLoading && !status) {
@@ -200,6 +253,7 @@ export const AssetObjectDataQualityTab: React.FC<
             )}
           </Text>
           <DataQualityRulesHelp t={t} />
+          <ReporterStatusIndicator reporterStatus={reporterStatus} />
           {disableValidationActions && (
             <Alert
               icon={<IconAlertTriangle size={16} />}
@@ -216,10 +270,26 @@ export const AssetObjectDataQualityTab: React.FC<
               )}
             </Alert>
           )}
+          {showValidationUnavailableMessage && (
+            <Alert
+              icon={<IconAlertTriangle size={16} />}
+              color="red"
+              title={t(
+                "validation.serviceUnavailableTitle",
+                "Validation temporarily unavailable",
+              )}
+              w="100%"
+            >
+              {t(
+                "validation.serviceUnavailableMessage",
+                "Validation is temporarily unavailable because the Data Quality service is offline.",
+              )}
+            </Alert>
+          )}
           <Button
             onClick={startValidation}
             loading={isLoading}
-            disabled={disableValidationActions}
+            disabled={disableValidationActions || reporterUnavailable}
             leftIcon={<IconShieldCheck size={18} />}
             size="md"
           >
@@ -286,6 +356,10 @@ export const AssetObjectDataQualityTab: React.FC<
                       {t("validation.updating", "Updating")}
                     </Badge>
                   )}
+                  <ReporterStatusIndicator
+                    reporterStatus={reporterStatus}
+                    compact
+                  />
                 </Group>
 
                 <Group spacing="xl">
@@ -432,10 +506,59 @@ export const AssetObjectDataQualityTab: React.FC<
               "An error occurred during validation.",
             )}
         </Text>
+        {reporterStatus && (
+          <Paper
+            withBorder
+            radius="md"
+            p="md"
+            mb="md"
+            sx={(theme) => ({
+              backgroundColor: reporterUnavailable
+                ? theme.colors.red[0]
+                : theme.colors.gray[0],
+              borderColor: reporterUnavailable
+                ? theme.colors.red[2]
+                : theme.colors.gray[3],
+            })}
+          >
+            <Stack spacing={6}>
+              <Group spacing="sm" position="apart">
+                <Group spacing="sm">
+                  <Text
+                    size="xs"
+                    weight={700}
+                    color="dimmed"
+                    transform="uppercase"
+                  >
+                    {t("validation.serviceStatusLabel", "Service status")}
+                  </Text>
+                  <ReporterStatusIndicator
+                    reporterStatus={reporterStatus}
+                    compact
+                  />
+                </Group>
+                <Badge
+                  color={reporterStatus.kafka_connected ? "green" : "red"}
+                  size="sm"
+                  variant="light"
+                >
+                  {reporterStatus.kafka_connected
+                    ? t("reporter.kafkaConnected", "Kafka Connected")
+                    : t("reporter.kafkaDisconnected", "Kafka Disconnected")}
+                </Badge>
+              </Group>
+              {reporterStatusSummary && (
+                <Text size="sm" color="dimmed">
+                  {reporterStatusSummary}
+                </Text>
+              )}
+            </Stack>
+          </Paper>
+        )}
         <Button
           onClick={startValidation}
           loading={isLoading}
-          disabled={disableValidationActions}
+          disabled={disableValidationActions || reporterUnavailable}
           variant="light"
           color="red"
           leftIcon={<IconRefresh size={18} />}

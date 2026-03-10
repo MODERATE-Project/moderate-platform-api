@@ -5,12 +5,15 @@ import pprint
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
 from moderate_api.config import DivaSettings
 from moderate_api.diva import (
     DivaClient,
+    ReporterState,
+    ReporterStatus,
     ValidationEntry,
     ValidationResult,
     ValidationStatus,
@@ -61,6 +64,24 @@ class TestValidationModels:
         assert result.overall_pass_rate == 0.0
         assert result.error_message is None
         assert result.processed_rows is None
+
+    def test_reporter_status_defaults(self) -> None:
+        """Test ReporterStatus default values."""
+        status = ReporterStatus(
+            state=ReporterState.HEALTHY,
+            kafka_connected=True,
+        )
+
+        assert status.state == ReporterState.HEALTHY
+        assert status.kafka_connected is True
+        assert status.consumer_group is None
+        assert status.messages_processed_total == 0
+        assert status.current_batch_size == 0
+        assert status.validation_pending_messages is None
+        assert status.validation_pending_by_partition == {}
+        assert status.reconnect_count == 0
+        assert status.last_error is None
+        assert status.is_mock is False
 
 
 class TestDivaClient:
@@ -298,6 +319,58 @@ class TestDivaClient:
                     dataset_id="test-dataset",
                 )
 
+    @pytest.mark.asyncio
+    async def test_get_reporter_status_success(self) -> None:
+        """Test successful reporter status fetch."""
+        settings = DivaSettings(quality_reporter_url="https://reporter.example.com")
+        client = DivaClient(settings)
+
+        mock_response = MagicMock()
+        mock_response.raise_for_status = MagicMock()
+        mock_response.json.return_value = {
+            "state": "healthy",
+            "kafka_connected": True,
+            "consumer_group": "test-group",
+            "messages_processed_total": 42,
+        }
+
+        mock_http_client = AsyncMock()
+        mock_http_client.get.return_value = mock_response
+        mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
+        mock_http_client.__aexit__ = AsyncMock(return_value=False)
+
+        with patch(
+            "moderate_api.diva.httpx.AsyncClient",
+            return_value=mock_http_client,
+        ):
+            result = await client.get_reporter_status()
+
+        assert result.state == ReporterState.HEALTHY
+        assert result.kafka_connected is True
+        assert result.consumer_group == "test-group"
+        assert result.messages_processed_total == 42
+
+    @pytest.mark.asyncio
+    async def test_get_reporter_status_error(self) -> None:
+        """Test reporter status returns ERROR on failure."""
+        settings = DivaSettings(quality_reporter_url="https://reporter.example.com")
+        client = DivaClient(settings)
+
+        mock_http_client = AsyncMock()
+        mock_http_client.get.side_effect = httpx.RequestError("Connection refused")
+        mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
+        mock_http_client.__aexit__ = AsyncMock(return_value=False)
+
+        with patch(
+            "moderate_api.diva.httpx.AsyncClient",
+            return_value=mock_http_client,
+        ):
+            result = await client.get_reporter_status()
+
+        assert result.state == ReporterState.ERROR
+        assert result.kafka_connected is False
+        assert "Connection refused" in result.last_error
+
 
 class TestMockDivaClient:
     """Test mock DIVA client implementation."""
@@ -358,6 +431,19 @@ class TestMockDivaClient:
         assert len(result.entries) > 0
         assert result.total_valid > 0
         assert result.overall_pass_rate > 0
+
+    @pytest.mark.asyncio
+    async def test_mock_client_reporter_status(self) -> None:
+        """Test that mock client returns healthy reporter status."""
+        settings = DivaSettings()
+        client = MockDivaClient(settings)
+
+        result = await client.get_reporter_status()
+
+        assert result.state == ReporterState.HEALTHY
+        assert result.kafka_connected is True
+        assert result.consumer_group == "mock-consumer-group"
+        assert result.is_mock is True
 
     @pytest.mark.asyncio
     async def test_mock_client_entries_structure(self) -> None:
@@ -609,6 +695,23 @@ class TestValidationEndpoints:
             data = start_response.json()
             assert "detail" in data
             assert "File extension not supported" in data["detail"]
+
+    @pytest.mark.asyncio
+    async def test_get_reporter_status_endpoint(
+        self, access_token: str  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test endpoint to get reporter health status."""
+        with TestClient(app) as client:
+            response = client.get(
+                "/asset/validation/reporter-status",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+
+            assert response.status_code == 200
+            data = response.json()
+            assert "state" in data
+            assert "kafka_connected" in data
+            assert data["is_mock"] is True
 
     @pytest.mark.asyncio
     async def test_public_validation_status_endpoint(

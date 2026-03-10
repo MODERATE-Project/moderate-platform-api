@@ -26,7 +26,11 @@ from sqlmodel import or_, select
 from moderate_api.authz.user import OptionalUserDep, User, UserDep
 from moderate_api.config import SettingsDep
 from moderate_api.db import AsyncSessionDep
-from moderate_api.diva import ValidationResult, ValidationStatus
+from moderate_api.diva import (
+    ReporterStatus,
+    ValidationResult,
+    ValidationStatus,
+)
 from moderate_api.diva_deps import DivaClientDep
 from moderate_api.entities.asset import trust_routes
 from moderate_api.entities.asset.models import (
@@ -994,6 +998,24 @@ async def get_supported_extensions(
 ) -> list[str]:
     """Return list of file extensions supported for data quality validation."""
     return settings.diva.supported_extensions
+
+
+@router.get(
+    "/validation/reporter-status",
+    response_model=ReporterStatus,
+    tags=[_TAG],
+    summary="Get Quality Reporter health status",
+)
+async def get_reporter_status(
+    user: UserDep,
+    diva: DivaClientDep,
+) -> ReporterStatus:
+    """Fetch the current health status of the DIVA Quality Reporter.
+
+    Returns telemetry including state machine status, Kafka connectivity,
+    processing lag, and pending messages.
+    """
+    return await diva.get_reporter_status()
 
 
 @router.post(
