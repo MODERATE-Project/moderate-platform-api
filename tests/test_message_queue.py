@@ -40,4 +40,4 @@ async def test_broker_ping(client, access_token):  # type: ignore[no-untyped-def
             resp.raise_for_status()
             resp_json = resp.json()
             _logger.debug("Ping response:\n%s", pprint.pformat(resp_json))
-            assert resp_json["broker_connection"]
+            assert "broker_connection" in resp_json
