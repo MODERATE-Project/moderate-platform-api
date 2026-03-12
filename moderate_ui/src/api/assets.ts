@@ -253,6 +253,37 @@ export async function downloadAssetObjects({
   return response.data;
 }
 
+export interface VerificationCountItem {
+  asset_id: string;
+  verification_count: number;
+  unique_dids: number;
+  cache_ttl_seconds: number;
+}
+
+export function formatCacheTtl(seconds: number): string {
+  if (seconds < 60) return `${seconds} second${seconds !== 1 ? "s" : ""}`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} minute${minutes !== 1 ? "s" : ""}`;
+  const hours = Math.round(minutes / 60);
+  return `${hours} hour${hours !== 1 ? "s" : ""}`;
+}
+
+export async function getObjectVerificationCount({
+  objectKeyOrId,
+}: {
+  objectKeyOrId: string | number;
+}): Promise<VerificationCountItem | null> {
+  const url = buildApiUrl("asset", "verification-count");
+
+  const params = {
+    object_key_or_id: objectKeyOrId,
+  };
+
+  const response = await axios.get(url, { params });
+
+  return response.data ?? null;
+}
+
 export interface AssetObjectIntegrityResponse {
   valid: boolean;
   reason: string;

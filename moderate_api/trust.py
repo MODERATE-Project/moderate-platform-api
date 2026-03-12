@@ -1,6 +1,12 @@
+import asyncio
+import csv
+import io
 import logging
 import pprint
+import time
+from collections import defaultdict
 from functools import wraps
+from typing import Any
 
 import httpx
 from fastapi.encoders import jsonable_encoder
@@ -228,3 +234,111 @@ async def fetch_verify_proof(
         )
 
     return ProofVerificationResult(valid=True)
+
+
+class VerificationCountItem(BaseModel):
+    """Verification count for a single asset object."""
+
+    asset_id: str
+    verification_count: int
+    unique_dids: int
+    cache_ttl_seconds: int
+
+
+_CACHE_TTL_SECONDS = 3600
+_CACHE_FETCH_TIMEOUT = 15
+
+_cache_lock = asyncio.Lock()
+_cache: dict[str, Any] = {
+    "data": None,
+    "timestamp": 0.0,
+    "refreshing": False,
+}
+
+
+async def _do_fetch(log_url: str) -> None:
+    async with httpx.AsyncClient(timeout=_CACHE_FETCH_TIMEOUT) as client:
+        resp = await client.get(log_url)
+        resp.raise_for_status()
+        raw_text = resp.text
+
+    counts: dict[str, int] = defaultdict(int)
+    dids: dict[str, set] = defaultdict(set)
+
+    reader = csv.reader(io.StringIO(raw_text))
+
+    for row in reader:
+        if len(row) < 2:
+            continue
+        did = row[0].strip()
+        asset_id = row[1].strip()
+
+        if not asset_id:
+            continue
+
+        counts[asset_id] += 1
+        dids[asset_id].add(did)
+
+    items = [
+        VerificationCountItem(
+            asset_id=asset_id,
+            verification_count=counts[asset_id],
+            unique_dids=len(dids[asset_id]),
+            cache_ttl_seconds=_CACHE_TTL_SECONDS,
+        )
+        for asset_id in counts
+    ]
+    items.sort(key=lambda x: x.verification_count, reverse=True)
+
+    _cache["data"] = items
+    _cache["timestamp"] = time.monotonic()
+
+
+async def _background_refresh(log_url: str) -> None:
+    try:
+        await _do_fetch(log_url)
+    except Exception:
+        _logger.warning("Failed to refresh verification metrics from %s", log_url)
+    finally:
+        async with _cache_lock:
+            _cache["refreshing"] = False
+
+
+async def fetch_verification_metrics(
+    log_url: str,
+) -> list[VerificationCountItem] | None:
+    async with _cache_lock:
+        data = _cache["data"]
+        age = time.monotonic() - _cache["timestamp"]
+        is_fresh = data is not None and age < _CACHE_TTL_SECONDS
+        should_spawn = not is_fresh and not _cache["refreshing"]
+        if should_spawn:
+            _cache["refreshing"] = True
+
+    if is_fresh:
+        return data
+
+    if should_spawn:
+        asyncio.create_task(_background_refresh(log_url))
+
+    return data
+
+
+async def get_verification_count_for_key(
+    object_key: str, log_url: str
+) -> VerificationCountItem | None:
+    items = await fetch_verification_metrics(log_url)
+
+    if items is None:
+        return None
+
+    for item in items:
+        if item.asset_id == object_key:
+            return item
+
+    return VerificationCountItem(
+        asset_id=object_key,
+        verification_count=0,
+        unique_dids=0,
+        cache_ttl_seconds=_CACHE_TTL_SECONDS,
+    )

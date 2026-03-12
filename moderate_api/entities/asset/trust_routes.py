@@ -14,8 +14,10 @@ from moderate_api.entities.asset.models import (
 from moderate_api.long_running import LongRunningTask, get_task, init_task
 from moderate_api.trust import (
     ProofVerificationResult,
+    VerificationCountItem,
     create_proof_task,
     fetch_verify_proof,
+    get_verification_count_for_key,
 )
 
 _logger = logging.getLogger(__name__)
@@ -140,4 +142,32 @@ async def verify_trust_proof(
         session=session,
         asset_obj_key=s3object.key,
         get_proof_url=settings.trust_service.url_get_proof(),
+    )
+
+
+@router.get(
+    "/verification-count",
+    response_model=VerificationCountItem | None,
+    tags=[_TAG],
+)
+async def get_object_verification_count(
+    *,
+    user: UserDep,
+    settings: SettingsDep,
+    session: AsyncSessionDep,
+    object_key_or_id: str | int,
+):
+    if not settings.trust_service or not settings.trust_service.endpoint_url:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+    s3object = await _find_enforce_s3obj(
+        object_key_or_id=object_key_or_id,
+        session=session,
+        user=user,
+        public_assets_allowed=True,
+    )
+
+    return await get_verification_count_for_key(
+        object_key=s3object.key,
+        log_url=settings.trust_service.url_get_log(),
     )

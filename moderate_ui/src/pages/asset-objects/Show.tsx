@@ -38,7 +38,7 @@ import {
 import _ from "lodash";
 import React, { useCallback, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { updateAssetObject } from "../../api/assets";
+import { formatCacheTtl, updateAssetObject } from "../../api/assets";
 import { Asset, AssetModel } from "../../api/types";
 import {
   buildKeycloakAuthProvider,
@@ -57,6 +57,7 @@ import {
   useAssetObjectDownload,
   useAssetObjectIntegrity,
   useAssetObjectProfile,
+  useVerificationCount,
 } from "../../hooks";
 import { ResourceNames } from "../../types";
 import { catchErrorAndShow } from "../../utils";
@@ -121,6 +122,8 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
 
   const { isLoading: isProfileLoading, profile } =
     useAssetObjectProfile(assetObjectModel);
+
+  const { verificationCount } = useVerificationCount(assetObjectModel);
 
   const [isUpdatingName, setIsUpdatingName] = useState(false);
 
@@ -338,6 +341,36 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
                         sx={{ textTransform: "uppercase", cursor: "default" }}
                       >
                         {assetObjectModel.format}
+                      </Badge>
+                    </Tooltip>
+                  )}
+                  {verificationCount !== null && (
+                    <Tooltip
+                      label={
+                        verificationCount.verification_count > 0
+                          ? t(
+                              "assetObjects.verificationCountTooltip",
+                              `Integrity verified ${verificationCount.verification_count} time(s) by ${verificationCount.unique_dids} unique identity(ies). Count may be up to ${formatCacheTtl(verificationCount.cache_ttl_seconds)} delayed.`,
+                            )
+                          : t(
+                              "assetObjects.neverVerifiedTooltip",
+                              `Integrity has not been verified yet. Count may be up to ${formatCacheTtl(verificationCount.cache_ttl_seconds)} delayed.`,
+                            )
+                      }
+                      withArrow
+                    >
+                      <Badge
+                        size="lg"
+                        radius="sm"
+                        ml="sm"
+                        variant="light"
+                        color="teal"
+                        sx={{ cursor: "default" }}
+                      >
+                        <Group spacing={4}>
+                          <IconShieldCheck size={14} />
+                          {verificationCount.verification_count}
+                        </Group>
                       </Badge>
                     </Tooltip>
                   )}

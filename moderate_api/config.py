@@ -41,6 +41,9 @@ class TrustService(BaseModel):
     def url_get_proof(self) -> str:
         return self.url_create_proof()
 
+    def url_get_log(self) -> str:
+        return self.build_url("api", "log")
+
 
 class OpenMetadataService(BaseModel):
     endpoint_url: str  # Scheme, host and port without paths
