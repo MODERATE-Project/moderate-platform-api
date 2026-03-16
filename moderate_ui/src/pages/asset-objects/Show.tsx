@@ -28,6 +28,7 @@ import {
   IconClipboard,
   IconDatabase,
   IconDownload,
+  IconEye,
   IconFileCheck,
   IconFileText,
   IconHome,
@@ -349,12 +350,12 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
                       label={
                         verificationCount.verification_count > 0
                           ? t(
-                              "assetObjects.verificationCountTooltip",
-                              `Integrity verified ${verificationCount.verification_count} time(s) by ${verificationCount.unique_dids} unique identity(ies). Count may be up to ${formatCacheTtl(verificationCount.cache_ttl_seconds)} delayed.`,
+                              "assetObjects.accessCountTooltip",
+                              `Accessed ${verificationCount.verification_count} time(s) by ${verificationCount.unique_dids} unique identity(ies). Count may be up to ${formatCacheTtl(verificationCount.cache_ttl_seconds)} delayed.`,
                             )
                           : t(
-                              "assetObjects.neverVerifiedTooltip",
-                              `Integrity has not been verified yet. Count may be up to ${formatCacheTtl(verificationCount.cache_ttl_seconds)} delayed.`,
+                              "assetObjects.noAccessTooltip",
+                              `No access recorded yet. Count may be up to ${formatCacheTtl(verificationCount.cache_ttl_seconds)} delayed.`,
                             )
                       }
                       withArrow
@@ -364,11 +365,11 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
                         radius="sm"
                         ml="sm"
                         variant="light"
-                        color="teal"
+                        color="blue"
                         sx={{ cursor: "default" }}
                       >
                         <Group spacing={4}>
-                          <IconShieldCheck size={14} />
+                          <IconEye size={14} />
                           {verificationCount.verification_count}
                         </Group>
                       </Badge>

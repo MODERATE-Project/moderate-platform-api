@@ -21,6 +21,7 @@ export const useAssetObjectDownload = (
 
     const downloadItems = await downloadAssetObjects({
       assetId: assetModel.data.id,
+      objectId: assetObjectModel.data.id,
     });
 
     const theItem = downloadItems.find((item) => {

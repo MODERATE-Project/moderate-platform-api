@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import os
@@ -76,6 +77,7 @@ from moderate_api.open_metadata import (
     get_asset_object_profile,
     search_asset_object,
 )
+from moderate_api.trust import record_download_intent
 
 _logger = logging.getLogger(__name__)
 
@@ -126,9 +128,21 @@ class AssetDownloadURL(BaseModel):
 async def get_asset_presigned_urls(
     s3: S3ClientDep, asset: Asset, expiration_secs: int | None = 3600
 ) -> list[AssetDownloadURL]:
+    return await get_asset_object_presigned_urls(
+        s3=s3,
+        asset_objects=asset.objects,
+        expiration_secs=expiration_secs,
+    )
+
+
+async def get_asset_object_presigned_urls(
+    s3: S3ClientDep,
+    asset_objects: list[UploadedS3Object],
+    expiration_secs: int | None = 3600,
+) -> list[AssetDownloadURL]:
     ret = []
 
-    for s3_object in asset.objects:
+    for s3_object in asset_objects:
         download_url = await s3.generate_presigned_url(  # type: ignore
             "get_object",
             Params={"Bucket": s3_object.bucket, "Key": s3_object.key},
@@ -138,6 +152,20 @@ async def get_asset_presigned_urls(
         ret.append(AssetDownloadURL(key=s3_object.key, download_url=download_url))
 
     return ret
+
+
+async def _find_asset_object(
+    *,
+    session: AsyncSessionDep,
+    asset_id: int,
+    object_id: int,
+) -> UploadedS3Object | None:
+    stmt = select(UploadedS3Object).where(
+        UploadedS3Object.id == object_id,
+        UploadedS3Object.asset_id == asset_id,
+    )
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none()
 
 
 def _get_row_count_local(file_path: str, key: str) -> int:
@@ -363,7 +391,9 @@ async def _download_asset(
     user: OptionalUserDep,
     session: AsyncSessionDep,
     s3: S3ClientDep,
+    settings: SettingsDep,
     id: int,
+    object_id: int | None = Query(default=None),
     expiration_secs: int = Query(default=600, ge=60, le=int(3600 * 24)),
 ):
     stmt = select(Asset).where(Asset.id == id)
@@ -388,9 +418,39 @@ async def _download_asset(
 
     asset = asset[0]
 
-    return await get_asset_presigned_urls(
-        s3=s3, asset=asset, expiration_secs=expiration_secs
+    selected_objects = asset.objects
+
+    if object_id is not None:
+        selected_object = await _find_asset_object(
+            session=session,
+            asset_id=id,
+            object_id=object_id,
+        )
+
+        if not selected_object:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Object {object_id} not found in asset {id}",
+            )
+
+        selected_objects = [selected_object]
+
+    presigned_urls = await get_asset_object_presigned_urls(
+        s3=s3,
+        asset_objects=selected_objects,
+        expiration_secs=expiration_secs,
     )
+
+    if settings.trust_service and settings.trust_service.endpoint_url:
+        asyncio.create_task(
+            record_download_intent(
+                asset_objects=selected_objects,
+                get_proof_url=settings.trust_service.url_get_proof(),
+                user_id=user.username if user else None,
+            )
+        )
+
+    return presigned_urls
 
 
 @router.get(
@@ -428,12 +488,11 @@ async def get_asset_object_row_count(
     if not the_asset:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
-    select_object = select(UploadedS3Object).where(
-        UploadedS3Object.id == object_id,
-        UploadedS3Object.asset_id == id,
+    the_object = await _find_asset_object(
+        session=session,
+        asset_id=id,
+        object_id=object_id,
     )
-    result_object = await session.execute(select_object)
-    the_object = result_object.scalar_one_or_none()
 
     if not the_object:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
@@ -529,12 +588,11 @@ async def get_asset_object_columns(
     if not the_asset:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
-    select_object = select(UploadedS3Object).where(
-        UploadedS3Object.id == object_id,
-        UploadedS3Object.asset_id == id,
+    the_object = await _find_asset_object(
+        session=session,
+        asset_id=id,
+        object_id=object_id,
     )
-    result_object = await session.execute(select_object)
-    the_object = result_object.scalar_one_or_none()
 
     if not the_object:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)

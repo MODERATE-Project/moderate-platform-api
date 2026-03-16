@@ -68,6 +68,31 @@ async def test_download_route(access_token):  # type: ignore[no-untyped-def]
         assert len(res_json) == num_files
 
 
+@pytest.mark.asyncio
+async def test_download_route_filters_by_object_id(
+    access_token,
+):  # type: ignore[no-untyped-def]
+    asset_id = upload_test_files(access_token, num_files=2)
+
+    async with with_session() as session:
+        the_asset = await session.get(Asset, asset_id)
+        assert the_asset is not None
+        selected_object = the_asset.objects[0]
+
+    with TestClient(app) as client:
+        response = client.get(
+            f"/asset/{asset_id}/download-urls",
+            params={"object_id": selected_object.id},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.raise_for_status()
+        res_json = response.json()
+        _logger.info("Filtered response:\n%s", pprint.pformat(res_json))
+        assert len(res_json) == 1
+        assert res_json[0]["key"] == selected_object.key
+
+
 async def _get_num_uploaded_objects() -> int:
     async with with_session() as session:
         stmt = select(UploadedS3Object)

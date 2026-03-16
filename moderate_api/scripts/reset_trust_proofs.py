@@ -270,8 +270,7 @@ async def _clear_postgres(keys: list[str]) -> int:
     placeholders = ", ".join(f":k{i}" for i in range(len(keys)))
     params = {f"k{i}": k for i, k in enumerate(keys)}
     stmt = text(
-        f"UPDATE uploadeds3object SET proof_id = NULL "
-        f"WHERE key IN ({placeholders})"
+        f"UPDATE uploadeds3object SET proof_id = NULL " f"WHERE key IN ({placeholders})"
     )
 
     async with with_session() as session:

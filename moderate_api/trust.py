@@ -342,3 +342,85 @@ async def get_verification_count_for_key(
         unique_dids=0,
         cache_ttl_seconds=_CACHE_TTL_SECONDS,
     )
+
+
+_DOWNLOAD_INTENT_COOLDOWN_SECS = 300
+
+_download_intent_cooldown: dict[str, float] = {}
+
+
+def should_record_download_intent(user_id: str | None, object_key: str) -> bool:
+    """Check whether a download intent should be recorded for the given key.
+
+    Applies a per-(user, object) cooldown to avoid flooding the trust
+    service with repeated proof-read calls for the same download event.
+
+    Args:
+        user_id: The authenticated user's identifier, or None for
+            anonymous requests.
+        object_key: The S3 object key being downloaded.
+
+    Returns:
+        True if enough time has elapsed since the last recorded intent
+        (or if no intent has been recorded yet); False otherwise.
+    """
+    key = f"{user_id or 'anon'}:{object_key}"
+    now = time.monotonic()
+
+    expired = [
+        k
+        for k, ts in _download_intent_cooldown.items()
+        if now - ts > _DOWNLOAD_INTENT_COOLDOWN_SECS
+    ]
+    for k in expired:
+        _download_intent_cooldown.pop(k, None)
+
+    last_time = _download_intent_cooldown.get(key)
+
+    if last_time is None or now - last_time > _DOWNLOAD_INTENT_COOLDOWN_SECS:
+        _download_intent_cooldown[key] = now
+        return True
+
+    return False
+
+
+async def record_download_intent(
+    asset_objects: list,
+    get_proof_url: str,
+    user_id: str | None,
+) -> None:
+    """Fire-and-forget: trigger proof reads for objects that have a proof.
+
+    Iterates over ``asset_objects``, and for each one that carries a
+    ``proof_id`` attribute and whose cooldown has elapsed, schedules a
+    ``fetch_proof`` call.  All calls are gathered concurrently; any
+    exceptions are logged at WARNING level and never re-raised.
+
+    Args:
+        asset_objects: Iterable of asset object model instances.  Each
+            must expose ``proof_id`` and ``key`` attributes.
+        get_proof_url: The trust-service endpoint URL for retrieving a
+            proof by asset ID.
+        user_id: The authenticated user's identifier, or None for
+            anonymous callers.
+    """
+    tasks = [
+        fetch_proof(
+            asset_obj_key=obj.key,
+            get_proof_url=get_proof_url,
+        )
+        for obj in asset_objects
+        if obj.proof_id and should_record_download_intent(user_id, obj.key)
+    ]
+
+    if not tasks:
+        return
+
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    exceptions = [r for r in results if isinstance(r, Exception)]
+    if exceptions:
+        _logger.warning(
+            "Failed to record download intent for some objects: %s",
+            exceptions,
+        )
