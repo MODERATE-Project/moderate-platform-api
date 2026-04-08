@@ -424,3 +424,55 @@ async def record_download_intent(
             "Failed to record download intent for some objects: %s",
             exceptions,
         )
+
+
+class NftMetadata(BaseModel):
+    """NFT metadata associated with an asset."""
+
+    address: str | None = None
+    asset_id: str | None = None
+    owner_did: str | None = None
+    license: str | None = None
+
+
+async def fetch_nft_metadata(
+    asset_id: str,
+    get_nfts_url: str,
+    timeout_seconds: int = _TIMEOUT_SECS_LOW,
+) -> NftMetadata | None:
+    """Fetch NFT metadata from the trust service for a given asset.
+
+    Args:
+        asset_id: The asset UUID to query NFTs for.
+        get_nfts_url: The trust service endpoint URL for NFT retrieval.
+        timeout_seconds: HTTP request timeout.
+
+    Returns:
+        The NFT metadata if found, or None if no NFT exists for this
+        asset or the response is empty.
+    """
+
+    async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+        params = {"assetId": asset_id}
+
+        _logger.debug(
+            "Calling %s with params:\n%s",
+            get_nfts_url,
+            pprint.pformat(params),
+        )
+
+        resp = await client.get(get_nfts_url, params=params)
+        resp.raise_for_status()
+        data = resp.json()
+
+        if not data:
+            return None
+
+        item = data[0] if isinstance(data, list) else data
+
+        return NftMetadata(
+            address=item.get("nftAddress"),
+            asset_id=item.get("assetId"),
+            owner_did=item.get("did"),
+            license=item.get("license"),
+        )

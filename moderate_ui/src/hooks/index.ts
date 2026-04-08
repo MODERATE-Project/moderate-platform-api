@@ -3,4 +3,5 @@ export * from "./useAssetObjectIntegrity";
 export * from "./useAssetObjectProfile";
 export * from "./useAssetObjectValidation";
 export * from "./useReporterStatus";
+export * from "./useNftMetadata";
 export * from "./useVerificationCount";

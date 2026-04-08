@@ -44,6 +44,9 @@ class TrustService(BaseModel):
     def url_get_log(self) -> str:
         return self.build_url("api", "log")
 
+    def url_get_nfts(self) -> str:
+        return self.build_url("api", "nfts")
+
 
 class OpenMetadataService(BaseModel):
     endpoint_url: str  # Scheme, host and port without paths

@@ -13,9 +13,11 @@ from moderate_api.entities.asset.models import (
 )
 from moderate_api.long_running import LongRunningTask, get_task, init_task
 from moderate_api.trust import (
+    NftMetadata,
     ProofVerificationResult,
     VerificationCountItem,
     create_proof_task,
+    fetch_nft_metadata,
     fetch_verify_proof,
     get_verification_count_for_key,
 )
@@ -143,6 +145,34 @@ async def verify_trust_proof(
         asset_obj_key=s3object.key,
         get_proof_url=settings.trust_service.url_get_proof(),
     )
+
+
+@router.get("/nft", response_model=NftMetadata | None, tags=[_TAG])
+async def get_asset_nft_metadata(
+    *,
+    user: UserDep,
+    session: AsyncSessionDep,
+    settings: SettingsDep,
+    object_key_or_id: str | int,
+):
+    if not settings.trust_service or not settings.trust_service.endpoint_url:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+    s3object = await _find_enforce_s3obj(
+        object_key_or_id=object_key_or_id,
+        session=session,
+        user=user,
+        public_assets_allowed=False,
+    )
+
+    try:
+        return await fetch_nft_metadata(
+            asset_id=s3object.key,
+            get_nfts_url=settings.trust_service.url_get_nfts(),
+        )
+    except Exception:
+        _logger.warning("Failed to fetch NFT metadata for object %s", object_key_or_id)
+        return None
 
 
 @router.get(

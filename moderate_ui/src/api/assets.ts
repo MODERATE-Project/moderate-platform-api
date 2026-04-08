@@ -371,6 +371,24 @@ export async function deleteAssetObject({
   return response.data;
 }
 
+export interface NftMetadata {
+  address: string | null;
+  asset_id: string | null;
+  owner_did: string | null;
+  license: string | null;
+}
+
+export async function getAssetNftMetadata({
+  objectKeyOrId,
+}: {
+  objectKeyOrId: number | string;
+}): Promise<NftMetadata | null> {
+  const url = buildApiUrl("asset", "nft");
+  const params = { object_key_or_id: objectKeyOrId };
+  const response = await axios.get(url, { params });
+  return response.data ?? null;
+}
+
 export interface AssetObjectColumnsResponse {
   columns: string[];
 }

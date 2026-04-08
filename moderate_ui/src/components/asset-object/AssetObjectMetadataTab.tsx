@@ -1,6 +1,8 @@
+import { Loader, Title } from "@mantine/core";
 import { useTranslate } from "@refinedev/core";
 import React from "react";
 import { AssetObjectModel } from "../../api/types";
+import { useNftMetadata } from "../../hooks";
 import { KeyValuesStack } from "../KeyValuesStack";
 
 interface AssetObjectMetadataTabProps {
@@ -14,6 +16,8 @@ export const AssetObjectMetadataTab: React.FC<AssetObjectMetadataTabProps> = ({
   assetObjectModel,
 }) => {
   const t = useTranslate();
+  const { isLoading: isNftLoading, nftMetadata } =
+    useNftMetadata(assetObjectModel);
 
   const fieldHelp: { [key: string]: string } = {
     name: t(
@@ -51,10 +55,46 @@ export const AssetObjectMetadataTab: React.FC<AssetObjectMetadataTabProps> = ({
   };
 
   return (
-    <KeyValuesStack
-      obj={assetObjectModel.data}
-      omitFields={["description", "id"]}
-      fieldHelp={fieldHelp}
-    />
+    <>
+      <KeyValuesStack
+        obj={assetObjectModel.data}
+        omitFields={["description", "id"]}
+        fieldHelp={fieldHelp}
+      />
+      {isNftLoading && <Loader size="xs" mt="md" />}
+      {nftMetadata && (
+        <>
+          <Title order={5} my="md">
+            {t("assetObjects.nftMetadata", "NFT Information")}
+          </Title>
+          <KeyValuesStack
+            obj={{
+              address: nftMetadata.address,
+              asset_id: nftMetadata.asset_id,
+              owner_did: nftMetadata.owner_did,
+              license: nftMetadata.license,
+            }}
+            fieldHelp={{
+              address: t(
+                "assetObjects.nftHelp.address",
+                "The blockchain address of the NFT.",
+              ),
+              asset_id: t(
+                "assetObjects.nftHelp.assetId",
+                "The asset identifier in the NFT system.",
+              ),
+              owner_did: t(
+                "assetObjects.nftHelp.ownerDid",
+                "The decentralized identifier (DID) of the NFT owner.",
+              ),
+              license: t(
+                "assetObjects.nftHelp.license",
+                "The license associated with this NFT.",
+              ),
+            }}
+          />
+        </>
+      )}
+    </>
   );
 };
