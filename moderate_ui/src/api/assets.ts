@@ -389,6 +389,21 @@ export async function getAssetNftMetadata({
   return response.data ?? null;
 }
 
+export async function mintAssetNft({
+  objectKeyOrId,
+  license,
+}: {
+  objectKeyOrId: number | string;
+  license: string;
+}): Promise<{ task_id: number }> {
+  const url = buildApiUrl("asset", "nft", "mint");
+  const response = await axios.post(url, {
+    object_key_or_id: objectKeyOrId,
+    license,
+  });
+  return response.data;
+}
+
 export interface AssetObjectColumnsResponse {
   columns: string[];
 }

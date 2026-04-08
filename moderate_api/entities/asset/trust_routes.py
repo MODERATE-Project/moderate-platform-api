@@ -20,6 +20,7 @@ from moderate_api.trust import (
     fetch_nft_metadata,
     fetch_verify_proof,
     get_verification_count_for_key,
+    mint_nft_task,
 )
 
 _logger = logging.getLogger(__name__)
@@ -36,6 +37,11 @@ class AssetObjectProofCreationRequest(BaseModel):
 class AssetObjectProofCreationResponse(BaseModel):
     task_id: int | None
     obj: UploadedS3Object | None
+
+
+class MintNftRequest(BaseModel):
+    object_key_or_id: str | int
+    license: str
 
 
 async def _find_enforce_s3obj(
@@ -173,6 +179,54 @@ async def get_asset_nft_metadata(
     except Exception:
         _logger.warning("Failed to fetch NFT metadata for object %s", object_key_or_id)
         return None
+
+
+@router.post("/nft/mint", response_model=dict, tags=[_TAG])
+async def mint_asset_nft(
+    *,
+    user: UserDep,
+    session: AsyncSessionDep,
+    settings: SettingsDep,
+    background_tasks: BackgroundTasks,
+    body: MintNftRequest,
+):
+    """Initiate NFT minting for an asset object.
+
+    The object must already have a proof (proof_id set). Minting is restricted
+    to the asset owner or admin. The NFT is minted asynchronously; poll
+    GET /asset/proof/task/{task_id} for completion status.
+
+    Returns:
+        dict with task_id to poll.
+    """
+    if not settings.trust_service or not settings.trust_service.endpoint_url:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+    s3object = await _find_enforce_s3obj(
+        object_key_or_id=body.object_key_or_id,
+        session=session,
+        user=user,
+        public_assets_allowed=False,
+    )
+
+    if not s3object.proof_id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A proof must exist before minting an NFT for this object.",
+        )
+
+    task_id = await init_task(session=session, username_owner=user.username)
+
+    background_tasks.add_task(
+        mint_nft_task,
+        task_id=str(task_id),
+        s3object_key_or_id=body.object_key_or_id,
+        requester_username=user.username,
+        license=body.license,
+        mint_nft_url=settings.trust_service.url_get_nfts(),
+    )
+
+    return {"task_id": task_id}
 
 
 @router.get(

@@ -7,9 +7,11 @@ import {
   Card,
   Group,
   LoadingOverlay,
+  Modal,
   Stack,
   Tabs,
   Text,
+  TextInput,
   ThemeIcon,
   Tooltip,
 } from "@mantine/core";
@@ -31,6 +33,7 @@ import {
   IconEye,
   IconFileCheck,
   IconFileText,
+  IconHexagonPlus,
   IconHome,
   IconReportSearch,
   IconShieldCheck,
@@ -39,8 +42,14 @@ import {
 import _ from "lodash";
 import React, { useCallback, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { formatCacheTtl, updateAssetObject } from "../../api/assets";
+import {
+  formatCacheTtl,
+  updateAssetObject,
+  mintAssetNft,
+} from "../../api/assets";
 import { Asset, AssetModel } from "../../api/types";
+import axios from "axios";
+import { buildApiUrl } from "../../api/utils";
 import {
   buildKeycloakAuthProvider,
   IIdentity,
@@ -127,6 +136,55 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
   const { verificationCount } = useVerificationCount(assetObjectModel);
 
   const [isUpdatingName, setIsUpdatingName] = useState(false);
+  const [isMintModalOpen, setIsMintModalOpen] = useState(false);
+  const [mintLicense, setMintLicense] = useState("");
+  const [isMinting, setIsMinting] = useState(false);
+
+  const handleMintNft = useCallback(async () => {
+    if (!assetObjectModel || !mintLicense.trim()) return;
+
+    setIsMinting(true);
+
+    try {
+      const { task_id } = await mintAssetNft({
+        objectKeyOrId: assetObjectModel.data.id,
+        license: mintLicense.trim(),
+      });
+
+      // Poll the existing proof task endpoint until the task finishes
+      const poll = async (): Promise<void> => {
+        const url = buildApiUrl("asset", "proof", "task", String(task_id));
+        const res = await axios.get(url);
+        if (res.data?.finished_at) {
+          if (res.data?.error) {
+            throw new Error(res.data.error);
+          }
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 3000));
+        return poll();
+      };
+
+      await poll();
+
+      open?.({
+        message: t("assetObjects.mintSuccess", "NFT minted successfully"),
+        type: "success",
+      });
+
+      setIsMintModalOpen(false);
+      setMintLicense("");
+      await queryResult.refetch();
+    } catch (error) {
+      _.partial(
+        catchErrorAndShow,
+        open,
+        t("assetObjects.mintError", "NFT minting failed"),
+      )(error);
+    } finally {
+      setIsMinting(false);
+    }
+  }, [assetObjectModel, mintLicense, open, t, queryResult]);
 
   const handleNameUpdate = useCallback(
     async (newName: string) => {
@@ -300,6 +358,43 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
           "We are checking the integrity of this dataset object. This may take a while.",
         )}
       />
+      <LoadingOverlayWithMessage
+        visible={isMinting}
+        message={t(
+          "assetObjects.loadingMint",
+          "Minting NFT on the blockchain. This may take a minute.",
+        )}
+      />
+      <Modal
+        opened={isMintModalOpen}
+        onClose={() => {
+          if (!isMinting) {
+            setIsMintModalOpen(false);
+            setMintLicense("");
+          }
+        }}
+        title={t("assetObjects.mintNft.title", "Mint NFT")}
+      >
+        <TextInput
+          label={t("assetObjects.mintNft.license", "License")}
+          placeholder="e.g. CC-BY-4.0"
+          value={mintLicense}
+          onChange={(e) => setMintLicense(e.currentTarget.value)}
+          required
+          mb="md"
+        />
+        <Button
+          fullWidth
+          variant="light"
+          color="violet"
+          leftIcon={<IconHexagonPlus size={18} />}
+          loading={isMinting}
+          disabled={!mintLicense.trim()}
+          onClick={handleMintNft}
+        >
+          {t("assetObjects.mintNft.submit", "Mint NFT")}
+        </Button>
+      </Modal>
       {!!result && (
         <IntegrityModal
           integrityResult={result}
@@ -464,6 +559,24 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
                     )}
                   </Button>
                 </Tooltip>
+
+                {assetObjectModel.data.proof_id && (
+                  <Tooltip
+                    label={t(
+                      "assetObjects.actions.mintNft",
+                      "Mint NFT for this object",
+                    )}
+                  >
+                    <Button
+                      variant="light"
+                      color="violet"
+                      leftIcon={<IconHexagonPlus size={18} />}
+                      onClick={() => setIsMintModalOpen(true)}
+                    >
+                      {t("assetObjects.actions.mintNft", "Mint NFT")}
+                    </Button>
+                  </Tooltip>
+                )}
               </Group>
             </Group>
           </Stack>

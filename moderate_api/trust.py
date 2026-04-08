@@ -3,6 +3,7 @@ import csv
 import io
 import logging
 import pprint
+import re
 import time
 from collections import defaultdict
 from functools import wraps
@@ -163,6 +164,98 @@ async def create_proof_task(
 
         result = jsonable_encoder(s3obj)
         await set_task_result(session=session, task_id=task_id, result=result)
+
+
+@_handle_task_error
+async def mint_nft_task(
+    task_id: str,
+    s3object_key_or_id: str | int,
+    requester_username: str,
+    license: str,
+    mint_nft_url: str,
+    timeout_seconds: int = _TIMEOUT_SECS_HIGH,
+) -> None:
+    """Background task to mint an NFT for an asset object via the trust service.
+
+    Args:
+        task_id: Long-running task identifier for status tracking.
+        s3object_key_or_id: The S3 object key or database ID of the object to mint.
+        requester_username: The username of the user requesting the mint.
+        license: The license string to embed in the NFT (e.g. "CC-BY-4.0").
+        mint_nft_url: The trust service endpoint URL for NFT minting (POST /api/nfts).
+        timeout_seconds: HTTP request timeout in seconds.
+
+    Raises:
+        ValueError: If the object is not found, has no proof, or the owner has no DID.
+    """
+    async with with_session() as session:
+        s3obj = await find_s3object_by_key_or_id(
+            val=s3object_key_or_id, session=session
+        )
+
+        if not s3obj:
+            raise ValueError(f"Asset object '{s3object_key_or_id}' not found")
+
+        if not s3obj.proof_id:
+            raise ValueError(
+                f"Asset object '{s3object_key_or_id}' has no proof — "
+                "a proof must exist before minting an NFT"
+            )
+
+        # Resolve the DID from the asset owner (platform compensates for the Trust
+        # Service's unimplemented ownership check — the DID is never caller-supplied)
+        owner_username = (
+            s3obj.asset.username
+            if s3obj.asset and s3obj.asset.username
+            else requester_username
+        )
+
+        user_did = await get_did_for_username(username=owner_username, session=session)
+
+        if not user_did:
+            raise ValueError(
+                f"User '{owner_username}' does not have a DID and cannot mint an NFT"
+            )
+
+        # Auto-derive nftAlias: prefer explicit object name, then parent asset name,
+        # then fall back to the raw key. Sanitise to safe characters and truncate.
+        raw_alias = (
+            s3obj.name or (s3obj.asset.name if s3obj.asset else None) or s3obj.key
+        )
+        nft_alias = re.sub(r"[^a-zA-Z0-9 _\-]", "", raw_alias).strip()[:64] or "Asset"
+
+        # Auto-derive nftSymbol: first 6 uppercase alphanumeric chars of asset name.
+        # nftSymbol has no uniqueness or length constraint on the Trust Service side.
+        raw_symbol = re.sub(
+            r"[^a-zA-Z0-9]", "", s3obj.asset.name if s3obj.asset else ""
+        ).upper()[:6]
+        nft_symbol = raw_symbol or "ASSET"
+
+        async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+            json_payload = {
+                "assetId": s3obj.key,
+                "nftAlias": nft_alias,
+                "nftSymbol": nft_symbol,
+                "license": license,
+                "did": user_did,
+            }
+
+            _logger.info(
+                "Calling %s with payload:\n%s",
+                mint_nft_url,
+                pprint.pformat(json_payload),
+            )
+
+            resp = await client.post(mint_nft_url, json=json_payload)
+            resp.raise_for_status()
+
+        _logger.info("NFT minted successfully for object '%s'", s3object_key_or_id)
+
+        await set_task_result(
+            session=session,
+            task_id=task_id,
+            result={"status": "minted", "object_key": s3obj.key},
+        )
 
 
 class ProofResponse(BaseModel):
