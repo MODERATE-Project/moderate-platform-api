@@ -118,7 +118,7 @@ export const AssetObjectPicker: React.FC<Props> = ({
     setValue(value);
     setCurrentOption(theCurrentOption);
 
-    if (onSelect && theCurrentOption) {
+    if (onSelect) {
       onSelect(theCurrentOption);
     }
   };

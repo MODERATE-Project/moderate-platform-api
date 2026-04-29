@@ -234,10 +234,12 @@ export interface DownloadAssetObjectItem {
 export async function downloadAssetObjects({
   assetId,
   objectId,
+  expirationSecs,
   usePublicEndpoint,
 }: {
   assetId: string | number;
   objectId?: string | number;
+  expirationSecs?: number;
   usePublicEndpoint?: boolean;
 }): Promise<DownloadAssetObjectItem[]> {
   const urlParts = ["asset"];
@@ -250,8 +252,16 @@ export async function downloadAssetObjects({
   urlParts.push("download-urls");
   const url = buildApiUrl(...urlParts);
 
-  const params =
-    objectId !== undefined ? { object_id: objectId.toString() } : undefined;
+  const params: { object_id?: string; expiration_secs?: number } = {};
+
+  if (objectId !== undefined) {
+    params.object_id = objectId.toString();
+  }
+
+  if (expirationSecs !== undefined) {
+    params.expiration_secs = expirationSecs;
+  }
+
   const response = await axios.get(url, { params });
 
   return response.data;

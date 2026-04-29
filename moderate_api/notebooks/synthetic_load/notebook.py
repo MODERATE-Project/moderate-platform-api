@@ -17,7 +17,7 @@ def _():
             """
             ## File Configuration
 
-            Please provide URLs for all three required files:
+            Default URLs are already filled in for a demonstration run. You can replace any URL before clicking **Load Files**.
 
             ### Pre-trained Model
             {model_url}
@@ -132,7 +132,10 @@ def _(files_form, mo):
     # Check that the form has been submitted
     mo.stop(
         files_form.value is None,
-        mo.callout("Please submit the files form", kind="info"),
+        mo.callout(
+            "Review the File Configuration section above, then click Load Files to download the model, test data, and training data.",
+            kind="info",
+        ),
     )
 
     # Extract individual URLs from the combined form

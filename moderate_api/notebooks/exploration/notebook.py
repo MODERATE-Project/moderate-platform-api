@@ -70,7 +70,11 @@ def __(mo):
 @app.cell
 def __(mo):
     mo.md(
-        r"""Next, we try to guess the specific format of the dataset to select the correct DataFrame reader function."""
+        r"""
+        Next, we try to guess the specific format of the dataset to select the correct DataFrame reader function.
+
+        Supported formats in this hosted explorer are CSV, JSON, and Parquet. Excel files may still be uploaded to the catalogue, but they are not supported by this Data Explorer workflow.
+        """
     )
     return
 
@@ -87,7 +91,6 @@ def __(os, pl, url, urllib):
 
         read_functions = {
             ".csv": pl.read_csv,
-            ".xlsx": pl.read_excel,
             ".parquet": pl.read_parquet,
             ".json": pl.read_json,
         }
@@ -104,7 +107,6 @@ def __(mo, pl):
             "CSV": pl.read_csv,
             "JSON": pl.read_json,
             "Parquet": pl.read_parquet,
-            "Excel": pl.read_excel,
         },
         value=None,
         label="Select the DataFrame reader function",
