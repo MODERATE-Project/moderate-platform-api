@@ -79,7 +79,7 @@ export const AssetShow: React.FC<IResourceComponentsProps> = () => {
         </ThemeIcon>
         {t("asset.fields.objects", "Dataset files uploaded to this asset")}
       </Title>
-      {asset && (
+      {asset && isOwner && (
         <Box mb="md">
           <AssetObjectDropzone asset={asset} onUploaded={onRecordChanged} />
         </Box>
@@ -87,6 +87,7 @@ export const AssetShow: React.FC<IResourceComponentsProps> = () => {
       {asset && asset?.getObjects().length > 0 ? (
         <AssetObjectsTable
           asset={asset}
+          canManage={isOwner}
           onDeleted={onRecordChanged}
           onRenamed={onRecordChanged}
         />

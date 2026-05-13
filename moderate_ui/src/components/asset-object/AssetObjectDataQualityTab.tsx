@@ -38,6 +38,8 @@ interface AssetObjectDataQualityTabProps {
   objectId: number | string;
   fileExtension: string;
   usePublicEndpoint?: boolean;
+  canReadRowCount?: boolean;
+  canStartValidation?: boolean;
 }
 
 /**
@@ -111,7 +113,14 @@ function getReporterStatusSummary(
  */
 export const AssetObjectDataQualityTab: React.FC<
   AssetObjectDataQualityTabProps
-> = ({ assetId, objectId, fileExtension, usePublicEndpoint }) => {
+> = ({
+  assetId,
+  objectId,
+  fileExtension,
+  usePublicEndpoint,
+  canReadRowCount = true,
+  canStartValidation = true,
+}) => {
   const t = useTranslate();
   const { open } = useNotification();
   const [supportedExtensions, setSupportedExtensions] = useState<string[]>([]);
@@ -134,7 +143,7 @@ export const AssetObjectDataQualityTab: React.FC<
 
   const { reporterStatus } = useReporterStatus();
 
-  // Fetch supported extensions and row count on mount
+  // Fetch supported extensions on mount
   useEffect(() => {
     getSupportedExtensions()
       .then((extensions) => {
@@ -146,18 +155,23 @@ export const AssetObjectDataQualityTab: React.FC<
         setSupportedExtensionsLoadFailed(true);
         catchErrorAndShow(open, undefined, err);
       });
-
-    getAssetObjectRowCount({ assetId, objectId })
-      .then((res) => setRowCount(res.row_count))
-      .catch((err) => {
-        catchErrorAndShow(open, undefined, err);
-      });
-  }, [assetId, objectId, open]);
+  }, [open]);
 
   // Check if file type is supported
   const isSupported = supportedExtensions.includes(
     fileExtension?.toLowerCase() || "",
   );
+
+  useEffect(() => {
+    if (!canReadRowCount || !isSupported) {
+      setRowCount(null);
+      return;
+    }
+
+    getAssetObjectRowCount({ assetId, objectId })
+      .then((res) => setRowCount(res.row_count))
+      .catch(() => setRowCount(null));
+  }, [assetId, objectId, canReadRowCount, isSupported]);
   const hasRunningOrCompletedValidation =
     status?.status === "in_progress" || status?.status === "complete";
   const disableValidationActions =
@@ -286,15 +300,24 @@ export const AssetObjectDataQualityTab: React.FC<
               )}
             </Alert>
           )}
-          <Button
-            onClick={startValidation}
-            loading={isLoading}
-            disabled={disableValidationActions || reporterUnavailable}
-            leftIcon={<IconShieldCheck size={18} />}
-            size="md"
-          >
-            {t("validation.startButton", "Validate Now")}
-          </Button>
+          {canStartValidation ? (
+            <Button
+              onClick={startValidation}
+              loading={isLoading}
+              disabled={disableValidationActions || reporterUnavailable}
+              leftIcon={<IconShieldCheck size={18} />}
+              size="md"
+            >
+              {t("validation.startButton", "Validate Now")}
+            </Button>
+          ) : (
+            <Alert color="gray" w="100%">
+              {t(
+                "validation.readOnlyMessage",
+                "Validation can only be started by the dataset owner.",
+              )}
+            </Alert>
+          )}
         </Stack>
       </Paper>
     );
@@ -477,15 +500,17 @@ export const AssetObjectDataQualityTab: React.FC<
 
         {/* Re-validate button */}
         <Group position="center" mt="md">
-          <Button
-            variant="light"
-            leftIcon={<IconShieldCheck size={18} />}
-            onClick={startValidation}
-            loading={isLoading}
-            disabled={isPolling || isLoading}
-          >
-            {t("validation.revalidateButton", "Re-validate")}
-          </Button>
+          {canStartValidation && (
+            <Button
+              variant="light"
+              leftIcon={<IconShieldCheck size={18} />}
+              onClick={startValidation}
+              loading={isLoading}
+              disabled={isPolling || isLoading}
+            >
+              {t("validation.revalidateButton", "Re-validate")}
+            </Button>
+          )}
         </Group>
       </Stack>
     );
@@ -555,16 +580,18 @@ export const AssetObjectDataQualityTab: React.FC<
             </Stack>
           </Paper>
         )}
-        <Button
-          onClick={startValidation}
-          loading={isLoading}
-          disabled={disableValidationActions || reporterUnavailable}
-          variant="light"
-          color="red"
-          leftIcon={<IconRefresh size={18} />}
-        >
-          {t("validation.retryButton", "Retry Validation")}
-        </Button>
+        {canStartValidation && (
+          <Button
+            onClick={startValidation}
+            loading={isLoading}
+            disabled={disableValidationActions || reporterUnavailable}
+            variant="light"
+            color="red"
+            leftIcon={<IconRefresh size={18} />}
+          >
+            {t("validation.retryButton", "Retry Validation")}
+          </Button>
+        )}
       </Alert>
     );
   }

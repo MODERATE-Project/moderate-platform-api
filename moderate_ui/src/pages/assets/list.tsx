@@ -1,14 +1,33 @@
 import { Group, Pagination, ScrollArea, Space, Table } from "@mantine/core";
-import { IResourceComponentsProps, useTranslate } from "@refinedev/core";
+import { useKeycloak } from "@react-keycloak/web";
+import {
+  IResourceComponentsProps,
+  useGetIdentity,
+  useTranslate,
+} from "@refinedev/core";
 import { DeleteButton, EditButton, List, ShowButton } from "@refinedev/mantine";
 import { useTable } from "@refinedev/react-table";
 import { ColumnDef, flexRender } from "@tanstack/react-table";
 import React from "react";
+import {
+  buildKeycloakAuthProvider,
+  IIdentity,
+} from "../../auth-provider/keycloak";
 import { ColumnFilter } from "../../components/table/ColumnFilter";
 import { ColumnSorter } from "../../components/table/ColumnSorter";
 
 export const AssetList: React.FC<IResourceComponentsProps> = () => {
   const translate = useTranslate();
+  const { data: identity } = useGetIdentity<IIdentity>();
+  const { keycloak, initialized } = useKeycloak();
+
+  const isAdmin = React.useMemo(() => {
+    if (!initialized) {
+      return false;
+    }
+
+    return buildKeycloakAuthProvider({ keycloak }).isAdmin();
+  }, [initialized, keycloak]);
 
   const columns = React.useMemo<ColumnDef<any>[]>(
     () => [
@@ -56,18 +75,25 @@ export const AssetList: React.FC<IResourceComponentsProps> = () => {
         header: translate("table.actions"),
         enableSorting: false,
         enableColumnFilter: false,
-        cell: function render({ getValue }) {
+        cell: function render({ row, getValue }) {
+          const canManage =
+            row.original.username === identity?.username || isAdmin;
+
           return (
             <Group spacing="xs" noWrap>
               <ShowButton hideText recordItemId={getValue() as string} />
-              <EditButton hideText recordItemId={getValue() as string} />
-              <DeleteButton hideText recordItemId={getValue() as string} />
+              {canManage && (
+                <>
+                  <EditButton hideText recordItemId={getValue() as string} />
+                  <DeleteButton hideText recordItemId={getValue() as string} />
+                </>
+              )}
             </Group>
           );
         },
       },
     ],
-    [translate],
+    [identity?.username, isAdmin, translate],
   );
 
   const {

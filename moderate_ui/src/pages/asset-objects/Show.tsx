@@ -21,7 +21,6 @@ import {
   useGetIdentity,
   useNotification,
   useParsed,
-  useShow,
   useTranslate,
 } from "@refinedev/core";
 import {
@@ -40,14 +39,15 @@ import {
   IconTable,
 } from "@tabler/icons-react";
 import _ from "lodash";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   formatCacheTtl,
+  getAssetObjectsByIds,
   updateAssetObject,
   mintAssetNft,
 } from "../../api/assets";
-import { Asset, AssetModel } from "../../api/types";
+import { Asset, AssetAccessLevel, AssetModel } from "../../api/types";
 import axios from "axios";
 import { buildApiUrl } from "../../api/utils";
 import {
@@ -69,24 +69,45 @@ import {
   useAssetObjectProfile,
   useVerificationCount,
 } from "../../hooks";
-import { ResourceNames } from "../../types";
 import { catchErrorAndShow } from "../../utils";
 import { routes } from "../../utils/routes";
 
 export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
   const { params } = useParsed();
-
-  const { queryResult } = useShow({
-    resource: ResourceNames.ASSET,
-    id: params?.id,
-  });
-
-  const { data, isLoading } = queryResult;
   const t = useTranslate();
   const { open } = useNotification();
+  const [record, setRecord] = useState<Asset | undefined>();
+  const [isLoading, setIsLoading] = useState(false);
 
   const { data: identity } = useGetIdentity<IIdentity>();
   const { keycloak, initialized } = useKeycloak();
+
+  const refetch = useCallback(async () => {
+    if (!params?.objectId) {
+      setRecord(undefined);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const objectsMap = await getAssetObjectsByIds([params.objectId]);
+      const object = objectsMap.get(Number(params.objectId));
+      if (!object || object.asset?.id?.toString() !== params?.id?.toString()) {
+        setRecord(undefined);
+        return;
+      }
+      setRecord(object.asset);
+    } catch (error) {
+      _.partial(catchErrorAndShow, open, undefined)(error);
+      setRecord(undefined);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [params?.id, params?.objectId, open]);
+
+  useEffect(() => {
+    refetch();
+  }, [refetch]);
 
   const isAdmin = useMemo(() => {
     if (!initialized) {
@@ -98,11 +119,23 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
   }, [initialized, keycloak]);
 
   const isOwner = useMemo(() => {
-    return data?.data?.username === identity?.username || isAdmin;
-  }, [identity, data, isAdmin]);
+    return record?.username === identity?.username || isAdmin;
+  }, [identity, record, isAdmin]);
+
+  const canAccessObjectContent = useMemo(() => {
+    return isOwner || record?.access_level === AssetAccessLevel.PUBLIC;
+  }, [isOwner, record]);
+
+  const canReadRowCount = useMemo(() => {
+    return (
+      isOwner ||
+      record?.access_level === AssetAccessLevel.PUBLIC ||
+      record?.access_level === AssetAccessLevel.VISIBLE
+    );
+  }, [isOwner, record]);
 
   const [assetModel, assetObjectModel] = useMemo(() => {
-    const asset = data?.data;
+    const asset = record;
 
     if (!asset) {
       return [undefined, undefined];
@@ -116,7 +149,7 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
     }
 
     return [assetModel, assetObjectModel];
-  }, [data, params]);
+  }, [record, params]);
 
   // Use custom hooks for async operations
   const {
@@ -174,7 +207,7 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
 
       setIsMintModalOpen(false);
       setMintLicense("");
-      await queryResult.refetch();
+      await refetch();
     } catch (error) {
       _.partial(
         catchErrorAndShow,
@@ -184,7 +217,7 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
     } finally {
       setIsMinting(false);
     }
-  }, [assetObjectModel, mintLicense, open, t, queryResult]);
+  }, [assetObjectModel, mintLicense, open, t, refetch]);
 
   const handleNameUpdate = useCallback(
     async (newName: string) => {
@@ -208,7 +241,7 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
           type: "success",
         });
 
-        await queryResult.refetch();
+        await refetch();
       } catch (error) {
         _.partial(
           catchErrorAndShow,
@@ -219,7 +252,7 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
         setIsUpdatingName(false);
       }
     },
-    [assetModel, assetObjectModel, open, t, queryResult],
+    [assetModel, assetObjectModel, open, t, refetch],
   );
 
   const handleDescriptionSave = useCallback(
@@ -244,9 +277,9 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
         type: "success",
       });
 
-      await queryResult.refetch();
+      await refetch();
     },
-    [assetModel, assetObjectModel, open, t, queryResult],
+    [assetModel, assetObjectModel, open, t, refetch],
   );
 
   const handleDownload = useCallback(() => {
@@ -485,61 +518,68 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
               </Box>
 
               <Group spacing="sm">
-                <Tooltip
-                  label={t(
-                    "assetObjects.actions.explore",
-                    "Explore data in new tab",
-                  )}
-                >
-                  <Button
-                    component={Link}
-                    to={routes.assetObjectExplore(
-                      assetModel.data.id,
-                      assetObjectModel.data.id,
-                    )}
-                    target="_blank"
-                    variant="default"
-                    leftIcon={<IconReportSearch size={18} />}
-                  >
-                    {t("assetObjects.actions.explore", "Explore")}
-                  </Button>
-                </Tooltip>
+                {canAccessObjectContent && (
+                  <>
+                    <Tooltip
+                      label={t(
+                        "assetObjects.actions.explore",
+                        "Explore data in new tab",
+                      )}
+                    >
+                      <Button
+                        component={Link}
+                        to={routes.assetObjectExplore(
+                          assetModel.data.id,
+                          assetObjectModel.data.id,
+                        )}
+                        target="_blank"
+                        variant="default"
+                        leftIcon={<IconReportSearch size={18} />}
+                      >
+                        {t("assetObjects.actions.explore", "Explore")}
+                      </Button>
+                    </Tooltip>
 
-                <Tooltip
-                  label={t("assetObjects.actions.download", "Download file")}
-                >
-                  <Button
-                    variant="default"
-                    leftIcon={<IconDownload size={18} />}
-                    onClick={handleDownload}
-                  >
-                    {t("assetObjects.actions.download", "Download")}
-                  </Button>
-                </Tooltip>
+                    <Tooltip
+                      label={t(
+                        "assetObjects.actions.download",
+                        "Download file",
+                      )}
+                    >
+                      <Button
+                        variant="default"
+                        leftIcon={<IconDownload size={18} />}
+                        onClick={handleDownload}
+                      >
+                        {t("assetObjects.actions.download", "Download")}
+                      </Button>
+                    </Tooltip>
 
-                <Tooltip
-                  label={t(
-                    "assetObjects.actions.copyDownloadUrl",
-                    "Copy download URL",
-                  )}
-                >
-                  <Button
-                    variant="default"
-                    color={clipboard.copied ? "green" : "gray"}
-                    leftIcon={
-                      clipboard.copied ? (
-                        <IconCheck size={18} />
-                      ) : (
-                        <IconClipboard size={18} />
-                      )
-                    }
-                    onClick={handleCopyUrl}
-                    loading={isCopyUrlLoading}
-                    loaderProps={{ size: "xs" }}
-                  >
-                    {t("assetObjects.actions.copyDownloadUrl", "Copy URL")}
-                  </Button>
-                </Tooltip>
+                    <Tooltip
+                      label={t(
+                        "assetObjects.actions.copyDownloadUrl",
+                        "Copy download URL",
+                      )}
+                    >
+                      <Button
+                        variant="default"
+                        color={clipboard.copied ? "green" : "gray"}
+                        leftIcon={
+                          clipboard.copied ? (
+                            <IconCheck size={18} />
+                          ) : (
+                            <IconClipboard size={18} />
+                          )
+                        }
+                        onClick={handleCopyUrl}
+                        loading={isCopyUrlLoading}
+                        loaderProps={{ size: "xs" }}
+                      >
+                        {t("assetObjects.actions.copyDownloadUrl", "Copy URL")}
+                      </Button>
+                    </Tooltip>
+                  </>
+                )}
 
                 <Tooltip
                   label={t(
@@ -560,7 +600,7 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
                   </Button>
                 </Tooltip>
 
-                {assetObjectModel.data.proof_id && (
+                {isOwner && assetObjectModel.data.proof_id && (
                   <Tooltip
                     label={t(
                       "assetObjects.actions.mintNft",
@@ -630,6 +670,8 @@ export const AssetObjectShow: React.FC<IResourceComponentsProps> = () => {
                     assetId={assetModel.data.id}
                     objectId={assetObjectModel.data.id}
                     fileExtension={assetObjectModel.format || ""}
+                    canReadRowCount={canReadRowCount}
+                    canStartValidation={isOwner}
                   />
                 </Tabs.Panel>
               </Box>

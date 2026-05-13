@@ -122,9 +122,10 @@ const RenamePopover: React.FC<{
 
 export const AssetObjectsTable: React.FC<{
   asset: AssetModel;
+  canManage?: boolean;
   onDeleted?: () => void;
   onRenamed?: () => void;
-}> = ({ asset, onDeleted, onRenamed }) => {
+}> = ({ asset, canManage = true, onDeleted, onRenamed }) => {
   const t = useTranslate();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -199,32 +200,36 @@ export const AssetObjectsTable: React.FC<{
                         <IconEye size="1em" />
                       </ActionIcon>
                     </Tooltip>
-                    <RenamePopover
-                      assetObject={assetObject}
-                      assetId={asset.data.id}
-                      onRenamed={onRenamed}
-                    />
-                    <Tooltip
-                      openDelay={500}
-                      label={t(
-                        "assetObject.table.tooltip.delete",
-                        "Delete file",
-                      )}
-                    >
-                      <ActionIcon
-                        variant="light"
-                        color="red"
-                        onClick={() => {
-                          onDeleteClick({ objectId: assetObject.data.id }).then(
-                            () => {
-                              onDeleted && onDeleted();
-                            },
-                          );
-                        }}
-                      >
-                        <IconTrash size="1em" />
-                      </ActionIcon>
-                    </Tooltip>
+                    {canManage && (
+                      <>
+                        <RenamePopover
+                          assetObject={assetObject}
+                          assetId={asset.data.id}
+                          onRenamed={onRenamed}
+                        />
+                        <Tooltip
+                          openDelay={500}
+                          label={t(
+                            "assetObject.table.tooltip.delete",
+                            "Delete file",
+                          )}
+                        >
+                          <ActionIcon
+                            variant="light"
+                            color="red"
+                            onClick={() => {
+                              onDeleteClick({
+                                objectId: assetObject.data.id,
+                              }).then(() => {
+                                onDeleted && onDeleted();
+                              });
+                            }}
+                          >
+                            <IconTrash size="1em" />
+                          </ActionIcon>
+                        </Tooltip>
+                      </>
+                    )}
                   </Group>
                 </td>
               </tr>

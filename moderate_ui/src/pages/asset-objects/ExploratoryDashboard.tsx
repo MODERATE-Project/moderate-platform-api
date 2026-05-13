@@ -9,16 +9,10 @@ import {
   Text,
   Title,
 } from "@mantine/core";
-import {
-  useNotification,
-  useParsed,
-  useShow,
-  useTranslate,
-} from "@refinedev/core";
+import { useParsed, useTranslate } from "@refinedev/core";
 import { IconFlask, IconGraphOff, IconInfoCircle } from "@tabler/icons-react";
-import { useEffect, useMemo, useState } from "react";
-import { fetchPygwalkerHtml } from "../../api/assets";
-import { ResourceNames } from "../../types";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { fetchPygwalkerHtml, getAssetObjectsByIds } from "../../api/assets";
 
 export const AssetObjectExploratoryDashboard: React.FC = () => {
   const HEADER_SAMPLED_DATA = "X-Sampled-Data";
@@ -27,13 +21,8 @@ export const AssetObjectExploratoryDashboard: React.FC = () => {
 
   const { params } = useParsed();
 
-  const { queryResult } = useShow({
-    resource: ResourceNames.ASSET,
-    id: params?.id,
-  });
-
-  const { data, isLoading } = queryResult;
-  const { open } = useNotification();
+  const [assetRecord, setAssetRecord] = useState<{ [key: string]: any }>();
+  const [isLoading, setIsLoading] = useState(false);
   const [isDownloadingDashboard, setIsDownloadingDashboard] = useState(false);
   const [alertClosed, setAlertClosed] = useState(false);
 
@@ -55,8 +44,33 @@ export const AssetObjectExploratoryDashboard: React.FC = () => {
 
   const t = useTranslate();
 
+  const loadAssetObject = useCallback(async () => {
+    if (!params?.objectId) {
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const objectsMap = await getAssetObjectsByIds([params.objectId]);
+      const object = objectsMap.get(Number(params.objectId));
+      if (!object || object.asset?.id?.toString() !== params?.id?.toString()) {
+        setAssetRecord(undefined);
+        return;
+      }
+      setAssetRecord(object.asset);
+    } catch (err) {
+      setError(err as { [k: string]: any });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [params?.id, params?.objectId]);
+
+  useEffect(() => {
+    loadAssetObject();
+  }, [loadAssetObject]);
+
   const assetObject = useMemo((): { [key: string]: any } | undefined => {
-    const asset = data?.data;
+    const asset = assetRecord;
 
     if (!asset) {
       return undefined;
@@ -65,7 +79,7 @@ export const AssetObjectExploratoryDashboard: React.FC = () => {
     return asset?.objects.find(
       (item: { [key: string]: any }) => item.id == params?.objectId,
     );
-  }, [data, params]);
+  }, [assetRecord, params]);
 
   useEffect(() => {
     if (!assetObject) {
@@ -95,7 +109,7 @@ export const AssetObjectExploratoryDashboard: React.FC = () => {
       .then(() => {
         setIsDownloadingDashboard(false);
       });
-  }, [assetObject, setIsDownloadingDashboard, open, t]);
+  }, [assetObject, setIsDownloadingDashboard, t]);
 
   return (
     <>
