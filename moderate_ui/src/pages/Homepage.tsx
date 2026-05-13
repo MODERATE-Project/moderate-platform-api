@@ -329,12 +329,12 @@ export const Homepage: React.FC = () => {
                   <IconLock size={32} />
                 </ThemeIcon>
                 <Title order={3}>
-                  {t("home.overlay.title", "Platform Access Restricted")}
+                  {t("home.overlay.title", "Authentication Required")}
                 </Title>
                 <Text color="dimmed" size="sm">
                   {t(
                     "home.overlay.desc",
-                    "The MODERATE platform is currently in development phase and accessible to registered users only. Please log in to continue.",
+                    "Sign up is open. Please create an account or log in to authenticate before accessing the MODERATE platform.",
                   )}
                 </Text>
               </Stack>
