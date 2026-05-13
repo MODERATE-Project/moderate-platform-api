@@ -71,6 +71,8 @@ export const AssetShow: React.FC<IResourceComponentsProps> = () => {
       contentProps={{ mb: "-sm", pt: "md" }}
       title={record && <Title order={3}>{record.name}</Title>}
       goBack={null}
+      canEdit={isOwner}
+      canDelete={isOwner}
     >
       {record && <KeyValuesStack obj={record} omitFields={omitFields} />}
       <Title order={5} my="md">
