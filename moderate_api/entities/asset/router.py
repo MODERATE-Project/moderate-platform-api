@@ -19,7 +19,7 @@ from fastapi import (
 )
 from pydantic import BaseModel
 from slugify import slugify
-from sqlalchemy import and_, true
+from sqlalchemy import and_, func, true
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import BinaryExpression
 from sqlmodel import or_, select
@@ -89,12 +89,39 @@ _ENTITY = Entities.ASSET
 _CHUNK_SIZE = 16 * 1024**2
 
 
-async def build_selector(user: User, session: AsyncSession) -> list[BinaryExpression]:
-    # SQLAlchemy column expressions - type: ignore to handle type checker issues
+def build_owner_selector(user: User) -> list[BinaryExpression] | None:
+    if user.is_admin:
+        return None
+
+    return [Asset.username == user.username]  # type: ignore
+
+
+def build_download_selector(user: User | None) -> list[BinaryExpression] | None:
+    if user and user.is_admin:
+        return None
+
+    constraints = [Asset.access_level == AssetAccessLevels.PUBLIC]  # type: ignore
+
+    if user:
+        constraints.append(Asset.username == user.username)  # type: ignore
+
+    return [or_(*constraints)]  # type: ignore
+
+
+def build_visibility_selector(user: User | None) -> list[BinaryExpression] | None:
+    selector = user_asset_visibility_selector(user=user)
+    return [selector] if selector is not None else None
+
+
+def build_object_visibility_selector(
+    user: User | None,
+) -> list[BinaryExpression] | None:
+    asset_selector = user_asset_visibility_selector(user=user)
+    if asset_selector is None:
+        return None
     return [
-        or_(  # type: ignore
-            Asset.username == user.username,  # type: ignore
-            Asset.access_level == AssetAccessLevels.PUBLIC,  # type: ignore
+        UploadedS3Object.asset_id.in_(  # type: ignore
+            select(Asset.id).where(asset_selector)
         )
     ]
 
@@ -397,18 +424,10 @@ async def _download_asset(
     expiration_secs: int = Query(default=600, ge=60, le=int(3600 * 24)),
 ):
     stmt = select(Asset).where(Asset.id == id)
-    or_constraints = []
+    user_selector = build_download_selector(user=user)
 
-    if user and user.is_admin:
-        _logger.debug("User is admin, allowing access to all assets")
-    else:
-        or_constraints.append(Asset.access_level == AssetAccessLevels.PUBLIC)
-
-        if user:
-            or_constraints.append(Asset.username == user.username)
-
-    if len(or_constraints) > 0:
-        stmt = stmt.where(or_(*or_constraints))
+    if user_selector:
+        stmt = stmt.where(*user_selector)
 
     result = await session.execute(stmt)
     asset = result.one_or_none()
@@ -473,7 +492,7 @@ async def get_asset_object_row_count(
     Otherwise, it downloads the file, calculates the count, updates the metadata,
     and returns it.
     """
-    user_selector = await build_selector(user=user, session=session)
+    user_selector = build_visibility_selector(user)
 
     # Verify access and get object
     the_asset = await read_one(
@@ -574,7 +593,7 @@ async def get_asset_object_columns(
     Downloads the file and extracts column names using Polars.
     Only supports CSV files.
     """
-    user_selector = await build_selector(user=user, session=session)
+    user_selector = build_visibility_selector(user)
 
     the_asset = await read_one(
         user=user,
@@ -653,13 +672,13 @@ async def query_asset_objects(
     filters: str | None = CrudFiltersQuery,
     sorts: str | None = CrudSortsQuery,
 ):
-    user_selector = await build_selector(user=user, session=session)
+    user_selector = build_object_visibility_selector(user)
 
-    await set_response_count_header(
-        response=response,
-        sql_model=UploadedS3Object,
-        session=session,
-    )
+    stmt_count = select(func.count()).select_from(UploadedS3Object).join(Asset)
+    if user_selector:
+        stmt_count = stmt_count.where(*user_selector)
+    count_result = await session.execute(stmt_count)
+    response.headers["x-total-count"] = str(count_result.scalar_one())
 
     return await read_many(
         user=user,
@@ -753,7 +772,7 @@ async def upload_object(
     Note that an _Asset_ may have many objects."""
 
     user.enforce_raise(obj=_ENTITY.value, act=Actions.UPDATE.value)
-    user_selector = await build_selector(user=user, session=session)
+    user_selector = build_owner_selector(user)
 
     # Parse tags from JSON string to dict
     parsed_tags: dict[str, Any] | None = None
@@ -824,6 +843,9 @@ async def create_asset(*, user: UserDep, session: AsyncSessionDep, entity: Asset
     entity_create_patch = await build_create_patch(user=user, session=session)
 
     if entity.is_public_ownerless:
+        if not user.is_admin:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+
         entity_create_patch.update(  # type: ignore
             {
                 Asset.username.key: None,  # type: ignore
@@ -844,27 +866,22 @@ async def create_asset(*, user: UserDep, session: AsyncSessionDep, entity: Asset
 async def _read_assets(
     *,
     response: Response,
-    user: OptionalUserDep,
+    user: UserDep,
     session: AsyncSessionDep,
     offset: int = 0,
     limit: int = Query(default=100, le=100),
     filters: str | None = CrudFiltersQuery,
     sorts: str | None = CrudSortsQuery,
 ):
-    """Query the catalog for assets."""
+    """Query assets visible to the current user (public, visible, or owned)."""
 
-    if user:
-        user_selector = await build_selector(user=user, session=session)
-    else:
-        # Use proper SQLAlchemy expression for public assets
-        user_selector: list[BinaryExpression] = [
-            Asset.access_level == AssetAccessLevels.PUBLIC  # type: ignore
-        ]
+    user_selector = build_visibility_selector(user)
 
     await set_response_count_header(
         response=response,
         sql_model=Asset,
         session=session,
+        selector=user_selector,
     )
 
     results = await read_many(
@@ -882,6 +899,40 @@ async def _read_assets(
     return results
 
 
+async def _read_visible_assets(
+    *,
+    response: Response,
+    user: OptionalUserDep,
+    session: AsyncSessionDep,
+    offset: int = 0,
+    limit: int = Query(default=100, le=100),
+    filters: str | None = CrudFiltersQuery,
+    sorts: str | None = CrudSortsQuery,
+):
+    """Query assets visible in the catalogue."""
+
+    user_selector = build_visibility_selector(user)
+
+    await set_response_count_header(
+        response=response,
+        sql_model=Asset,
+        session=session,
+        selector=user_selector,
+    )
+
+    return await read_many(
+        user=user,
+        entity=_ENTITY,
+        sql_model=Asset,
+        session=session,
+        offset=offset,
+        limit=limit,
+        user_selector=user_selector,
+        json_filters=filters,
+        json_sorts=sorts,
+    )
+
+
 router.add_api_route(
     "",
     _read_assets,
@@ -892,7 +943,7 @@ router.add_api_route(
 
 router.add_api_route(
     "/public",
-    _read_assets,
+    _read_visible_assets,
     methods=["GET"],
     response_model=list[AssetRead],
     tags=[_TAG, Tags.PUBLIC.value],
@@ -903,7 +954,7 @@ router.add_api_route(
 async def read_asset(*, user: UserDep, session: AsyncSessionDep, id: int):
     """Read one asset."""
 
-    user_selector = await build_selector(user=user, session=session)
+    user_selector = build_visibility_selector(user)
 
     return await read_one(
         user=user,
@@ -921,7 +972,7 @@ async def update_asset(
 ):
     """Update one asset."""
 
-    user_selector = await build_selector(user=user, session=session)
+    user_selector = build_owner_selector(user)
 
     return await update_one(
         user=user,
@@ -938,7 +989,7 @@ async def update_asset(
 async def delete_asset(*, user: UserDep, session: AsyncSessionDep, id: int):
     """Delete one asset."""
 
-    user_selector = await build_selector(user=user, session=session)
+    user_selector = build_owner_selector(user)
 
     return await delete_one(
         user=user,
@@ -957,7 +1008,7 @@ async def delete_asset_object(
     """Delete an object from a given data asset."""
 
     user.enforce_raise(obj=Entities.ASSET.value, act=Actions.DELETE.value)
-    user_selector = await build_selector(user=user, session=session)
+    user_selector = build_owner_selector(user)
 
     the_asset = await read_one(
         user=user,
@@ -971,7 +1022,10 @@ async def delete_asset_object(
     if not the_asset:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
-    select_object = select(UploadedS3Object).where(UploadedS3Object.id == object_id)
+    select_object = select(UploadedS3Object).where(
+        UploadedS3Object.id == object_id,
+        UploadedS3Object.asset_id == id,
+    )
     result_object = await session.execute(select_object)
     the_asset_object = result_object.one_or_none()
 
@@ -1000,7 +1054,7 @@ async def update_asset_object(
     """Update an object from a given data asset."""
 
     user.enforce_raise(obj=Entities.ASSET.value, act=Actions.UPDATE.value)
-    user_selector = await build_selector(user=user, session=session)
+    user_selector = build_owner_selector(user)
 
     the_asset = await read_one(
         user=user,
@@ -1014,7 +1068,10 @@ async def update_asset_object(
     if not the_asset:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
-    select_object = select(UploadedS3Object).where(UploadedS3Object.id == object_id)
+    select_object = select(UploadedS3Object).where(
+        UploadedS3Object.id == object_id,
+        UploadedS3Object.asset_id == id,
+    )
     result_object = await session.execute(select_object)
     the_asset_object = result_object.scalar_one_or_none()
 
@@ -1111,7 +1168,7 @@ async def start_validation(
         StartValidationResponse with the dataset_id for tracking
     """
     user.enforce_raise(obj=_ENTITY.value, act=Actions.READ.value)
-    user_selector = await build_selector(user=user, session=session)
+    user_selector = build_owner_selector(user)
 
     # Verify asset exists and user has access
     the_asset = await read_one(

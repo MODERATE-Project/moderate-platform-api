@@ -1,5 +1,6 @@
 p, apisix:api_basic_access, asset, create, allow
 p, apisix:api_basic_access, asset, read, allow
+p, apisix:api_basic_access, uploaded_object, read, allow
 p, apisix:api_basic_access, asset, update, allow
 p, apisix:api_basic_access, asset, delete, allow
 p, apisix:api_basic_access, user, create, deny

@@ -60,7 +60,7 @@ async def run_pygwalker_on_asset_object(
     """
 
     # Fetch S3 object with permission check
-    stmt = select(UploadedS3Object).where(UploadedS3Object.id == object_id)
+    stmt = select(UploadedS3Object).join(Asset).where(UploadedS3Object.id == object_id)
 
     if not user.is_admin:
         stmt = stmt.where(

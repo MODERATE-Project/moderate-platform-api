@@ -349,9 +349,14 @@ def _primary_key(sql_model: type[SQLModel]) -> str:
 
 
 async def set_response_count_header(
-    response: Response, sql_model: type[SQLModel], session: AsyncSession
+    response: Response,
+    sql_model: type[SQLModel],
+    session: AsyncSession,
+    selector: list[BinaryExpression] | None = None,
 ) -> None:
     stmt = select(func.count()).select_from(sql_model)
+    if selector:
+        stmt = stmt.where(*selector)
     result = await session.execute(stmt)
     count = result.scalar_one()
     settings = get_settings()
