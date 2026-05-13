@@ -63,8 +63,14 @@ async def _find_enforce_s3obj(
         s3object.asset.username and s3object.asset.username == user.username
     )
 
+    # public_assets_allowed=True grants access to both PUBLIC and VISIBLE
+    # assets for read-only metadata operations (verification count, integrity)
     is_public = (
-        s3object.asset.access_level == AssetAccessLevels.PUBLIC
+        s3object.asset.access_level
+        in (
+            AssetAccessLevels.PUBLIC,
+            AssetAccessLevels.VISIBLE,
+        )
         and public_assets_allowed
     )
 
