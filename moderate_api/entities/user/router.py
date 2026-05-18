@@ -185,7 +185,7 @@ async def ensure_user_trust_did(
     if user_meta.trust_did:
         return UserDIDCreationResponse(task_id=None, user_meta=user_meta)
 
-    task_id = await init_task(session=session, username_owner=user.username)
+    task_id = await init_task(session=session, username_owner=body.username)
 
     _logger.debug(
         "Creating background task (id=%s) for username: %s", task_id, body.username

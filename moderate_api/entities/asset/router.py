@@ -1109,6 +1109,7 @@ class StartValidationResponse(BaseModel):
     summary="Get supported file extensions for validation",
 )
 async def get_supported_extensions(
+    user: UserDep,
     settings: SettingsDep,
 ) -> list[str]:
     """Return list of file extensions supported for data quality validation."""
