@@ -34,6 +34,7 @@ export interface MegaMenuItem {
   title: string;
   description: string;
   external?: boolean;
+  iconColor?: string;
 }
 
 interface MegaMenuItemsProps {
@@ -52,8 +53,16 @@ export const MegaMenuItems: React.FC<MegaMenuItemsProps> = ({ items }) => {
       {items.map((item) => {
         const body = (
           <Group noWrap align="flex-start">
-            <ThemeIcon size={34} variant="default" radius="md">
-              <item.icon size={22} color={theme.fn.primaryColor()} />
+            <ThemeIcon
+              size={34}
+              variant={item.iconColor ? "light" : "default"}
+              radius="md"
+              color={item.iconColor}
+            >
+              <item.icon
+                size={22}
+                color={item.iconColor ? undefined : theme.fn.primaryColor()}
+              />
             </ThemeIcon>
             <div>
               <Group spacing={6} align="center">

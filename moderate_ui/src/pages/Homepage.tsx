@@ -26,6 +26,7 @@ import {
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { usePing } from "../api/ping";
+import { platformApplications } from "../data/platformApplications";
 
 const useStyles = createStyles((theme) => ({
   wrapper: {
@@ -69,6 +70,23 @@ const useStyles = createStyles((theme) => ({
   featureGrid: {
     marginBottom: theme.spacing.xl * 2,
   },
+  applicationsSection: {
+    marginTop: theme.spacing.xl * 2,
+    marginBottom: theme.spacing.xl * 2,
+  },
+  applicationsHeading: {
+    marginBottom: theme.spacing.xs,
+    color: theme.colorScheme === "dark" ? theme.white : theme.colors.dark[8],
+  },
+  applicationsSubtitle: {
+    color:
+      theme.colorScheme === "dark"
+        ? theme.colors.dark[2]
+        : theme.colors.gray[6],
+    marginBottom: theme.spacing.xl,
+    maxWidth: 760,
+    lineHeight: 1.55,
+  },
   card: {
     transition: "all 0.3s ease",
     cursor: "pointer",
@@ -86,6 +104,32 @@ const useStyles = createStyles((theme) => ({
       boxShadow: theme.shadows.lg,
       borderColor: theme.colors.blue[6],
     },
+  },
+  applicationCard: {
+    transition: "all 0.2s ease",
+    cursor: "pointer",
+    backgroundColor:
+      theme.colorScheme === "dark" ? theme.colors.dark[6] : theme.white,
+    border: `1px solid ${
+      theme.colorScheme === "dark" ? theme.colors.dark[5] : theme.colors.gray[2]
+    }`,
+    height: "100%",
+    display: "flex",
+    flexDirection: "column",
+    padding: theme.spacing.lg,
+    position: "relative",
+    overflow: "hidden",
+    "&:hover": {
+      transform: "translateY(-3px)",
+      boxShadow: theme.shadows.md,
+    },
+  },
+  applicationAccent: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
   },
   cardHeader: {
     display: "flex",
@@ -117,6 +161,14 @@ const useStyles = createStyles((theme) => ({
     display: "flex",
     alignItems: "center",
     color: theme.colors.blue[6],
+    fontWeight: 600,
+    fontSize: theme.fontSizes.sm,
+  },
+  applicationFooter: {
+    marginTop: theme.spacing.md,
+    display: "flex",
+    alignItems: "center",
+    color: theme.fn.primaryColor(),
     fontWeight: 600,
     fontSize: theme.fontSizes.sm,
   },
@@ -294,6 +346,96 @@ export const Homepage: React.FC = () => {
             </Card>
           ))}
         </SimpleGrid>
+
+        <section className={classes.applicationsSection}>
+          <Title order={2} className={classes.applicationsHeading}>
+            {t("home.applications.title", "Example Applications")}
+          </Title>
+          <Text className={classes.applicationsSubtitle}>
+            {t(
+              "home.applications.subtitle",
+              "Practical MODERATE tools for interoperability, benchmarking, renovation planning, clustering, solar assessment, local energy communities, EPC quality checks, and time-series analysis.",
+            )}
+          </Text>
+
+          <SimpleGrid
+            cols={4}
+            spacing="lg"
+            breakpoints={[
+              { maxWidth: 1200, cols: 3 },
+              { maxWidth: 900, cols: 2 },
+              { maxWidth: 560, cols: 1 },
+            ]}
+          >
+            {platformApplications.map((application) => (
+              <Card
+                key={application.id}
+                className={classes.applicationCard}
+                component="a"
+                href={application.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                radius="md"
+                sx={(theme) => ({
+                  "&:hover": {
+                    borderColor:
+                      theme.colorScheme === "dark"
+                        ? (theme.colors[application.iconColor]?.[7] ??
+                          theme.colors.dark[4])
+                        : (theme.colors[application.iconColor]?.[2] ??
+                          theme.colors.gray[3]),
+                  },
+                })}
+              >
+                <Box
+                  className={classes.applicationAccent}
+                  sx={(theme) => ({
+                    backgroundColor:
+                      theme.colorScheme === "dark"
+                        ? (theme.colors[application.iconColor]?.[6] ??
+                          theme.colors.dark[4])
+                        : (theme.colors[application.iconColor]?.[1] ??
+                          theme.colors.gray[2]),
+                  })}
+                />
+
+                <div className={classes.cardHeader}>
+                  <ThemeIcon
+                    size={46}
+                    radius="md"
+                    variant="light"
+                    color={application.iconColor}
+                    className={classes.cardIcon}
+                  >
+                    <application.icon size={27} stroke={1.5} />
+                  </ThemeIcon>
+                  <Badge
+                    variant="light"
+                    color={application.iconColor}
+                    size="sm"
+                  >
+                    {t(application.categoryKey, application.defaultCategory)}
+                  </Badge>
+                </div>
+
+                <Text className={classes.cardTitle}>
+                  {t(application.titleKey, application.defaultTitle)}
+                </Text>
+
+                <Text className={classes.cardDescription}>
+                  {t(application.descKey, application.defaultDesc)}
+                </Text>
+
+                <Group className={classes.applicationFooter} spacing={4}>
+                  <Text size="sm">
+                    {t("home.applications.visit", "Open application")}
+                  </Text>
+                  <IconExternalLink size={16} />
+                </Group>
+              </Card>
+            ))}
+          </SimpleGrid>
+        </section>
 
         <div className={classes.mainSiteButton}>
           <Button

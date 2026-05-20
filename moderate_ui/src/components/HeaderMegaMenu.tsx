@@ -41,6 +41,7 @@ import {
 import { AuthButtons } from "./header/AuthButtons";
 import { MainNavLinks } from "./header/MainNavLinks";
 import { MegaMenuItem, MegaMenuItems } from "./header/MegaMenuItems";
+import { platformApplications } from "../data/platformApplications";
 
 const useStyles = createStyles((theme) => ({
   link: {
@@ -188,6 +189,14 @@ export function HeaderMegaMenu() {
           "Generate synthetic load profiles",
         ),
       },
+      ...platformApplications.map((application) => ({
+        to: application.url,
+        icon: application.icon,
+        iconColor: application.iconColor,
+        title: t(application.titleKey, application.defaultTitle),
+        description: t(application.descKey, application.defaultDesc),
+        external: true,
+      })),
     ];
   }, [t]);
 
@@ -215,7 +224,7 @@ export function HeaderMegaMenu() {
                 <MainNavLinks t={t} />
 
                 <HoverCard
-                  width={600}
+                  width={780}
                   position="bottom"
                   radius="md"
                   shadow="md"
