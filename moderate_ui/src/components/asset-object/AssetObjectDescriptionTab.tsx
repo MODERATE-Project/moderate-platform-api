@@ -84,7 +84,7 @@ export const AssetObjectDescriptionTab: React.FC<
             <Text size="sm">
               {t(
                 "assetObjects.description.editingMode",
-                "You are currently editing the description.",
+                "You are editing the description for this specific dataset (file). The asset-level description, shared by the whole collection, is edited from the asset page.",
               )}
             </Text>
             <Group spacing="xs">

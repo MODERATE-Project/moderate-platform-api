@@ -1,4 +1,4 @@
-import { Loader, Title } from "@mantine/core";
+import { Loader, Stack, Title } from "@mantine/core";
 import { useTranslate } from "@refinedev/core";
 import React from "react";
 import { AssetObjectModel } from "../../api/types";
@@ -9,8 +9,25 @@ interface AssetObjectMetadataTabProps {
   assetObjectModel: AssetObjectModel;
 }
 
+// Fields users authored or that originated from upload-time input.
+const PROPERTY_FIELDS = ["name", "tags"];
+
+// Fields the platform sets, computes, or derives.
+const SYSTEM_FIELDS = [
+  "key",
+  "created_at",
+  "sha256_hash",
+  "proof_id",
+  "series_id",
+  "meta",
+];
+
 /**
- * Simple tab component displaying asset object metadata
+ * Asset object metadata tab.
+ *
+ * Splits the rendered fields into "Properties" (what the user authored) and
+ * "System" (what the platform set or computed) so the mix of user-facing and
+ * technical data is no longer presented as one undifferentiated list.
  */
 export const AssetObjectMetadataTab: React.FC<AssetObjectMetadataTabProps> = ({
   assetObjectModel,
@@ -55,16 +72,33 @@ export const AssetObjectMetadataTab: React.FC<AssetObjectMetadataTabProps> = ({
   };
 
   return (
-    <>
-      <KeyValuesStack
-        obj={assetObjectModel.data}
-        omitFields={["description", "id"]}
-        fieldHelp={fieldHelp}
-      />
+    <Stack spacing="md">
+      <div>
+        <Title order={5} mb="xs">
+          {t("assetObjects.metadataSection.properties", "Properties")}
+        </Title>
+        <KeyValuesStack
+          obj={assetObjectModel.data}
+          fields={PROPERTY_FIELDS}
+          fieldHelp={fieldHelp}
+        />
+      </div>
+
+      <div>
+        <Title order={5} mb="xs">
+          {t("assetObjects.metadataSection.system", "System")}
+        </Title>
+        <KeyValuesStack
+          obj={assetObjectModel.data}
+          fields={SYSTEM_FIELDS}
+          fieldHelp={fieldHelp}
+        />
+      </div>
+
       {isNftLoading && <Loader size="xs" mt="md" />}
       {nftMetadata && (
-        <>
-          <Title order={5} my="md">
+        <div>
+          <Title order={5} mb="xs">
             {t("assetObjects.nftMetadata", "NFT Information")}
           </Title>
           <KeyValuesStack
@@ -93,8 +127,8 @@ export const AssetObjectMetadataTab: React.FC<AssetObjectMetadataTabProps> = ({
               ),
             }}
           />
-        </>
+        </div>
       )}
-    </>
+    </Stack>
   );
 };

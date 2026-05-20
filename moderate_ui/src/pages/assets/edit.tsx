@@ -33,9 +33,9 @@ export const AssetEdit = () => {
         mt="sm"
         description={t(
           "asset.fields.descriptionDescription",
-          "A longer description of what this asset is and what it contains",
+          "Describes the whole asset (the collection of datasets). Each dataset inside the asset has its own separate description.",
         )}
-        label={t("asset.fields.description", "Description")}
+        label={t("asset.fields.description", "Description (asset-level)")}
         {...getInputProps("description")}
       />
       <Select
