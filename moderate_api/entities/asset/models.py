@@ -165,6 +165,7 @@ class UploadedS3ObjectReadWithAsset(UploadedS3ObjectRead):
 class AssetUpdate(SQLModel):  # type: ignore[misc]
     name: str | None = None
     access_level: AssetAccessLevels | None = None
+    description: str | None = None
 
 
 async def find_s3object_by_key_or_id(

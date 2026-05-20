@@ -434,3 +434,35 @@ async def test_basic_user_cannot_create_ownerless_public_asset():  # type: ignor
         )
         assert resp_admin.raise_for_status()
         assert resp_admin.json()["username"] is None
+
+
+@pytest.mark.asyncio
+async def test_update_asset_description(access_token):  # type: ignore[no-untyped-def]
+    with TestClient(app) as client:
+        headers = {"Authorization": f"Bearer {access_token}"}
+        asset = create_asset(
+            client, access_token, asset_kwargs={"description": "initial description"}
+        )
+        asset_id = asset["id"]
+
+        new_description = "updated description with DOI: 10.5281/zenodo.123456"
+        resp_patch = client.patch(
+            f"/asset/{asset_id}",
+            headers=headers,
+            json={"description": new_description},
+        )
+        assert resp_patch.raise_for_status()
+        assert resp_patch.json()["description"] == new_description
+
+        resp_get = client.get(f"/asset/{asset_id}", headers=headers)
+        assert resp_get.raise_for_status()
+        assert resp_get.json()["description"] == new_description
+
+        # PATCH without description must not wipe the existing value
+        resp_patch_name = client.patch(
+            f"/asset/{asset_id}",
+            headers=headers,
+            json={"name": str(uuid.uuid4())},
+        )
+        assert resp_patch_name.raise_for_status()
+        assert resp_patch_name.json()["description"] == new_description
