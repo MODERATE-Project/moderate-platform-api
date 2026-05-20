@@ -24,10 +24,12 @@ import {
 } from "@refinedev/core";
 import {
   IconBolt,
-  IconBox,
   IconChevronDown,
+  IconDatabase,
   IconFileSearch,
+  IconFolders,
   IconTimeline,
+  IconTools,
 } from "@tabler/icons-react";
 import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -124,30 +126,54 @@ export function HeaderMegaMenu() {
   const [linksOpened, { toggle: toggleLinks }] = useDisclosure(false);
   const { classes, theme } = useStyles();
 
-  const megaMenuItems: MegaMenuItem[] = useMemo(() => {
+  const mainMenuItems: MegaMenuItem[] = useMemo(() => {
     return [
       {
-        to: "/assets",
-        icon: IconBox,
-        title: t("nav.assets", "Assets"),
+        to: "/catalogue",
+        icon: IconDatabase,
+        title: t("nav.datasetCatalogue", "Dataset Catalogue"),
         description: t(
-          "nav.megaMenu.assets",
-          "Datasets published to the MODERATE platform",
+          "nav.megaMenu.datasetCatalogue",
+          "Browse, search and download published datasets",
         ),
       },
       {
         to: "/workflows/exploratory",
         icon: IconFileSearch,
-        title: t("nav.dataExploration", "Data exploration"),
+        title: t("nav.dataExploration", "Data Exploration"),
         description: t(
           "nav.megaMenu.dataExploration",
           "Download and visualize datasets",
         ),
       },
       {
+        to: "https://moderate-project.github.io/moderate-docs/tools-and-services/",
+        icon: IconTools,
+        title: t("nav.toolsCatalogue", "Tools & Services Catalogue"),
+        description: t(
+          "nav.megaMenu.toolsCatalogue",
+          "Tools and services in the MODERATE ecosystem",
+        ),
+        external: true,
+      },
+      {
+        to: "/assets",
+        icon: IconFolders,
+        title: t("nav.myAssets", "My Assets"),
+        description: t(
+          "nav.megaMenu.myAssets",
+          "Create, edit and manage the assets you own",
+        ),
+      },
+    ];
+  }, [t]);
+
+  const applicationMenuItems: MegaMenuItem[] = useMemo(() => {
+    return [
+      {
         to: "/workflows/matrix-profile",
         icon: IconTimeline,
-        title: t("nav.matrixProfile", "Matrix profile"),
+        title: t("nav.matrixProfile", "Matrix Profile"),
         description: t(
           "nav.megaMenu.matrixProfile",
           "Detect anomalies in time series",
@@ -156,7 +182,7 @@ export function HeaderMegaMenu() {
       {
         to: "/workflows/synthetic-load",
         icon: IconBolt,
-        title: t("nav.syntheticLoad", "Synthetic load"),
+        title: t("nav.syntheticLoad", "Synthetic Load Generation"),
         description: t(
           "nav.megaMenu.syntheticLoad",
           "Generate synthetic load profiles",
@@ -222,7 +248,21 @@ export function HeaderMegaMenu() {
                       color={theme.colorScheme === "dark" ? "dark.5" : "gray.1"}
                     />
 
-                    <MegaMenuItems items={megaMenuItems} />
+                    <MegaMenuItems items={mainMenuItems} />
+
+                    <Group position="apart" px="md" mt="md">
+                      <Text weight={500}>
+                        {t("nav.platformApplications", "Example Applications")}
+                      </Text>
+                    </Group>
+
+                    <Divider
+                      my="sm"
+                      mx="-md"
+                      color={theme.colorScheme === "dark" ? "dark.5" : "gray.1"}
+                    />
+
+                    <MegaMenuItems items={applicationMenuItems} />
                   </HoverCard.Dropdown>
                 </HoverCard>
               </>
@@ -277,7 +317,15 @@ export function HeaderMegaMenu() {
 
               <Collapse in={linksOpened}>
                 <Box ml="sm">
-                  <MegaMenuItems items={megaMenuItems} />
+                  <MegaMenuItems items={mainMenuItems} />
+                  <Text weight={500} mt="md" px="md">
+                    {t("nav.platformApplications", "Example Applications")}
+                  </Text>
+                  <Divider
+                    my="sm"
+                    color={theme.colorScheme === "dark" ? "dark.5" : "gray.1"}
+                  />
+                  <MegaMenuItems items={applicationMenuItems} />
                 </Box>
               </Collapse>
             </>

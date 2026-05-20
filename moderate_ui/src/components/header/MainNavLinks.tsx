@@ -45,7 +45,7 @@ export const MainNavLinks: React.FC<MainNavLinksProps> = ({ t }) => {
   return (
     <>
       <Link className={classes.link} to="/catalogue">
-        {t("nav.catalogue", "Catalogue")}
+        {t("nav.catalogue", "Dataset Catalogue")}
       </Link>
       <Link
         className={classes.link}
@@ -53,7 +53,7 @@ export const MainNavLinks: React.FC<MainNavLinksProps> = ({ t }) => {
         target="_blank"
       >
         <IconExternalLink size={16} /> &nbsp;
-        {t("nav.tools", "Tools & Services")}
+        {t("nav.tools", "Tools & Services Catalogue")}
       </Link>
     </>
   );

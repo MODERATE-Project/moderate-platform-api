@@ -7,6 +7,7 @@ import {
 } from "@refinedev/core";
 import { DeleteButton, EditButton, List, ShowButton } from "@refinedev/mantine";
 import { useTable } from "@refinedev/react-table";
+import { IconPlus } from "@tabler/icons-react";
 import { ColumnDef, flexRender } from "@tanstack/react-table";
 import React from "react";
 import {
@@ -114,7 +115,12 @@ export const AssetList: React.FC<IResourceComponentsProps> = () => {
 
   return (
     <>
-      <List>
+      <List
+        createButtonProps={{
+          children: translate("assets.create.button", "New asset"),
+          leftIcon: <IconPlus size={16} />,
+        }}
+      >
         <ScrollArea>
           <Table highlightOnHover>
             <thead>

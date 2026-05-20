@@ -1,4 +1,5 @@
 import {
+  Badge,
   Group,
   SimpleGrid,
   Text,
@@ -6,6 +7,7 @@ import {
   UnstyledButton,
   createStyles,
 } from "@mantine/core";
+import { IconExternalLink } from "@tabler/icons-react";
 import React from "react";
 import { Link } from "react-router-dom";
 
@@ -31,6 +33,7 @@ export interface MegaMenuItem {
   icon: React.ComponentType<{ size?: number | string; color?: string }>;
   title: string;
   description: string;
+  external?: boolean;
 }
 
 interface MegaMenuItemsProps {
@@ -46,28 +49,61 @@ export const MegaMenuItems: React.FC<MegaMenuItemsProps> = ({ items }) => {
 
   return (
     <SimpleGrid cols={2} spacing={0}>
-      {items.map((item) => (
-        <UnstyledButton
-          component={Link}
-          to={item.to}
-          className={classes.subLink}
-          key={item.title}
-        >
+      {items.map((item) => {
+        const body = (
           <Group noWrap align="flex-start">
             <ThemeIcon size={34} variant="default" radius="md">
               <item.icon size={22} color={theme.fn.primaryColor()} />
             </ThemeIcon>
             <div>
-              <Text size="sm" weight={500}>
-                {item.title}
-              </Text>
+              <Group spacing={6} align="center">
+                <Text size="sm" weight={500}>
+                  {item.title}
+                </Text>
+                {item.external && (
+                  <Badge
+                    size="xs"
+                    variant="light"
+                    color="gray"
+                    leftSection={<IconExternalLink size={10} />}
+                  >
+                    ext
+                  </Badge>
+                )}
+              </Group>
               <Text size="xs" color="dimmed">
                 {item.description}
               </Text>
             </div>
           </Group>
-        </UnstyledButton>
-      ))}
+        );
+
+        if (item.external) {
+          return (
+            <UnstyledButton
+              component="a"
+              href={item.to}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={classes.subLink}
+              key={item.title}
+            >
+              {body}
+            </UnstyledButton>
+          );
+        }
+
+        return (
+          <UnstyledButton
+            component={Link}
+            to={item.to}
+            className={classes.subLink}
+            key={item.title}
+          >
+            {body}
+          </UnstyledButton>
+        );
+      })}
     </SimpleGrid>
   );
 };
