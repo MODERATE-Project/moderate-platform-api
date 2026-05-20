@@ -21,6 +21,9 @@ from moderate_api.entities.asset.models import (
 from moderate_api.main import app
 from tests.utils import create_asset, upload_test_files
 
+# Total-count header used by paginated endpoints.
+_TOTAL_COUNT_HEADER = "x-total-count"
+
 _logger = logging.getLogger(__name__)
 
 
@@ -466,3 +469,57 @@ async def test_update_asset_description(access_token):  # type: ignore[no-untype
         )
         assert resp_patch_name.raise_for_status()
         assert resp_patch_name.json()["description"] == new_description
+
+
+@pytest.mark.asyncio
+async def test_search_objects_total_count_header():  # type: ignore[no-untyped-def]
+    """The /asset/objects/search endpoint must expose a total count header so
+    the catalogue UI can render an honest pager and "N results found" line.
+    """
+    owner_token = _make_access_token(f"search-pager-{uuid.uuid4().hex[:8]}")
+    num_files = 5
+    upload_test_files(owner_token, num_files=num_files)
+
+    with TestClient(app) as client:
+        headers = {"Authorization": f"Bearer {owner_token}"}
+
+        # Full page: total matches data length.
+        resp_full = client.get(
+            "/asset/objects/search",
+            headers=headers,
+            params={"exclude_mine": False, "limit": 100, "offset": 0},
+        )
+        assert resp_full.raise_for_status()
+        assert _TOTAL_COUNT_HEADER in resp_full.headers
+        total = int(resp_full.headers[_TOTAL_COUNT_HEADER])
+        assert total >= num_files
+        full_ids = {item["id"] for item in resp_full.json()}
+
+        # Smaller page: total stays the same; only one slice comes back.
+        page_size = 2
+        resp_page = client.get(
+            "/asset/objects/search",
+            headers=headers,
+            params={"exclude_mine": False, "limit": page_size, "offset": 0},
+        )
+        assert resp_page.raise_for_status()
+        assert int(resp_page.headers[_TOTAL_COUNT_HEADER]) == total
+        assert len(resp_page.json()) == page_size
+
+        # Walking offsets covers the full result set without duplicates.
+        walked_ids: set[int] = set()
+        for offset in range(0, total, page_size):
+            resp = client.get(
+                "/asset/objects/search",
+                headers=headers,
+                params={
+                    "exclude_mine": False,
+                    "limit": page_size,
+                    "offset": offset,
+                },
+            )
+            assert resp.raise_for_status()
+            assert int(resp.headers[_TOTAL_COUNT_HEADER]) == total
+            for item in resp.json():
+                walked_ids.add(item["id"])
+        assert full_ids.issubset(walked_ids)

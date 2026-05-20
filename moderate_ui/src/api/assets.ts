@@ -164,7 +164,7 @@ export async function searchAssetObjects({
   fileFormat?: string | string[];
   dateFilter?: "always" | "last_week" | "last_month";
   usePublicEndpoint?: boolean;
-}): Promise<{ [k: string]: any }[]> {
+}): Promise<{ data: { [k: string]: any }[]; total: number }> {
   const urlParts = ["asset"];
 
   if (usePublicEndpoint) {
@@ -223,7 +223,10 @@ export async function searchAssetObjects({
 
   const response = await axios.get(url, { params });
 
-  return response.data;
+  const totalHeader = response.headers["x-total-count"];
+  const total = totalHeader ? +totalHeader : response.data.length;
+
+  return { data: response.data, total };
 }
 
 export interface DownloadAssetObjectItem {

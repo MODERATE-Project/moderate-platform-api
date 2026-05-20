@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import Query
+from fastapi import Query, Response
 from pydantic import BaseModel
 from sqlalchemy import asc, case, desc, func, or_
 from sqlalchemy.sql import Select
@@ -441,6 +441,7 @@ def _apply_sorting(stmt: Select, *, sort: str) -> Select:
 
 async def search_objects(
     *,
+    response: Response,
     user: OptionalUserDep,
     session: AsyncSessionDep,
     query: str = Query(default=None),
@@ -464,6 +465,12 @@ async def search_objects(
     stmt = _apply_search_filter(stmt, query=query)
     stmt = _apply_format_filter(stmt, file_format=file_format)
     stmt = _apply_date_filter(stmt, date_from=date_from)
+
+    # Total count over the filtered query (before sorting/pagination).
+    count_stmt = select(func.count()).select_from(stmt.subquery())  # type: ignore
+    count_result = await session.execute(count_stmt)
+    response.headers["x-total-count"] = str(count_result.scalar_one())
+
     stmt = _apply_sorting(stmt, sort=sort)
 
     # Pagination

@@ -76,7 +76,7 @@ export const AssetObjectPicker: React.FC<Props> = ({
       fileFormat: fileFormat,
     })
       .then((resp) => {
-        const responseOptions = (resp as UploadedS3Object[]).map(
+        const responseOptions = (resp.data as UploadedS3Object[]).map(
           (item: UploadedS3Object) => {
             const assetModel = new AssetModel(item.asset);
             const assetObjectModel = new AssetObjectModel(item);

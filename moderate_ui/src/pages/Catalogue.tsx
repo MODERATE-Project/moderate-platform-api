@@ -1,11 +1,13 @@
 import {
   ActionIcon,
   Alert,
+  Anchor,
   Box,
   Button,
   Grid,
   Group,
   LoadingOverlay,
+  Pagination,
   Paper,
   Popover,
   Select,
@@ -28,9 +30,11 @@ import {
 import _ from "lodash";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 import { searchAssetObjects } from "../api/assets";
 import { Asset, AssetObject } from "../api/types";
 import { AssetObjectCard } from "../components/AssetObjectCard";
+import { routes } from "../utils/routes";
 import { catchErrorAndShow } from "../utils";
 
 const PAGE_SIZE_STORAGE_KEY = "catalogue_page_size";
@@ -96,6 +100,8 @@ export const Catalogue: React.FC = () => {
   const [assets, setAssets] = useState<{ [k: string]: any }[] | undefined>(
     undefined,
   );
+  const [total, setTotal] = useState<number | undefined>(undefined);
+  const [page, setPage] = useState<number>(1);
 
   const { open } = useNotification();
 
@@ -104,6 +110,7 @@ export const Catalogue: React.FC = () => {
       q: string,
       mine: boolean,
       s: string,
+      currentPage: number,
       limit?: number,
       fileFormat?: string | null,
       dateFilterParam?: "always" | "last_week" | "last_month",
@@ -115,17 +122,21 @@ export const Catalogue: React.FC = () => {
       // If grouping by asset and sorting by name, use 'asset_name' sort
       // to ensure the groups (assets) are sorted by their name, not by the name of their first object.
       const effectiveSort = groupByAsset && s === "name" ? "asset_name" : s;
+      const effectiveLimit = limit ?? pageSize;
+      const offset = (currentPage - 1) * effectiveLimit;
 
       searchAssetObjects({
         searchQuery: q,
         excludeMine: !mine,
         sort: effectiveSort,
-        limit: limit ?? pageSize,
+        limit: effectiveLimit,
+        offset,
         fileFormat: fileFormat || undefined,
         dateFilter: dateFilterParam || "always",
       })
         .then((res) => {
-          setAssets(res);
+          setAssets(res.data);
+          setTotal(res.total);
           setIsLoading(false);
         })
         .catch(_.partial(catchErrorAndShow, open, undefined))
@@ -136,16 +147,38 @@ export const Catalogue: React.FC = () => {
     [open, pageSize, groupByAsset],
   );
 
+  // Reset to page 1 whenever any filter/sort/page-size/grouping/search-query
+  // dependency changes, so a new search does not land on a stale offset.
+  useEffect(() => {
+    setPage(1);
+  }, [
+    searchQuery,
+    includeMine,
+    sortBy,
+    pageSize,
+    groupByAsset,
+    fileFormatFilter,
+    dateFilter,
+  ]);
+
   const onSearch = useCallback(() => {
     setTouched(true);
-    performSearch(
-      searchQuery,
-      includeMine,
-      sortBy,
-      undefined,
-      fileFormatFilter,
-      dateFilter,
-    );
+    // Search submit always restarts from page 1; performSearch fires via the
+    // useEffect below when page (re)becomes 1 or via the explicit call here
+    // when page was already 1.
+    if (page === 1) {
+      performSearch(
+        searchQuery,
+        includeMine,
+        sortBy,
+        1,
+        undefined,
+        fileFormatFilter,
+        dateFilter,
+      );
+    } else {
+      setPage(1);
+    }
   }, [
     performSearch,
     searchQuery,
@@ -153,6 +186,7 @@ export const Catalogue: React.FC = () => {
     sortBy,
     fileFormatFilter,
     dateFilter,
+    page,
   ]);
 
   useEffect(() => {
@@ -164,20 +198,28 @@ export const Catalogue: React.FC = () => {
       searchQuery,
       includeMine,
       sortBy,
+      page,
       undefined,
       fileFormatFilter,
       dateFilter,
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, performSearch, sortBy, fileFormatFilter, dateFilter]);
+  }, [open, performSearch, sortBy, fileFormatFilter, dateFilter, page]);
 
   const numResults = useMemo(() => {
-    if (!assets) {
+    if (assets === undefined) {
       return undefined;
     }
 
-    return assets.length;
-  }, [assets]);
+    return total ?? assets.length;
+  }, [assets, total]);
+
+  const totalPages = useMemo(() => {
+    if (total === undefined || pageSize <= 0) {
+      return 1;
+    }
+    return Math.max(1, Math.ceil(total / pageSize));
+  }, [total, pageSize]);
 
   const groupedAssets = useMemo(() => {
     if (!assets) return undefined;
@@ -282,6 +324,7 @@ export const Catalogue: React.FC = () => {
                   searchQuery,
                   newValue,
                   sortBy,
+                  1,
                   undefined,
                   fileFormatFilter,
                   dateFilter,
@@ -478,7 +521,21 @@ export const Catalogue: React.FC = () => {
                         paddingBottom: "8px",
                       }}
                     >
-                      {group.asset.name}
+                      <Anchor
+                        component={Link}
+                        to={routes.assetShow(group.asset.id)}
+                        inherit
+                        underline={false}
+                        sx={(theme) => ({
+                          color: "inherit",
+                          "&:hover": {
+                            color: theme.colors.blue[6],
+                            textDecoration: "underline",
+                          },
+                        })}
+                      >
+                        {group.asset.name}
+                      </Anchor>
                       <Text
                         component="span"
                         size="sm"
@@ -508,6 +565,16 @@ export const Catalogue: React.FC = () => {
                 </Grid.Col>
               ))}
           </Grid>
+          {totalPages > 1 && (
+            <Group position="center" mt="md">
+              <Pagination
+                total={totalPages}
+                page={page}
+                onChange={setPage}
+                withEdges
+              />
+            </Group>
+          )}
         </Stack>
       )}
       {assets !== undefined && assets.length === 0 && (
