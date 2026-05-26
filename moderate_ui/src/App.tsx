@@ -100,7 +100,7 @@ function App() {
   }> = ({ containerProps }) => {
     return (
       <>
-        <Box mb="md">
+        <Box mb="md" style={{ position: "relative", zIndex: 100 }}>
           <HeaderMegaMenu />
         </Box>
         <Container

@@ -177,11 +177,8 @@ const useStyles = createStyles((theme) => ({
     justifyContent: "center",
   },
   overlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    width: "100%",
-    height: "100%",
+    position: "fixed",
+    inset: 0,
     background:
       theme.colorScheme === "dark"
         ? "rgba(0, 0, 0, 0.7)"
@@ -191,12 +188,15 @@ const useStyles = createStyles((theme) => ({
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    padding: theme.spacing.md,
   },
   overlayCard: {
     maxWidth: 400,
     width: "100%",
     margin: theme.spacing.md,
     textAlign: "center",
+    maxHeight: `calc(100vh - ${theme.spacing.md * 2}px)`,
+    overflowY: "auto",
   },
 }));
 
@@ -267,7 +267,7 @@ export const Homepage: React.FC = () => {
 
   return (
     <Box className={classes.wrapper}>
-      <Container size="lg" style={{ position: "relative" }}>
+      <Container size="lg">
         <div className={classes.logo}>
           <img
             src="/images/moderate-logo-collapsed.png"
