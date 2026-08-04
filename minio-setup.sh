@@ -4,7 +4,7 @@ set -exu
 
 (apt-get update -y && apt-get install -y curl || true) 2>/dev/null
 
-curl https://dl.min.io/client/mc/release/linux-amd64/mc \
+curl -fL https://dl.min.io/client/mc/release/linux-amd64/mc \
     --create-dirs \
     -o /usr/local/bin/mc
 
