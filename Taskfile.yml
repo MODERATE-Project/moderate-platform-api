@@ -183,8 +183,6 @@ tasks:
       MONGO_PORT: "{{.TRUST_MONGO_PORT}}"
       TRUST_PORT: "{{.TRUST_API_PORT}}"
     cmds:
-      - echo "📣 You need to be logged in to Artifact Registry to pull the Trust Services images"
-      - echo "💻 gcloud auth configure-docker europe-west1-docker.pkg.dev"
       - cmd: docker compose -f {{.ROOT_DIR}}/docker-compose-trust.yml up -d --build --wait
         ignore_error: true
 

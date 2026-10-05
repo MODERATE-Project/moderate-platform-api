@@ -357,8 +357,7 @@ The API supports any S3-compatible storage:
 To enable Trust Services integration:
 
 1. Create `.env.trust.local` with `L2_PRIVATE_KEY`
-2. Authenticate with GCP Artifact Registry: `gcloud auth configure-docker europe-west1-docker.pkg.dev`
-3. Trust Services will start with `task dev-up`
+2. Trust Services will start with `task dev-up`
 
 If unavailable, the API continues to function without DLT features.
 

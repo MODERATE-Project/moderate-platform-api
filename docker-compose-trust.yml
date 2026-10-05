@@ -15,7 +15,7 @@ services:
     volumes:
       - mongo_data:/data/db
   trust:
-    image: europe-west1-docker.pkg.dev/moderate-common/moderate-images/trust-service:main
+    image: ghcr.io/moderate-project/trust-service:main
     restart: on-failure
     ports:
       - ${TRUST_PORT:-8081}:8081
