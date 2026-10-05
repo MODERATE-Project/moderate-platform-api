@@ -199,11 +199,11 @@ tasks:
     desc: Run the UI in development mode
     dir: "{{.ROOT_DIR}}/moderate_ui"
     vars:
-      VITE_KEYCLOAK_URL: "{{.KC_HOSTNAME_URL}}"
+      MODERATE_UI_KEYCLOAK_URL: "{{default .KC_HOSTNAME_URL .MODERATE_UI_KEYCLOAK_URL}}"
     env:
-      VITE_KEYCLOAK_URL: "{{.VITE_KEYCLOAK_URL}}"
+      MODERATE_UI_KEYCLOAK_URL: "{{.MODERATE_UI_KEYCLOAK_URL}}"
     cmds:
-      - echo "📣 Ensure that Keycloak is on {{.VITE_KEYCLOAK_URL}}"
+      - echo "📣 Ensure that Keycloak is on {{.MODERATE_UI_KEYCLOAK_URL}}"
       - npm run dev
 
   alembic-revision:

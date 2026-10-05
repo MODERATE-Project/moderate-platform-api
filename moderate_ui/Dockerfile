@@ -14,4 +14,5 @@ RUN npm run build
 FROM caddy:2 AS runner
 ENV MODERATE_API_URL=https://api.gw.moderate.cloud
 COPY Caddyfile /etc/caddy/Caddyfile
+COPY runtime-config/config.json.tmpl /etc/caddy/runtime-config/config.json.tmpl
 COPY --from=builder /app/refine/dist /usr/share/caddy

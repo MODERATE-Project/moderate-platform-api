@@ -1,0 +1,8 @@
+{{- if not (env "MODERATE_UI_KEYCLOAK_URL" | trim) -}}
+{{- httpError 503 -}}
+{{- end -}}
+{
+  "url": {{ env "MODERATE_UI_KEYCLOAK_URL" | mustToJson }},
+  "realm": {{ env "MODERATE_UI_KEYCLOAK_REALM" | default "moderate" | mustToJson }},
+  "clientId": {{ env "MODERATE_UI_KEYCLOAK_CLIENT_ID" | default "ui" | mustToJson }}
+}

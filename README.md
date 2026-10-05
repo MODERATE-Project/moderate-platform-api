@@ -113,31 +113,31 @@ docker pull ghcr.io/moderate-project/moderate-api:latest
 
 #### API nested settings
 
-| Variable                                           | Default                          | Required                                  | Impact                                                              |
-| -------------------------------------------------- | -------------------------------- | ----------------------------------------- | ------------------------------------------------------------------- |
-| `MODERATE_API_S3__ACCESS_KEY`                      | unset                            | Yes for S3-backed endpoints               | S3/MinIO access key.                                                |
-| `MODERATE_API_S3__SECRET_KEY`                      | unset                            | Yes for S3-backed endpoints               | S3/MinIO secret key.                                                |
-| `MODERATE_API_S3__ENDPOINT_URL`                    | `https://storage.googleapis.com` | No                                        | S3-compatible endpoint (MinIO, GCS S3, AWS, etc.).                  |
+| Variable                                           | Default                          | Required                                  | Impact                                                                                    |
+| -------------------------------------------------- | -------------------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `MODERATE_API_S3__ACCESS_KEY`                      | unset                            | Yes for S3-backed endpoints               | S3/MinIO access key.                                                                      |
+| `MODERATE_API_S3__SECRET_KEY`                      | unset                            | Yes for S3-backed endpoints               | S3/MinIO secret key.                                                                      |
+| `MODERATE_API_S3__ENDPOINT_URL`                    | `https://storage.googleapis.com` | No                                        | S3-compatible endpoint (MinIO, GCS S3, AWS, etc.).                                        |
 | `MODERATE_API_S3__PUBLIC_ENDPOINT_URL`             | unset                            | No                                        | Optional endpoint for all signed download URLs; unset or empty uses the storage endpoint. |
-| `MODERATE_API_S3__USE_SSL`                         | `true`                           | No                                        | Enables HTTPS for S3 client connections.                            |
-| `MODERATE_API_S3__REGION`                          | unset                            | Yes for S3-backed endpoints               | S3 region passed to client creation.                                |
-| `MODERATE_API_S3__BUCKET`                          | unset                            | Yes for S3-backed endpoints               | Bucket used for asset object storage and retrieval.                 |
-| `MODERATE_API_OAUTH_NAMES__API_GW_CLIENT_ID`       | `apisix`                         | No                                        | Prefix for client-level roles extracted from JWT.                   |
-| `MODERATE_API_OAUTH_NAMES__ROLE_ADMIN`             | `api_admin`                      | No                                        | Admin role suffix used for authorization checks.                    |
-| `MODERATE_API_OAUTH_NAMES__ROLE_BASIC_ACCESS`      | `api_basic_access`               | No                                        | Basic access role suffix required for non-admin users.              |
-| `MODERATE_API_TRUST_SERVICE__ENDPOINT_URL`         | unset                            | Required only for Trust routes            | Base URL for DID/proof operations in Trust integration endpoints.   |
-| `MODERATE_API_OPEN_METADATA_SERVICE__ENDPOINT_URL` | unset                            | Required only for metadata profile routes | Base URL for OpenMetadata API calls.                                |
-| `MODERATE_API_OPEN_METADATA_SERVICE__BEARER_TOKEN` | unset                            | Required only for metadata profile routes | Bearer token for OpenMetadata requests.                             |
-| `MODERATE_API_DIVA__ENABLED`                       | `false`                          | No                                        | If `true`, API uses real DIVA client; otherwise uses mock behavior. |
-| `MODERATE_API_DIVA__KAFKA_REST_URL`                | unset                            | Required when DIVA enabled                | Kafka REST base URL used to publish validation jobs.                |
-| `MODERATE_API_DIVA__QUALITY_REPORTER_URL`          | unset                            | Required when DIVA enabled                | Quality Reporter base URL used to fetch validation results.         |
-| `MODERATE_API_DIVA__BASIC_AUTH_USER`               | unset                            | No                                        | Optional basic auth user for DIVA endpoints.                        |
-| `MODERATE_API_DIVA__BASIC_AUTH_PASSWORD`           | unset                            | No                                        | Optional basic auth password for DIVA endpoints.                    |
-| `MODERATE_API_DIVA__INGESTION_TOPIC`               | `data-ingestion-trigger`         | No                                        | Kafka topic used for validation trigger messages.                   |
-| `MODERATE_API_DIVA__SUPPORTED_EXTENSIONS`          | `["csv"]`                        | No                                        | Allowed file extensions for validation endpoints.                   |
-| `MODERATE_API_DIVA__REQUEST_TIMEOUT`               | `30`                             | No                                        | HTTP timeout (seconds) for DIVA requests.                           |
-| `MODERATE_API_DIVA__PRESIGNED_URL_TTL`             | `3600`                           | No                                        | Presigned URL TTL (seconds) used for DIVA ingestion.                |
-| `MODERATE_API_DIVA__COMPLETION_TIMEOUT_SECONDS`    | `300`                            | No                                        | Timeout window after which validation is treated as terminal.       |
+| `MODERATE_API_S3__USE_SSL`                         | `true`                           | No                                        | Enables HTTPS for S3 client connections.                                                  |
+| `MODERATE_API_S3__REGION`                          | unset                            | Yes for S3-backed endpoints               | S3 region passed to client creation.                                                      |
+| `MODERATE_API_S3__BUCKET`                          | unset                            | Yes for S3-backed endpoints               | Bucket used for asset object storage and retrieval.                                       |
+| `MODERATE_API_OAUTH_NAMES__API_GW_CLIENT_ID`       | `apisix`                         | No                                        | Prefix for client-level roles extracted from JWT.                                         |
+| `MODERATE_API_OAUTH_NAMES__ROLE_ADMIN`             | `api_admin`                      | No                                        | Admin role suffix used for authorization checks.                                          |
+| `MODERATE_API_OAUTH_NAMES__ROLE_BASIC_ACCESS`      | `api_basic_access`               | No                                        | Basic access role suffix required for non-admin users.                                    |
+| `MODERATE_API_TRUST_SERVICE__ENDPOINT_URL`         | unset                            | Required only for Trust routes            | Base URL for DID/proof operations in Trust integration endpoints.                         |
+| `MODERATE_API_OPEN_METADATA_SERVICE__ENDPOINT_URL` | unset                            | Required only for metadata profile routes | Base URL for OpenMetadata API calls.                                                      |
+| `MODERATE_API_OPEN_METADATA_SERVICE__BEARER_TOKEN` | unset                            | Required only for metadata profile routes | Bearer token for OpenMetadata requests.                                                   |
+| `MODERATE_API_DIVA__ENABLED`                       | `false`                          | No                                        | If `true`, API uses real DIVA client; otherwise uses mock behavior.                       |
+| `MODERATE_API_DIVA__KAFKA_REST_URL`                | unset                            | Required when DIVA enabled                | Kafka REST base URL used to publish validation jobs.                                      |
+| `MODERATE_API_DIVA__QUALITY_REPORTER_URL`          | unset                            | Required when DIVA enabled                | Quality Reporter base URL used to fetch validation results.                               |
+| `MODERATE_API_DIVA__BASIC_AUTH_USER`               | unset                            | No                                        | Optional basic auth user for DIVA endpoints.                                              |
+| `MODERATE_API_DIVA__BASIC_AUTH_PASSWORD`           | unset                            | No                                        | Optional basic auth password for DIVA endpoints.                                          |
+| `MODERATE_API_DIVA__INGESTION_TOPIC`               | `data-ingestion-trigger`         | No                                        | Kafka topic used for validation trigger messages.                                         |
+| `MODERATE_API_DIVA__SUPPORTED_EXTENSIONS`          | `["csv"]`                        | No                                        | Allowed file extensions for validation endpoints.                                         |
+| `MODERATE_API_DIVA__REQUEST_TIMEOUT`               | `30`                             | No                                        | HTTP timeout (seconds) for DIVA requests.                                                 |
+| `MODERATE_API_DIVA__PRESIGNED_URL_TTL`             | `3600`                           | No                                        | Presigned URL TTL (seconds) used for DIVA ingestion.                                      |
+| `MODERATE_API_DIVA__COMPLETION_TIMEOUT_SECONDS`    | `300`                            | No                                        | Timeout window after which validation is treated as terminal.                             |
 
 ### Local dev stack (`.env.dev.default`, `Taskfile.yml`, `docker-compose-dev.yml`)
 
@@ -205,13 +205,30 @@ These variables are consumed by the Trust service container (not by FastAPI dire
 | ------------------------------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
 | `MODERATE_API_URL`                          | `https://api.gw.moderate.cloud` in UI Docker image, `http://localhost:8000` in fixtures script | API base URL for UI reverse proxy and fixtures script API calls.     |
 | `VITE_PROXY_API_TARGET`                     | `http://localhost:8000`                                                                        | Vite dev server proxy target for `/api` and `/notebook-*`.           |
-| `VITE_KEYCLOAK_URL`                         | production `.env.production` points to cloud Keycloak                                          | Keycloak base URL used by UI auth client.                            |
-| `VITE_KEYCLOAK_CLIENT_ID`                   | `ui`                                                                                           | Keycloak client ID used by UI.                                       |
-| `VITE_KEYCLOAK_REALM`                       | `moderate`                                                                                     | Keycloak realm used by UI.                                           |
+| `MODERATE_UI_KEYCLOAK_URL`                  | required                                                                                       | Public Keycloak base URL served by the UI at runtime.                |
+| `MODERATE_UI_KEYCLOAK_CLIENT_ID`            | `ui`                                                                                           | Public Keycloak client ID served by the UI at runtime.               |
+| `MODERATE_UI_KEYCLOAK_REALM`                | `moderate`                                                                                     | Public Keycloak realm served by the UI at runtime.                   |
 | `KEYCLOAK_URL`                              | `http://localhost:${DEV_KEYCLOAK_PORT}`                                                        | Fixtures script Keycloak endpoint.                                   |
 | `MODERATE_REALM`                            | `moderate`                                                                                     | Fixtures script realm.                                               |
 | `APISIX_CLIENT_ID` / `APISIX_CLIENT_SECRET` | `apisix`                                                                                       | Fixtures script OAuth client credentials.                            |
 | `KEYCLOAK_USERNAME` / `KEYCLOAK_PASSWORD`   | unset                                                                                          | Required credentials for fixtures creation (`task fixtures-create`). |
+
+### UI authentication at runtime
+
+The UI gets authentication info from `/config.json`, including only the Keycloak URL, realm (`moderate` by default), and client ID (`ui` by default). Set `MODERATE_UI_KEYCLOAK_URL` to a browser-accessible URL.
+
+Supply the settings through the UI container's environment, for example:
+
+```yaml
+services:
+  ui:
+    image: ghcr.io/moderate-project/moderate-ui:latest
+    environment:
+      MODERATE_API_URL: http://api:8000
+      MODERATE_UI_KEYCLOAK_URL: https://auth.example.org
+      MODERATE_UI_KEYCLOAK_REALM: moderate
+      MODERATE_UI_KEYCLOAK_CLIENT_ID: ui
+```
 
 ## Practical notes
 

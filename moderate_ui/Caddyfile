@@ -1,4 +1,15 @@
 :80 {
+	handle /config.json {
+		root * /etc/caddy/runtime-config
+		header Content-Type application/json
+		header Cache-Control no-store
+		templates {
+			mime application/json
+		}
+		rewrite * /config.json.tmpl
+		file_server
+	}
+
 	handle /api/* {
 		uri strip_prefix /api
 		reverse_proxy {$MODERATE_API_URL}
