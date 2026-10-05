@@ -35,7 +35,7 @@ from moderate_api.entities.job.models import (
 )
 from moderate_api.enums import Entities, WorkflowJobTypes
 from moderate_api.message_queue import RabbitDep
-from moderate_api.object_storage import S3ClientDep
+from moderate_api.object_storage import S3ClientDep, S3PresignerDep
 
 _logger = logging.getLogger(__name__)
 
@@ -67,7 +67,7 @@ async def query_workflow_jobs(
     *,
     response: Response,
     user: UserDep,
-    s3: S3ClientDep,
+    s3: S3PresignerDep,
     session: AsyncSessionDep,
     offset: int = 0,
     limit: int = Query(default=100, le=100),
@@ -120,7 +120,7 @@ async def query_workflow_jobs(
 
 
 async def _add_matrix_profile_extended_results(
-    workflow_job: WorkflowJob, s3: S3ClientDep, expiration_secs: int = 3600
+    workflow_job: WorkflowJob, s3: S3PresignerDep, expiration_secs: int = 3600
 ) -> dict | None:
     if not workflow_job.results:
         return None
@@ -157,7 +157,7 @@ async def _add_matrix_profile_extended_results(
 async def read_workflow_job(
     *,
     user: UserDep,
-    s3: S3ClientDep,
+    s3: S3PresignerDep,
     session: AsyncSessionDep,
     id: int,
     with_extended_results: str | None = Query(default=None),

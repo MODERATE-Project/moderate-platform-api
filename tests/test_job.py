@@ -4,11 +4,15 @@ import logging
 import pprint
 import random
 import uuid
+from datetime import datetime, timezone
+from urllib.parse import urlsplit
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import select
 
+from moderate_api.authz.token import decode_token
+from moderate_api.config import get_settings
 from moderate_api.db import with_session
 from moderate_api.entities.asset.models import Asset, UploadedS3Object
 from moderate_api.entities.job.models import WorkflowJob
@@ -20,6 +24,52 @@ from tests.utils import upload_test_files
 _DEFAULT_MESSAGE_TIMEOUT_SECS = 10
 
 _logger = logging.getLogger(__name__)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("route", ["list", "detail"])
+async def test_job_download_urls_use_public_endpoint(
+    access_token: str, monkeypatch: pytest.MonkeyPatch, route: str
+) -> None:
+    """Both job read routes must sign result and error-log URLs for clients."""
+    monkeypatch.setenv(
+        "MODERATE_API_S3__PUBLIC_ENDPOINT_URL", "https://downloads.invalid"
+    )
+    token = await decode_token(access_token, settings=get_settings())
+    job = WorkflowJob(
+        job_type=WorkflowJobTypes.MATRIX_PROFILE,
+        creator_username=token["preferred_username"],
+        finalised_at=datetime.now(timezone.utc).replace(tzinfo=None),
+        results={
+            "output_bucket": "workflow-output",
+            "output_key": "result.csv",
+            "error_logs_key": "errors.log",
+        },
+    )
+    with TestClient(app) as client:
+        async with with_session() as session:
+            session.add(job)
+            await session.commit()
+            await session.refresh(job)
+
+        path = "/job" if route == "list" else f"/job/{job.id}"
+        response = client.get(
+            path,
+            params={"with_extended_results": "true"},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        response.raise_for_status()
+        result = response.json()[0] if route == "list" else response.json()
+
+    extended = result["extended_results"]
+    for field, key in (
+        ("download_url", "result.csv"),
+        ("error_logs_download_url", "errors.log"),
+    ):
+        endpoint = urlsplit(extended[field])
+        assert endpoint.scheme == "https"
+        assert endpoint.netloc == "downloads.invalid"
+        assert endpoint.path == f"/workflow-output/{key}"
 
 
 async def _wait_for_matrix_profile_message(

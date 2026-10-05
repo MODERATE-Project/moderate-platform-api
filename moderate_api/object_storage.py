@@ -4,14 +4,15 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from io import BytesIO
 from typing import Annotated, Any
+from urllib.parse import urlsplit
 
 from aiobotocore.client import AioBaseClient
-from aiobotocore.session import get_session
+from aiobotocore.session import ClientCreatorContext, get_session
 from botocore.config import Config
 from botocore.exceptions import ClientError
 from fastapi import Depends, UploadFile
 
-from moderate_api.config import Settings, SettingsDep
+from moderate_api.config import S3Model, Settings, SettingsDep
 
 _logger = logging.getLogger(__name__)
 
@@ -92,25 +93,33 @@ async def upload_file_multipart(
         raise e
 
 
-@asynccontextmanager
-async def with_s3(settings: Settings) -> AsyncGenerator[AioBaseClient, None]:
-    if settings.s3 is None:
-        raise Exception("Undefined object storage (S3) settings")
-
-    session = get_session()
-
-    async with session.create_client(
+def _create_s3_client(
+    settings: S3Model, *, endpoint_url: str, use_ssl: bool
+) -> ClientCreatorContext:
+    return get_session().create_client(
         "s3",
-        endpoint_url=settings.s3.endpoint_url,
-        region_name=settings.s3.region,
-        aws_access_key_id=settings.s3.access_key,
-        aws_secret_access_key=settings.s3.secret_key,
-        use_ssl=settings.s3.use_ssl,
+        endpoint_url=endpoint_url,
+        region_name=settings.region,
+        aws_access_key_id=settings.access_key,
+        aws_secret_access_key=settings.secret_key,
+        use_ssl=use_ssl,
         # https://github.com/boto/boto3/issues/4400#issuecomment-2600742103
         config=Config(
             request_checksum_calculation="when_required",
             response_checksum_validation="when_required",
         ),
+    )
+
+
+@asynccontextmanager
+async def with_s3(settings: Settings) -> AsyncGenerator[AioBaseClient, None]:
+    if settings.s3 is None:
+        raise Exception("Undefined object storage (S3) settings")
+
+    async with _create_s3_client(
+        settings.s3,
+        endpoint_url=settings.s3.endpoint_url,
+        use_ssl=settings.s3.use_ssl,
     ) as s3:
         await ensure_bucket(s3=s3, bucket=settings.s3.bucket)
         yield s3
@@ -122,3 +131,23 @@ async def get_s3(settings: SettingsDep) -> AsyncGenerator[AioBaseClient, None]:
 
 
 S3ClientDep = Annotated[AioBaseClient, Depends(get_s3)]
+
+
+async def get_s3_presigner(
+    settings: SettingsDep, s3: S3ClientDep
+) -> AsyncGenerator[AioBaseClient, None]:
+    """Yield a client for signing download URLs without public storage requests."""
+    if not settings.s3 or not settings.s3.public_endpoint_url:
+        yield s3
+        return
+
+    endpoint_url = settings.s3.public_endpoint_url
+    async with _create_s3_client(
+        settings.s3,
+        endpoint_url=endpoint_url,
+        use_ssl=urlsplit(endpoint_url).scheme == "https",
+    ) as presigner:
+        yield presigner
+
+
+S3PresignerDep = Annotated[AioBaseClient, Depends(get_s3_presigner)]

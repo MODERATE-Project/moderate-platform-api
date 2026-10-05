@@ -19,7 +19,7 @@ from moderate_api.entities.asset.models import (
     UploadedS3Object,
     get_s3object_size_mib,
 )
-from moderate_api.object_storage import S3ClientDep
+from moderate_api.object_storage import S3ClientDep, S3PresignerDep
 
 _logger = logging.getLogger(__name__)
 
@@ -35,6 +35,7 @@ async def run_pygwalker_on_asset_object(
     session: AsyncSessionDep,
     settings: SettingsDep,
     s3: S3ClientDep,
+    s3_presigner: S3PresignerDep,
     object_id: int,
     sample_size: int = Query(
         default=2000,
@@ -81,7 +82,7 @@ async def run_pygwalker_on_asset_object(
     _logger.info("S3 object size (%s): %s MiB", s3_object.key, round(size_in_mib, 2))
 
     # Generate download URL
-    download_url = await s3.generate_presigned_url(
+    download_url = await s3_presigner.generate_presigned_url(
         "get_object",
         Params={"Bucket": s3_object.bucket, "Key": s3_object.key},
         ExpiresIn=settings.visualization_expires_in_seconds,

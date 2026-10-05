@@ -21,6 +21,7 @@ class S3Model(BaseModel):
     access_key: str
     secret_key: str
     endpoint_url: str = "https://storage.googleapis.com"
+    public_endpoint_url: str | None = None
     use_ssl: bool = True
     region: str
     bucket: str

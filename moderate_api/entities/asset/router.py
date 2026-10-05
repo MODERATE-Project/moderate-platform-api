@@ -69,6 +69,7 @@ from moderate_api.entities.crud import (
 from moderate_api.enums import Actions, Entities, Tags
 from moderate_api.object_storage import (
     S3ClientDep,
+    S3PresignerDep,
     ensure_bucket,
     upload_file_multipart,
 )
@@ -153,7 +154,7 @@ class AssetDownloadURL(BaseModel):
 
 
 async def get_asset_presigned_urls(
-    s3: S3ClientDep, asset: Asset, expiration_secs: int | None = 3600
+    s3: S3PresignerDep, asset: Asset, expiration_secs: int | None = 3600
 ) -> list[AssetDownloadURL]:
     return await get_asset_object_presigned_urls(
         s3=s3,
@@ -163,7 +164,7 @@ async def get_asset_presigned_urls(
 
 
 async def get_asset_object_presigned_urls(
-    s3: S3ClientDep,
+    s3: S3PresignerDep,
     asset_objects: list[UploadedS3Object],
     expiration_secs: int | None = 3600,
 ) -> list[AssetDownloadURL]:
@@ -417,7 +418,7 @@ async def _download_asset(
     *,
     user: OptionalUserDep,
     session: AsyncSessionDep,
-    s3: S3ClientDep,
+    s3: S3PresignerDep,
     settings: SettingsDep,
     id: int,
     object_id: int | None = Query(default=None),
@@ -1145,7 +1146,7 @@ async def start_validation(
     user: UserDep,
     session: AsyncSessionDep,
     settings: SettingsDep,
-    s3: S3ClientDep,
+    s3: S3PresignerDep,
     diva: DivaClientDep,
     id: int,
     object_id: int,

@@ -118,6 +118,7 @@ docker pull ghcr.io/moderate-project/moderate-api:latest
 | `MODERATE_API_S3__ACCESS_KEY`                      | unset                            | Yes for S3-backed endpoints               | S3/MinIO access key.                                                |
 | `MODERATE_API_S3__SECRET_KEY`                      | unset                            | Yes for S3-backed endpoints               | S3/MinIO secret key.                                                |
 | `MODERATE_API_S3__ENDPOINT_URL`                    | `https://storage.googleapis.com` | No                                        | S3-compatible endpoint (MinIO, GCS S3, AWS, etc.).                  |
+| `MODERATE_API_S3__PUBLIC_ENDPOINT_URL`             | unset                            | No                                        | Optional endpoint for all signed download URLs; unset or empty uses the storage endpoint. |
 | `MODERATE_API_S3__USE_SSL`                         | `true`                           | No                                        | Enables HTTPS for S3 client connections.                            |
 | `MODERATE_API_S3__REGION`                          | unset                            | Yes for S3-backed endpoints               | S3 region passed to client creation.                                |
 | `MODERATE_API_S3__BUCKET`                          | unset                            | Yes for S3-backed endpoints               | Bucket used for asset object storage and retrieval.                 |

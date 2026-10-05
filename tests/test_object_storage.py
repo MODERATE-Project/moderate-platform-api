@@ -6,11 +6,14 @@ import pprint
 import random
 import uuid
 from contextlib import ExitStack
+from urllib.parse import urlsplit
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import select
 
+from moderate_api.config import get_settings
 from moderate_api.db import with_session
 from moderate_api.entities.asset.models import Asset, UploadedS3Object
 from moderate_api.entities.asset.router import get_asset_presigned_urls
@@ -51,21 +54,71 @@ async def test_presigned_urls(access_token, s3):  # type: ignore[no-untyped-def]
         assert len(urls) == num_files
 
 
+def _upload_and_get_download_url(
+    client: TestClient, access_token: str
+) -> tuple[bytes, str]:
+    payload = b"timestamp,value\n2026-01-01,42\n"
+    asset = create_asset(client, access_token)
+    headers = {"Authorization": f"Bearer {access_token}"}
+    upload = client.post(
+        f"/asset/{asset['id']}/object",
+        headers=headers,
+        files={"obj": ("dataset.csv", payload, "text/csv")},
+    )
+    upload.raise_for_status()
+    response = client.get(f"/asset/{asset['id']}/download-urls", headers=headers)
+    response.raise_for_status()
+    urls = response.json()
+    assert len(urls) == 1
+    return payload, urls[0]["download_url"]
+
+
 @pytest.mark.asyncio
-async def test_download_route(access_token):  # type: ignore[no-untyped-def]
-    num_files = random.randint(2, 5)
-    asset_id = upload_test_files(access_token, num_files=num_files)
+@pytest.mark.parametrize("use_public_endpoint", [False, True])
+async def test_download_route(
+    access_token: str,
+    monkeypatch: pytest.MonkeyPatch,
+    use_public_endpoint: bool,
+) -> None:
+    """Fetch unchanged signed URLs to verify public signing and storage fallback."""
+    settings = get_settings()
+    assert settings.s3 is not None
+    endpoint = urlsplit(settings.s3.endpoint_url)
+    expected_host = endpoint.netloc
+    if use_public_endpoint:
+        assert endpoint.hostname in {"localhost", "127.0.0.1"}
+        public_host = "127.0.0.1" if endpoint.hostname == "localhost" else "localhost"
+        expected_host = f"{public_host}:{endpoint.port}"
+        public_endpoint = endpoint._replace(netloc=expected_host).geturl()
+        monkeypatch.setenv("MODERATE_API_S3__PUBLIC_ENDPOINT_URL", public_endpoint)
+    else:
+        monkeypatch.delenv("MODERATE_API_S3__PUBLIC_ENDPOINT_URL", raising=False)
 
     with TestClient(app) as client:
-        response = client.get(
-            f"/asset/{asset_id}/download-urls",
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
+        payload, download_url = _upload_and_get_download_url(client, access_token)
 
-        assert response.raise_for_status()
-        res_json = response.json()
-        _logger.info("Response:\n%s", pprint.pformat(res_json))
-        assert len(res_json) == num_files
+    assert urlsplit(download_url).netloc == expected_host
+    response = httpx.get(download_url, trust_env=False)
+    response.raise_for_status()
+    assert response.content == payload
+
+
+@pytest.mark.asyncio
+async def test_https_presigning_keeps_uploads_internal(
+    access_token: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Uploads and signing must succeed without contacting the public endpoint."""
+    monkeypatch.setenv(
+        "MODERATE_API_S3__PUBLIC_ENDPOINT_URL", "https://downloads.invalid:8443"
+    )
+    monkeypatch.setenv("MODERATE_API_S3__USE_SSL", "false")
+
+    with TestClient(app) as client:
+        _, download_url = _upload_and_get_download_url(client, access_token)
+
+    endpoint = urlsplit(download_url)
+    assert endpoint.scheme == "https"
+    assert endpoint.netloc == "downloads.invalid:8443"
 
 
 @pytest.mark.asyncio
