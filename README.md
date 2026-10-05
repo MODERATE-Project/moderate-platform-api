@@ -75,6 +75,25 @@ To deploy a development instance of the Trust Services along with the API:
 2. Create `.env.trust.local` with `L2_PRIVATE_KEY`.
 3. Run `task trust-up` (or `task dev-up`, which calls it).
 
+## Container images
+
+The `docker-publish.yml` workflow builds the API and UI images and publishes them as public packages on the GitHub Container Registry:
+
+* `ghcr.io/moderate-project/moderate-api`
+* `ghcr.io/moderate-project/moderate-ui`
+
+| Event                                     | Tags                                          |
+| ----------------------------------------- | --------------------------------------------- |
+| Push to `main`                            | `main`, `latest`, `sha-<short-sha>`           |
+| Release tag (e.g. `v0.3.0-api-v0.3.1-ui`) | API `0.3.0` / UI `0.3.1`, `sha-<short-sha>`   |
+| Pull request to `main`                    | Built to validate the Dockerfiles, not pushed |
+
+No credentials are needed to pull them:
+
+```console
+docker pull ghcr.io/moderate-project/moderate-api:latest
+```
+
 ## Environment Variables Reference
 
 ### API runtime (`moderate_api/config.py` + `moderate_api/__init__.py`)
