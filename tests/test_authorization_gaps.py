@@ -66,9 +66,7 @@ async def test_did_task_owned_by_target_user_visible_to_target():
 
     with TestClient(app) as client:
         async with with_session() as session:
-            task_id = await init_task(
-                session=session, username_owner=target_username
-            )
+            task_id = await init_task(session=session, username_owner=target_username)
             await session.commit()
 
         target_token = _make_token(target_username)
