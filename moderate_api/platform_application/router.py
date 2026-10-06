@@ -13,6 +13,7 @@ from moderate_api.platform_application.models import (
 from moderate_api.platform_application.status import StatusCheckerDep
 
 _TAG = "Platform applications"
+_DEFAULT_APPLICATIONS_FILE = Path(__file__).parent / "platform-applications.yaml"
 
 router = APIRouter()
 
@@ -23,10 +24,10 @@ def _load_applications(path: Path | None) -> dict[str, PlatformApplicationLinks]
     The file is read on every request, so edits apply without a restart.
 
     Args:
-        path: Path to the file, or None when no file is configured.
+        path: Path to the file, or None to use the bundled default.
 
     Returns:
-        Links keyed by application id, empty when no file is configured.
+        Links keyed by application id.
 
     Raises:
         OSError: If the file cannot be read.
@@ -34,10 +35,7 @@ def _load_applications(path: Path | None) -> dict[str, PlatformApplicationLinks]
         pydantic.ValidationError: If an entry has invalid or missing links.
     """
 
-    if path is None:
-        return {}
-
-    with path.open(encoding="utf-8") as stream:
+    with (path or _DEFAULT_APPLICATIONS_FILE).open(encoding="utf-8") as stream:
         data = yaml.safe_load(stream) or {}
 
     return parse_obj_as(dict[str, PlatformApplicationLinks], data)

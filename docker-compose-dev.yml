@@ -23,12 +23,6 @@ services:
       MODERATE_API_DIVA__QUALITY_REPORTER_URL: ${MODERATE_API_DIVA__QUALITY_REPORTER_URL:-}
       MODERATE_API_DIVA__BASIC_AUTH_USER: ${MODERATE_API_DIVA__BASIC_AUTH_USER:-}
       MODERATE_API_DIVA__BASIC_AUTH_PASSWORD: ${MODERATE_API_DIVA__BASIC_AUTH_PASSWORD:-}
-      MODERATE_API_PLATFORM_APPLICATIONS_FILE: /etc/moderate-api/platform-applications.yaml
-    volumes:
-      - type: bind
-        source: ./platform-applications-dev.yaml
-        target: /etc/moderate-api/platform-applications.yaml
-        read_only: true
   apisix:
     image: apache/apisix:3.5.0-debian
     restart: on-failure

@@ -1,4 +1,5 @@
-# Applications listed on the UI home page (see README).
+# Default applications listed on the UI home page. Point
+# MODERATE_API_PLATFORM_APPLICATIONS_FILE to another file to override it.
 # Each id must match moderate_ui/src/data/platformApplications.ts and needs
 # a url (live deployment), a source_url (code repository), or both.
 

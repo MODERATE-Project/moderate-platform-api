@@ -110,7 +110,7 @@ docker pull ghcr.io/moderate-project/moderate-api:latest
 | `MODERATE_API_VISUALIZATION_EXPIRES_IN_SECONDS` | `1800`                                                                             | No                                        | Presigned URL TTL used by visualization endpoint.                                    |
 | `MODERATE_API_RESPONSE_TOTAL_COUNT_HEADER`      | `X-Total-Count`                                                                    | No                                        | Header key used for total count in paginated responses.                              |
 | `MODERATE_API_RABBIT_ROUTER_URL`                | unset                                                                              | No                                        | RabbitMQ connection URL; if unset, workflow job submission is unavailable.           |
-| `MODERATE_API_PLATFORM_APPLICATIONS_FILE`       | unset                                                                              | No                                        | Applications listed on Home; see [Example applications](#example-applications).      |
+| `MODERATE_API_PLATFORM_APPLICATIONS_FILE`       | `moderate_api/platform_application/platform-applications.yaml`                     | No                                        | Applications listed on Home; see [Example applications](#example-applications).      |
 
 #### API nested settings
 
@@ -242,6 +242,18 @@ encome:
 ```
 
 Every 60 seconds, the API checks each app URL (with a 5-second timeout) and marks offline apps as unavailable.
+
+By default, the API uses its bundled app list. To use your own file, mount it in the container and set the variable path. This file will fully replace the default.
+
+```yaml
+services:
+  api:
+    image: ghcr.io/moderate-project/moderate-api:latest
+    environment:
+      MODERATE_API_PLATFORM_APPLICATIONS_FILE: /etc/moderate/platform-applications.yaml
+    volumes:
+      - ./platform-applications.yaml:/etc/moderate/platform-applications.yaml:ro
+```
 
 ## Practical notes
 
