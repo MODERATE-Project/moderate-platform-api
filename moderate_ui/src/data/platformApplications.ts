@@ -16,7 +16,6 @@ export interface PlatformApplication {
   defaultTitle: string;
   descKey: string;
   defaultDesc: string;
-  url: string;
   icon: React.ComponentType<{
     size?: number | string;
     color?: string;
@@ -35,7 +34,6 @@ export const platformApplications: PlatformApplication[] = [
     descKey: "home.application.brickllm.desc",
     defaultDesc:
       "Generate BrickSchema RDF building descriptions with LLM-assisted interoperability workflows.",
-    url: "https://brick.staging.moderate.cloud/brickllm/",
     icon: IconNetwork,
     iconColor: "indigo",
     categoryKey: "home.application.category.interoperability",
@@ -48,7 +46,6 @@ export const platformApplications: PlatformApplication[] = [
     descKey: "home.application.buildingBenchmarking.desc",
     defaultDesc:
       "Compare building KPIs, detect anomalies, support M&V, and use AI-assisted metadata workflows.",
-    url: "https://tools.eeb.eurac.edu/building_benchmarking/",
     icon: IconChartInfographic,
     iconColor: "blue",
     categoryKey: "home.application.category.benchmarking",
@@ -61,7 +58,6 @@ export const platformApplications: PlatformApplication[] = [
     descKey: "home.application.encome.desc",
     defaultDesc:
       "Assess energy conservation measures and renovation scenarios using EN ISO-based calculations.",
-    url: "https://tools.eeb.eurac.edu/encome/",
     icon: IconTools,
     iconColor: "orange",
     categoryKey: "home.application.category.ecm",
@@ -74,7 +70,6 @@ export const platformApplications: PlatformApplication[] = [
     descKey: "home.application.geoClustering.desc",
     defaultDesc:
       "Cluster EPC and building records by geospatial and physical features with sensitivity analysis.",
-    url: "https://tools.eeb.eurac.edu/epc_clustering/piemonte/",
     icon: IconMap2,
     iconColor: "green",
     categoryKey: "home.application.category.geoClustering",
@@ -87,7 +82,6 @@ export const platformApplications: PlatformApplication[] = [
     descKey: "home.application.solarCadastre.desc",
     defaultDesc:
       "Explore building solar potential and PV performance through map-based cadastre data.",
-    url: "https://solar.staging.moderate.cloud/",
     icon: IconSolarPanel,
     iconColor: "yellow",
     categoryKey: "home.application.category.solar",
@@ -100,7 +94,6 @@ export const platformApplications: PlatformApplication[] = [
     descKey: "home.application.lecAssessment.desc",
     defaultDesc:
       "Identify promising Local Energy Community areas using building, energy, and cadastral data.",
-    url: "https://lec.staging.moderate.cloud/",
     icon: IconBuildingCommunity,
     iconColor: "teal",
     categoryKey: "home.application.category.lec",
@@ -113,7 +106,6 @@ export const platformApplications: PlatformApplication[] = [
     descKey: "home.application.epcQualityCheck.desc",
     defaultDesc:
       "Validate EPC XML files against quality rules and produce clear reporting feedback.",
-    url: "http://moderate.five.es:55000/",
     icon: IconCertificate,
     iconColor: "red",
     categoryKey: "home.application.category.quality",
@@ -126,7 +118,6 @@ export const platformApplications: PlatformApplication[] = [
     descKey: "home.application.timeseriesBenchmarking.desc",
     defaultDesc:
       "Benchmark hourly energy use against peers with preprocessing, KPIs, and anomaly indicators.",
-    url: "https://timeseries.staging.moderate.cloud/",
     icon: IconChartDots,
     iconColor: "grape",
     categoryKey: "home.application.category.timeseries",

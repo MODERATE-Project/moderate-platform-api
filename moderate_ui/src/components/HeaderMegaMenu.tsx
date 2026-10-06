@@ -41,7 +41,7 @@ import {
 import { AuthButtons } from "./header/AuthButtons";
 import { MainNavLinks } from "./header/MainNavLinks";
 import { MegaMenuItem, MegaMenuItems } from "./header/MegaMenuItems";
-import { platformApplications } from "../data/platformApplications";
+import { usePlatformApplications } from "../hooks/usePlatformApplications";
 
 const useStyles = createStyles((theme) => ({
   link: {
@@ -126,6 +126,7 @@ export function HeaderMegaMenu() {
 
   const [linksOpened, { toggle: toggleLinks }] = useDisclosure(false);
   const { classes, theme } = useStyles();
+  const { applications } = usePlatformApplications();
 
   const mainMenuItems: MegaMenuItem[] = useMemo(() => {
     return [
@@ -189,16 +190,22 @@ export function HeaderMegaMenu() {
           "Generate synthetic load profiles",
         ),
       },
-      ...platformApplications.map((application) => ({
-        to: application.url,
-        icon: application.icon,
-        iconColor: application.iconColor,
-        title: t(application.titleKey, application.defaultTitle),
-        description: t(application.descKey, application.defaultDesc),
-        external: true,
-      })),
+      ...applications.flatMap((application) =>
+        application.url && application.online
+          ? [
+              {
+                to: application.url,
+                icon: application.icon,
+                iconColor: application.iconColor,
+                title: t(application.titleKey, application.defaultTitle),
+                description: t(application.descKey, application.defaultDesc),
+                external: true,
+              },
+            ]
+          : [],
+      ),
     ];
-  }, [t]);
+  }, [t, applications]);
 
   return (
     <Box>

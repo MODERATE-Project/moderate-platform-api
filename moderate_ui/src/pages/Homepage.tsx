@@ -1,11 +1,14 @@
 import {
+  Alert,
   Badge,
   Box,
   Button,
   Card,
+  Center,
   Container,
   createStyles,
   Group,
+  Loader,
   SimpleGrid,
   Stack,
   Text,
@@ -15,18 +18,21 @@ import {
 } from "@mantine/core";
 import { useIsAuthenticated } from "@refinedev/core";
 import {
+  IconAlertCircle,
   IconBolt,
+  IconCode,
   IconDatabase,
   IconExternalLink,
   IconFileAnalytics,
   IconGraph,
   IconLock,
+  IconPlugConnectedX,
   IconTools,
 } from "@tabler/icons-react";
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { usePing } from "../api/ping";
-import { platformApplications } from "../data/platformApplications";
+import { usePlatformApplications } from "../hooks/usePlatformApplications";
 
 const useStyles = createStyles((theme) => ({
   wrapper: {
@@ -107,7 +113,6 @@ const useStyles = createStyles((theme) => ({
   },
   applicationCard: {
     transition: "all 0.2s ease",
-    cursor: "pointer",
     backgroundColor:
       theme.colorScheme === "dark" ? theme.colors.dark[6] : theme.white,
     border: `1px solid ${
@@ -122,6 +127,13 @@ const useStyles = createStyles((theme) => ({
     "&:hover": {
       transform: "translateY(-3px)",
       boxShadow: theme.shadows.md,
+    },
+  },
+  applicationCardOffline: {
+    opacity: 0.6,
+    "&:hover": {
+      transform: "none",
+      boxShadow: "none",
     },
   },
   applicationAccent: {
@@ -166,11 +178,6 @@ const useStyles = createStyles((theme) => ({
   },
   applicationFooter: {
     marginTop: theme.spacing.md,
-    display: "flex",
-    alignItems: "center",
-    color: theme.fn.primaryColor(),
-    fontWeight: 600,
-    fontSize: theme.fontSizes.sm,
   },
   mainSiteButton: {
     display: "flex",
@@ -260,10 +267,17 @@ const features = [
 
 export const Homepage: React.FC = () => {
   const { t } = useTranslation();
-  const { classes } = useStyles();
+  const { classes, cx } = useStyles();
   usePing();
   const { isLoading, data } = useIsAuthenticated();
   const isAuthenticated = data?.authenticated;
+  const {
+    applications,
+    isLoading: isLoadingApplications,
+    isError: isApplicationsError,
+  } = usePlatformApplications();
+  const showApplications =
+    isLoadingApplications || isApplicationsError || applications.length > 0;
 
   return (
     <Box className={classes.wrapper}>
@@ -347,95 +361,137 @@ export const Homepage: React.FC = () => {
           ))}
         </SimpleGrid>
 
-        <section className={classes.applicationsSection}>
-          <Title order={2} className={classes.applicationsHeading}>
-            {t("home.applications.title", "Example Applications")}
-          </Title>
-          <Text className={classes.applicationsSubtitle}>
-            {t(
-              "home.applications.subtitle",
-              "Practical MODERATE tools for interoperability, benchmarking, renovation planning, clustering, solar assessment, local energy communities, EPC quality checks, and time-series analysis.",
+        {showApplications && (
+          <section className={classes.applicationsSection}>
+            <Title order={2} className={classes.applicationsHeading}>
+              {t("home.applications.title", "Example Applications")}
+            </Title>
+
+            {isLoadingApplications && (
+              <Center py="xl">
+                <Loader />
+              </Center>
             )}
-          </Text>
 
-          <SimpleGrid
-            cols={4}
-            spacing="lg"
-            breakpoints={[
-              { maxWidth: 1200, cols: 3 },
-              { maxWidth: 900, cols: 2 },
-              { maxWidth: 560, cols: 1 },
-            ]}
-          >
-            {platformApplications.map((application) => (
-              <Card
-                key={application.id}
-                className={classes.applicationCard}
-                component="a"
-                href={application.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                radius="md"
-                sx={(theme) => ({
-                  "&:hover": {
-                    borderColor:
-                      theme.colorScheme === "dark"
-                        ? (theme.colors[application.iconColor]?.[7] ??
-                          theme.colors.dark[4])
-                        : (theme.colors[application.iconColor]?.[2] ??
-                          theme.colors.gray[3]),
-                  },
-                })}
-              >
-                <Box
-                  className={classes.applicationAccent}
-                  sx={(theme) => ({
-                    backgroundColor:
-                      theme.colorScheme === "dark"
-                        ? (theme.colors[application.iconColor]?.[6] ??
-                          theme.colors.dark[4])
-                        : (theme.colors[application.iconColor]?.[1] ??
-                          theme.colors.gray[2]),
+            {isApplicationsError && (
+              <Alert color="red" icon={<IconAlertCircle size={16} />}>
+                {t(
+                  "home.applications.loadError",
+                  "Applications could not be loaded. Try again later.",
+                )}
+              </Alert>
+            )}
+
+            <SimpleGrid
+              cols={4}
+              spacing="lg"
+              breakpoints={[
+                { maxWidth: 1200, cols: 3 },
+                { maxWidth: 900, cols: 2 },
+                { maxWidth: 560, cols: 1 },
+              ]}
+            >
+              {applications.map((application) => (
+                <Card
+                  key={application.id}
+                  className={cx(classes.applicationCard, {
+                    [classes.applicationCardOffline]:
+                      application.online === false,
                   })}
-                />
+                  radius="md"
+                  sx={(theme) => ({
+                    "&:hover": {
+                      borderColor:
+                        theme.colorScheme === "dark"
+                          ? (theme.colors[application.iconColor]?.[7] ??
+                            theme.colors.dark[4])
+                          : (theme.colors[application.iconColor]?.[2] ??
+                            theme.colors.gray[3]),
+                    },
+                  })}
+                >
+                  <Box
+                    className={classes.applicationAccent}
+                    sx={(theme) => ({
+                      backgroundColor:
+                        theme.colorScheme === "dark"
+                          ? (theme.colors[application.iconColor]?.[6] ??
+                            theme.colors.dark[4])
+                          : (theme.colors[application.iconColor]?.[1] ??
+                            theme.colors.gray[2]),
+                    })}
+                  />
 
-                <div className={classes.cardHeader}>
-                  <ThemeIcon
-                    size={46}
-                    radius="md"
-                    variant="light"
-                    color={application.iconColor}
-                    className={classes.cardIcon}
-                  >
-                    <application.icon size={27} stroke={1.5} />
-                  </ThemeIcon>
-                  <Badge
-                    variant="light"
-                    color={application.iconColor}
-                    size="sm"
-                  >
-                    {t(application.categoryKey, application.defaultCategory)}
-                  </Badge>
-                </div>
+                  <div className={classes.cardHeader}>
+                    <ThemeIcon
+                      size={46}
+                      radius="md"
+                      variant="light"
+                      color={application.iconColor}
+                      className={classes.cardIcon}
+                    >
+                      <application.icon size={27} stroke={1.5} />
+                    </ThemeIcon>
+                    <Badge
+                      variant="light"
+                      color={application.iconColor}
+                      size="sm"
+                    >
+                      {t(application.categoryKey, application.defaultCategory)}
+                    </Badge>
+                  </div>
 
-                <Text className={classes.cardTitle}>
-                  {t(application.titleKey, application.defaultTitle)}
-                </Text>
-
-                <Text className={classes.cardDescription}>
-                  {t(application.descKey, application.defaultDesc)}
-                </Text>
-
-                <Group className={classes.applicationFooter} spacing={4}>
-                  <Text size="sm">
-                    {t("home.applications.visit", "Open application")}
+                  <Text className={classes.cardTitle}>
+                    {t(application.titleKey, application.defaultTitle)}
                   </Text>
-                  <IconExternalLink size={16} />
-                </Group>
-              </Card>
-            ))}
-          </SimpleGrid>
-        </section>
+
+                  <Text className={classes.cardDescription}>
+                    {t(application.descKey, application.defaultDesc)}
+                  </Text>
+
+                  <Group className={classes.applicationFooter} spacing="xs">
+                    {application.url && application.online && (
+                      <Button
+                        component="a"
+                        href={application.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        size="xs"
+                        variant="light"
+                        rightIcon={<IconExternalLink size={14} />}
+                      >
+                        {t("home.applications.visit", "Open application")}
+                      </Button>
+                    )}
+                    {application.url && application.online === false && (
+                      <Badge
+                        color="gray"
+                        variant="outline"
+                        leftSection={<IconPlugConnectedX size={12} />}
+                      >
+                        {t("home.applications.unavailable", "Unavailable")}
+                      </Badge>
+                    )}
+                    {application.sourceUrl && (
+                      <Button
+                        component="a"
+                        href={application.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        size="xs"
+                        variant="subtle"
+                        color="gray"
+                        leftIcon={<IconCode size={14} />}
+                      >
+                        {t("home.applications.source", "Source code")}
+                      </Button>
+                    )}
+                  </Group>
+                </Card>
+              ))}
+            </SimpleGrid>
+          </section>
+        )}
 
         <div className={classes.mainSiteButton}>
           <Button
