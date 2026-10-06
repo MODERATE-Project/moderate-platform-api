@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 from typing import Annotated
 from urllib.parse import urlencode
 
@@ -139,6 +140,7 @@ class Settings(BaseSettings):
     open_metadata_service: OpenMetadataService | None = None
     rabbit_router_url: str | None = None
     diva: DivaSettings = DivaSettings()
+    platform_applications_file: Path | None = None
 
     @property
     def role_admin(self) -> str:

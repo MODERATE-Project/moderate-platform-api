@@ -17,6 +17,7 @@ import moderate_api.entities.user.router
 import moderate_api.entities.visualization.router
 import moderate_api.long_running
 import moderate_api.ping.router
+import moderate_api.platform_application.router
 from moderate_api.authz.token import decode_token
 from moderate_api.authz.user import get_user_optional
 from moderate_api.config import get_settings
@@ -77,6 +78,11 @@ async def db_exception_handler(request: Request, exc: DBAPIError):
 app.include_router(
     moderate_api.ping.router.router,
     prefix=Prefixes.PING.value,
+)
+
+app.include_router(
+    moderate_api.platform_application.router.router,
+    prefix=Prefixes.PLATFORM_APPLICATION.value,
 )
 
 app.include_router(

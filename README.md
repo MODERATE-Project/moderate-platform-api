@@ -110,6 +110,7 @@ docker pull ghcr.io/moderate-project/moderate-api:latest
 | `MODERATE_API_VISUALIZATION_EXPIRES_IN_SECONDS` | `1800`                                                                             | No                                        | Presigned URL TTL used by visualization endpoint.                                    |
 | `MODERATE_API_RESPONSE_TOTAL_COUNT_HEADER`      | `X-Total-Count`                                                                    | No                                        | Header key used for total count in paginated responses.                              |
 | `MODERATE_API_RABBIT_ROUTER_URL`                | unset                                                                              | No                                        | RabbitMQ connection URL; if unset, workflow job submission is unavailable.           |
+| `MODERATE_API_PLATFORM_APPLICATIONS_FILE`       | unset                                                                              | No                                        | Applications listed on Home; see [Example applications](#example-applications).      |
 
 #### API nested settings
 
@@ -229,6 +230,18 @@ services:
       MODERATE_UI_KEYCLOAK_REALM: moderate
       MODERATE_UI_KEYCLOAK_CLIENT_ID: ui
 ```
+
+### Example applications
+
+`MODERATE_API_PLATFORM_APPLICATIONS_FILE` is a YAML file listing apps by id. Each app should have a `url`, a `source_url`, or both.
+
+```yaml
+encome:
+  url: https://tools.eeb.eurac.edu/encome/
+  source_url: https://github.com/<org>/<repo>
+```
+
+Every 60 seconds, the API checks each app URL (with a 5-second timeout) and marks offline apps as unavailable.
 
 ## Practical notes
 

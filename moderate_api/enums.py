@@ -37,6 +37,7 @@ class Prefixes(enum.Enum):
     NOTEBOOK = "/notebook"
     ACCESS_REQUEST = "/request"
     WORKFLOW_JOB = "/job"
+    PLATFORM_APPLICATION = "/platform-application"
 
 
 class Notebooks(enum.Enum):

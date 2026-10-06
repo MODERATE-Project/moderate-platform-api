@@ -1,0 +1,27 @@
+# Applications listed on the UI home page (see README).
+# Each id must match moderate_ui/src/data/platformApplications.ts and needs
+# a url (live deployment), a source_url (code repository), or both.
+
+brickllm:
+  url: https://brick.staging.moderate.cloud/brickllm/
+
+building-benchmarking:
+  url: https://tools.eeb.eurac.edu/building_benchmarking/
+
+encome:
+  url: https://tools.eeb.eurac.edu/encome/
+
+geo-clustering:
+  url: https://tools.eeb.eurac.edu/epc_clustering/piemonte/
+
+solar-cadastre:
+  url: https://solar.staging.moderate.cloud/
+
+lec-assessment:
+  url: https://lec.staging.moderate.cloud/
+
+epc-quality-check:
+  url: http://moderate.five.es:55000/
+
+timeseries-benchmarking:
+  url: https://timeseries.staging.moderate.cloud/

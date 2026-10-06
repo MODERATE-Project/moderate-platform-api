@@ -3,3 +3,4 @@
 .github
 apisix-dev*.yaml
 docker-compose*.yaml
+platform-applications-dev.yaml
