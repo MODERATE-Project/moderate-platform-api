@@ -1,4 +1,5 @@
 import {
+  ActionIcon,
   Alert,
   Badge,
   Box,
@@ -14,6 +15,7 @@ import {
   Text,
   ThemeIcon,
   Title,
+  Tooltip,
   Card as MantineCard,
 } from "@mantine/core";
 import { useIsAuthenticated } from "@refinedev/core";
@@ -130,11 +132,18 @@ const useStyles = createStyles((theme) => ({
     },
   },
   applicationCardOffline: {
-    opacity: 0.6,
     "&:hover": {
       transform: "none",
       boxShadow: "none",
     },
+  },
+  applicationBody: {
+    flexGrow: 1,
+    display: "flex",
+    flexDirection: "column",
+  },
+  applicationBodyOffline: {
+    opacity: 0.6,
   },
   applicationAccent: {
     position: "absolute",
@@ -411,43 +420,53 @@ export const Homepage: React.FC = () => {
                   })}
                 >
                   <Box
-                    className={classes.applicationAccent}
-                    sx={(theme) => ({
-                      backgroundColor:
-                        theme.colorScheme === "dark"
-                          ? (theme.colors[application.iconColor]?.[6] ??
-                            theme.colors.dark[4])
-                          : (theme.colors[application.iconColor]?.[1] ??
-                            theme.colors.gray[2]),
+                    className={cx(classes.applicationBody, {
+                      [classes.applicationBodyOffline]:
+                        application.online === false,
                     })}
-                  />
+                  >
+                    <Box
+                      className={classes.applicationAccent}
+                      sx={(theme) => ({
+                        backgroundColor:
+                          theme.colorScheme === "dark"
+                            ? (theme.colors[application.iconColor]?.[6] ??
+                              theme.colors.dark[4])
+                            : (theme.colors[application.iconColor]?.[1] ??
+                              theme.colors.gray[2]),
+                      })}
+                    />
 
-                  <div className={classes.cardHeader}>
-                    <ThemeIcon
-                      size={46}
-                      radius="md"
-                      variant="light"
-                      color={application.iconColor}
-                      className={classes.cardIcon}
-                    >
-                      <application.icon size={27} stroke={1.5} />
-                    </ThemeIcon>
-                    <Badge
-                      variant="light"
-                      color={application.iconColor}
-                      size="sm"
-                    >
-                      {t(application.categoryKey, application.defaultCategory)}
-                    </Badge>
-                  </div>
+                    <div className={classes.cardHeader}>
+                      <ThemeIcon
+                        size={46}
+                        radius="md"
+                        variant="light"
+                        color={application.iconColor}
+                        className={classes.cardIcon}
+                      >
+                        <application.icon size={27} stroke={1.5} />
+                      </ThemeIcon>
+                      <Badge
+                        variant="light"
+                        color={application.iconColor}
+                        size="sm"
+                      >
+                        {t(
+                          application.categoryKey,
+                          application.defaultCategory,
+                        )}
+                      </Badge>
+                    </div>
 
-                  <Text className={classes.cardTitle}>
-                    {t(application.titleKey, application.defaultTitle)}
-                  </Text>
+                    <Text className={classes.cardTitle}>
+                      {t(application.titleKey, application.defaultTitle)}
+                    </Text>
 
-                  <Text className={classes.cardDescription}>
-                    {t(application.descKey, application.defaultDesc)}
-                  </Text>
+                    <Text className={classes.cardDescription}>
+                      {t(application.descKey, application.defaultDesc)}
+                    </Text>
+                  </Box>
 
                   <Group className={classes.applicationFooter} spacing="xs">
                     {application.url && application.online && (
@@ -473,18 +492,27 @@ export const Homepage: React.FC = () => {
                       </Badge>
                     )}
                     {application.sourceUrl && (
-                      <Button
-                        component="a"
-                        href={application.sourceUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        size="xs"
-                        variant="subtle"
-                        color="gray"
-                        leftIcon={<IconCode size={14} />}
+                      <Tooltip
+                        label={t("home.applications.source", "Source code")}
+                        withArrow
+                        withinPortal
                       >
-                        {t("home.applications.source", "Source code")}
-                      </Button>
+                        <ActionIcon
+                          component="a"
+                          href={application.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          size={30}
+                          variant="default"
+                          ml="auto"
+                          aria-label={t(
+                            "home.applications.source",
+                            "Source code",
+                          )}
+                        >
+                          <IconCode size={16} />
+                        </ActionIcon>
+                      </Tooltip>
                     )}
                   </Group>
                 </Card>
